@@ -7,7 +7,7 @@ import { CustomerFormDialog } from '../customers/CustomerFormDialog'
 import { fetchSales, createSale, type SaleWithCustomer } from './api'
 import { formatMoney } from '../../lib/format'
 import { PlusIcon, SearchIcon } from '../../components/icons'
-import { SearchSelect } from './SearchSelect'
+import { SearchSelect } from '../../components/SearchSelect'
 import { SortControl } from '../../components/SortControl'
 
 type SaleSortField = 'date' | 'total'

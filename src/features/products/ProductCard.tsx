@@ -22,7 +22,7 @@ export function ProductCard({ product, coverUrl }: { product: StoreProduct; cove
         <span className="truncate text-sm text-stone-100">{product.name}</span>
         <span className="truncate text-xs text-stone-500">
           {ITEM_KIND_LABELS[product.kind]}
-          {product.species ? ` · ${product.species}` : ''}
+          {product.minerals?.[0]?.name ? ` · ${product.minerals[0].name}` : ''}
         </span>
         <span className="mt-auto flex items-center justify-between pt-1 text-xs">
           <span className="text-stone-200">{formatMoney(product.sale_price)}</span>

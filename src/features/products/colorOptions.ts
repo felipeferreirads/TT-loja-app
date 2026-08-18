@@ -1,0 +1,55 @@
+// Copiado de src/features/specimens/formFields.ts (COLOR_OPTIONS/COLOR_SWATCH)
+// do catálogo pessoal — sem i18n, rótulos fixos em PT (claude.md §2).
+
+export const COLOR_OPTIONS = [
+  'Vermelho',
+  'Vinho',
+  'Laranja',
+  'Salmão',
+  'Marrom',
+  'Bege',
+  'Creme',
+  'Amarelo',
+  'Verde',
+  'Turquesa',
+  'Verde-água',
+  'Azul',
+  'Roxo',
+  'Lilás',
+  'Rosa',
+  'Branco',
+  'Cinza',
+  'Preto',
+  'Incolor',
+  'Dourado',
+  'Prateado',
+  'Cobre',
+]
+
+/** Cor representativa de cada opção — usada pelo seletor visual (`ColorSwatchSelect`), não é o hex real de nenhum exemplar. */
+export const COLOR_SWATCH: Record<string, string> = {
+  Vermelho: '#dc2626',
+  Vinho: '#7f1d1d',
+  Laranja: '#ea580c',
+  Salmão: '#fb923c',
+  Marrom: '#78350f',
+  Bege: '#d6c7a1',
+  Creme: '#f0e6d2',
+  Amarelo: '#eab308',
+  Verde: '#16a34a',
+  Turquesa: '#14b8a6',
+  'Verde-água': '#5eead4',
+  Azul: '#2563eb',
+  Roxo: '#7c3aed',
+  Lilás: '#c4b5fd',
+  Rosa: '#ec4899',
+  Branco: '#f5f5f4',
+  Cinza: '#78716c',
+  Preto: '#1c1917',
+  Incolor: '#e7e5e4',
+  Dourado: '#ca8a04',
+  Prateado: '#a8a29e',
+  Cobre: '#b45309',
+  /** Só usado por iridescência/jogo de cor (ver SPECTRUM_COLOR_OPTIONS em mineralFields.ts) — gradiente porque a "cor" é o próprio fenômeno de mostrar todo o espectro. */
+  'Espectro completo': 'linear-gradient(135deg, #dc2626 0%, #eab308 25%, #16a34a 50%, #2563eb 75%, #7c3aed 100%)',
+}

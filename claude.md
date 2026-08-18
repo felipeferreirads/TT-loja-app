@@ -62,6 +62,12 @@ comentário no topo do arquivo diz isso** ("Copiado do catálogo pessoal",
 | `src/components/SearchField.tsx` | `src/features/specimens/SearchField.tsx` | Cópia integral (já era PT-only e sem i18n) |
 | `src/features/products/form/*` | `src/features/specimens/SpecimenFormPage.tsx` + `formFields.ts` | Só as seções geológicas/taxonômicas (Identificação de espécie, Origem, Propriedades minerais, Taxonomia de fóssil, Meteorito). Categorias, lote/código global, dados privados/PIN e certificados **não foram portados** — não existem no domínio comercial |
 | `src/features/documents/*` | `src/features/documents/*` | Modelo equivalente (`store_documents`/`store_document_files`/`store_document_products` em vez de `documents`/`document_files`/`document_specimens`), mas domínio próprio: vincula PRODUTOS, não espécimes |
+| `src/lib/qrCamera.ts`, `src/lib/youtube.ts` | idem | Cópia integral — zero dependências de domínio/i18n |
+| `src/features/products/qr.ts` | `src/features/specimens/datasheet/qr.ts` | Só a metade de LEITURA (`normalizeScannedValue`/`isUuidLike`/`resolveScannedValue`) — a loja não tem geração de folha de QR/código curto por tipo, então não existe a metade de escrita/geração |
+| `src/features/products/ScanPage.tsx` | `src/features/specimens/ScanPage.tsx` | Só o modo "abrir" (lê um código, navega pra ficha). O modo "lote" (acumular vários pra ação em massa) do catálogo pessoal ficou de fora — sem um fluxo de categorização em massa na loja que justifique o esforço; portar de lá se essa necessidade aparecer |
+| `src/features/products/form/QrLinkSection.tsx` | `src/features/specimens/QrLinkSection.tsx` | Mesma lógica (vincular etiqueta já impressa: cria/reatribui/recusa), só sem i18n |
+| `src/features/products/youtubeVideos.ts`, `ProductYoutubeGallery.tsx` | `src/features/specimens/youtubeVideos.ts` + `YouTubeSection` (dentro de `SpecimenFormPage.tsx`) | Mesmo CRUD (`store_product_youtube_videos`, soft delete), só sem i18n. Vídeo pendente (produto ainda não salvo) fica embutido em `form/PendingMedia.tsx` (props `youtube`/`onYoutubeChange`), não num componente à parte |
+| `src/components/ColorSwatchSelect.tsx` + `features/products/colorOptions.ts` | `src/components/ColorSwatchSelect.tsx` + `COLOR_OPTIONS`/`COLOR_SWATCH` (`formFields.ts`) | Sem `COLOR_LABEL_KEYS`/tradução — usa direto o texto em PT como valor e como rótulo |
 
 **Dependência nova**: `@tanstack/react-query` foi adicionada (o catálogo
 pessoal já usa) — necessária pros hooks de país/subdivisão com cache. Não
@@ -82,27 +88,88 @@ src/
                          copiados do catálogo (país/estado/localidade/sugestão)
   features/
     auth/                Login (mesma conta Supabase do dono) + guarda de rota
-    products/             Produtos: lista (busca+filtro+grade/lista), ficha,
-                          form/ (seções: comercial → espécime → propriedades
-                          → taxonomia de fóssil → mídia → documentos → notas),
-                          galeria de mídia
+    products/             Produtos: lista (busca+filtro+ordenação+grade/lista),
+                          ficha, form/ (seções: mídia/vídeo → comercial →
+                          espécime → propriedades → taxonomia de fóssil
+                          (multi-espécie) → etiqueta QR → documentos →
+                          e-commerce → notas), galeria de mídia, galeria de
+                          vídeos do YouTube, leitor de QR (ScanPage),
+                          export/ (CSV Nuvemshop/Shopify),
+                          importFromCollection.ts (Importar da Coleção,
+                          ver §7)
     customers/            Clientes
+    suppliers/             Fornecedores (CRUD simples: nome, contato, notas)
     sales/                Vendas/PDV (venda + baixa de estoque via RPC
                           `create_store_sale`, transação atômica)
     documents/             Documentos (nota fiscal/recibo/certificado) com
-                          arquivos anexos e produtos vinculados
+                          arquivos anexos, produtos vinculados e fornecedor
+                          (picker sobre `store_suppliers`, com
+                          "+cadastrar" — não é mais texto livre)
+    cash/                  Fluxo de caixa (`store_cash_entries`): lançamentos
+                          manuais de entrada/saída + saldo
+    stats/                  Estatísticas financeiras: ticket médio, produtos
+                          mais vendidos, margem por categoria, faturamento
+                          mês a mês — agregação em memória sobre
+                          `store_sale_items`/`store_sales`
     pricing/               Calculadora de preço (presets nomeados por campo)
     company/                Dados da empresa + documentos societários
 ```
 
 **Fluxo do formulário de produto** (`ProductPage.tsx` + `form/*`): ordem
-fixa **comercial → espécime → propriedades → mídia → documentos → notas**
-(pedido explícito do dono — numa loja o que importa primeiro é
-estoque/preço, não a ficha técnica). `draft.ts` centraliza a conversão
-string↔tipo e a lista de campos "automáticos" (`AUTO_FIELDS`). Produto novo
-gera um `id` client-side (`crypto.randomUUID()`) antes de salvar, para que
-fotos/vídeos escolhidos na criação já tenham destino de upload conhecido —
-`createProduct` aceita `id` opcional só por isso.
+fixa **fotos/vídeos → comercial → espécime → propriedades → taxonomia de
+fóssil → etiqueta QR → documentos → e-commerce → notas** — fotos e vídeo do
+YouTube vêm PRIMEIRO (pedido explícito do dono, 18/08/2026, **substitui** a
+ordem anterior "comercial primeiro"; a seção de mídia fica fora do grid de
+duas colunas, span da largura inteira, antes de tudo). `draft.ts` centraliza
+a conversão string↔tipo (incluindo `BOOLEAN_FIELDS`, que viajam como
+`'true'`/`'false'` string no draft) e a lista de campos "automáticos"
+(`AUTO_FIELDS`). Produto novo gera um `id` client-side
+(`crypto.randomUUID()`) antes de salvar, para que fotos/vídeos escolhidos
+na criação já tenham destino de upload conhecido — `createProduct` aceita
+`id` opcional só por isso; vídeo do YouTube pendente na criação segue o
+mesmo padrão (`pendingYoutube` em `ProductPage.tsx`, gravado só depois do
+insert). "Etiqueta QR" e a galeria de fotos/vídeo salvos só aparecem depois
+que o produto já tem `id` (produto novo salva primeiro, depois edita).
+
+**Taxonomia de fóssil é MULTI-ESPÉCIE** (18/08/2026, reverte a simplificação
+anterior de "uma espécie só por produto" — mesmo modelo de `fossil_species`
+do catálogo pessoal): uma peça pode ser um lote/placa com várias espécies,
+cada uma numa linha de `store_product_fossil_species` (nome científico,
+nome popular, taxonomia completa — reino/filo/classe/ordem/família/clados/
+tipo informal —, formação, período/era, idade e **contagem de itens**). As
+colunas equivalentes que existiam direto em `store_products`
+(`popular_name`, `phylum`, `taxon_class`, `taxon_order`, `family`,
+`formation`, `period_era`, `age`) foram DROPADAS (estavam vazias em
+produção, sem dado a perder). `FossilTaxonomySection.tsx` é só a UI (lista
+de cartões expansíveis); quem carrega/reconcilia contra o banco é
+`ProductPage.tsx` (`fetchFossilSpecies` no load, diff completo — remove o
+que saiu da lista, atualiza o que mudou, cria o que é novo — só no
+"Salvar" do produto, mesmo ponto único de save do resto do formulário).
+
+**Exportação para Nuvemshop/Shopify** (`features/products/export/`):
+`ExportMenu.tsx` (menu "Exportar" reaproveitado na lista de Produtos —
+exporta os produtos filtrados/buscados na tela, não sempre o catálogo
+inteiro — e na ficha de um item, exportando só aquele produto) baixa um CSV
+já no formato de carga em massa de cada plataforma (`nuvemshop.ts`,
+`shopify.ts`, headers exatos das planilhas oficiais). Os campos que só
+existem para isso (`ecommerce_slug`, `ecommerce_description`,
+`ecommerce_category_path`, `ecommerce_google_category`, `ecommerce_tags`,
+`ecommerce_seo_title`/`_seo_description`, `ecommerce_package_height_cm`/
+`_width_cm`/`_length_cm`, `ecommerce_free_shipping`, `ecommerce_published`)
+ficam na seção "E-commerce" do formulário (`EcommerceSection.tsx`) —
+decisão deliberada de NÃO adicionar Marca, MPN, Código de barras/GTIN nem
+Condição (novo/usado) como campo: Marca é puxada de `store_company` na hora
+de exportar (não duplicada por produto), Condição sai sempre "Novo"
+hardcoded, e MPN/GTIN ficaram de fora por não fazerem sentido pra peça
+natural única sem fabricante — se algum dia o dono conectar Facebook/
+Instagram/Google Shopping como canal de venda (onde esses campos passam a
+ser obrigatórios), reavaliar. A Nuvemshop não aceita imagem via planilha
+(confirmado na documentação deles) — só a Shopify importa fotos, via URL
+assinada do Storage com validade de 7 dias (`fetchMediaForExport` em
+`products/api.ts`), porque a importação lá baixa a imagem da URL depois,
+não recebe o arquivo direto. Por ora só EXPORTA — importação (round-trip
+de estoque/preço vindo de volta da plataforma) ficou fora desta rodada,
+avaliar quando o dono decidir qual das duas plataformas vai usar de fato.
 
 ## 4. Autofill de mineral — como funciona aqui
 
@@ -173,7 +240,118 @@ repo pai. Sem deploy, a busca só devolve lista vazia (não quebra a tela).
 | Tipo de informação | Vai para |
 |---|---|
 | Campo novo de produto (comercial ou de espécime) | `store_products`, migration nova + `types/db.ts` + seção correspondente em `features/products/form/` |
+| Campo novo só de e-commerce (não existe no resto do app) | `store_products` (prefixo `ecommerce_`), migration + `types/db.ts` + `EcommerceSection.tsx` + mapear a coluna certa em `export/nuvemshop.ts`/`export/shopify.ts` |
+| Coluna nova nas planilhas Nuvemshop/Shopify (a plataforma mudou o formato) | `export/nuvemshop.ts` ou `export/shopify.ts` (array `HEADERS` + mapeamento em `buildRow`) |
 | Lógica compartilhada com o catálogo pessoal que mudou nos dois lados | Editar aqui E lá — não há sincronização automática |
+| Campo novo de espécie de fóssil (taxonomia, nome popular, contagem) | `store_product_fossil_species`, migration + `StoreProductFossilSpecies`/`StoreProductFossilSpeciesInput` em `types/db.ts` + `FossilSpeciesDraft`/conversores em `form/FossilTaxonomySection.tsx` + CRUD em `products/api.ts` |
+| Ícone novo numa seção do formulário de produto | Prop `icon` do `Section` (`form/Field.tsx`), ícone de `components/icons.tsx` (copiar do catálogo pessoal se faltar) |
 | Decisão de produto ou trade-off não óbvio | Auto-memory do Claude Code (tipo `project`), não este arquivo |
 | Arquitetura ampla / roadmap de funcionalidades | `../docs/PROJETO-APP-LOJA.md` no repo pai |
 | Estrutura de pastas, regras de sessão deste repo | Este `claude.md` |
+| Campo novo de espécime que a importação da coleção deveria trazer | `features/products/importFromCollection.ts` — ver §7; se não houver coluna equivalente em `store_products`, vira linha no apêndice de notas (`buildAppendix`), nunca se perde em silêncio |
+
+## 7. Importar da Coleção pessoal → Produtos
+
+Botão "Importar da coleção" em `/produtos` (`ImportFromCollectionDialog.tsx`)
+— implementa o sentido "ida" da transferência coleção↔loja descrita em
+`../docs/PROJETO-APP-LOJA.md` §5 (ver lá o raciocínio completo; aqui só o
+que é específico desta implementação).
+
+`features/products/importFromCollection.ts` lê direto as tabelas do
+catálogo pessoal (`specimens`, `mineral_details`/`fossil_details`/
+`meteorite_details`, `specimen_minerals`, `fossil_species`,
+`specimen_private`, `media`, `specimen_youtube_videos`) com o client desta
+app — mesmo projeto Supabase, mesma conta, RLS por `owner_id` já libera essa
+leitura. Não reaproveita `src/types/db.ts` do catálogo pessoal (repositório
+separado, cópia-não-pacote, §2) — as interfaces `Catalog*` no topo do
+arquivo são um subconjunto local, só os campos usados na importação.
+
+**Decisão-chave: o produto nasce com o MESMO uuid do specimen de origem**
+(`createProduct({ ...input, id: specimen.id })`), não um id próprio com FK
+solta como o plano original desenhava — pedido explícito do dono em
+18/08/2026, documentado em `../docs/PROJETO-APP-LOJA.md` §5.1. Isso é o que
+faz uma etiqueta QR física impressa antes da transferência continuar
+resolvendo sem reimpressão nem realocação de alias.
+
+**Elegibilidade** (`fetchImportableSpecimens`): specimen vivo
+(`deleted_at is null`), ainda "na coleção" (`is_sold = false`) e sem
+`store_products` com o mesmo id ainda (a checagem É essa comparação de id,
+não uma coluna de vínculo — consequência direta da decisão acima).
+
+**Dois jeitos de escolher o item no diálogo**: busca por texto (padrão) ou
+câmera (aba "Escanear", `barcodeDetectorCtor`/`openCameraStream` de
+`lib/qrCamera.ts`, mesmo mecanismo do `ScanPage.tsx`). `resolveScannedSpecimen`
+(`importFromCollection.ts`) resolve o valor lido contra a lista de specimens
+elegíveis já carregada (local, pelo `id` puro) e, se não achar E o valor
+tiver formato de uuid, tenta como ALIAS de etiqueta impressa depois
+(`specimen_qr_aliases` do catálogo pessoal — só nesse caso precisa de uma
+consulta extra). Cada leitura bem-sucedida ADICIONA o item à seleção sem
+fechar o diálogo, pra dar pra escanear vários em sequência e importar todos
+de uma vez — igual o multi-select da busca por texto, os dois convivem na
+mesma lista de `selected`.
+
+**Campos sem coluna equivalente na loja não se perdem**: o schema de
+`store_products` é deliberadamente mais raso que o do catálogo (§2) — por
+exemplo, meteorito tem ~20 campos lá contra 7 aqui. `buildAppendix()` junta
+os campos sem destino em linhas "Rótulo: valor" ao final das notas do
+produto, sob o cabeçalho "— Dados importados da coleção —", em vez de
+descartá-los. `specimen_private.price_net_brl`/`price_gross_brl` viram
+`cost_price` (preço pago vira custo de aquisição, dado real pra
+precificação); `previous_owner`/`purchase_notes` viram apêndice.
+
+**Mídia é REFERÊNCIA, não cópia** (18/08/2026 — reverte uma primeira versão
+desta função que baixava do R2 do catálogo e reenviava pro Storage Supabase
+da loja, de quando a loja ainda não falava com R2 nenhum): `copySpecimenMedia`
+insere `store_product_media` direto com `bucket: 'media'` e o MESMO
+`storage_path` do catálogo — zero download, zero upload. Ver §8 (Fotos em
+R2) pro mecanismo completo. Vídeos do YouTube (link, não arquivo) continuam
+copiados sem custo nenhum — `addYoutubeVideo` direto, sempre foi assim.
+
+**Ao final, o specimen de origem é marcado `is_sold = true`** no catálogo
+pessoal (reaproveita o campo "ex-coleção" que já existia — não foi criada
+migration nova lá). Nunca é apagado. Reverter (trazer de volta pra coleção)
+ainda não tem fluxo dedicado — hoje é manual: apagar o `store_product` e
+voltar `is_sold` pra `false` direto no catálogo.
+
+Falha em qualquer etapa (mídia, mineral, espécie de fóssil) propaga o erro
+pro diálogo, que para a fila e mostra qual item falhou — os itens já
+importados antes da falha continuam válidos (sem transação única cobrindo
+tudo; é uma sequência de operações independentes, não uma RPC atômica como
+`create_store_sale`).
+
+## 8. Fotos/vídeos de produto em R2
+
+Migration 0017 (18/08/2026) — dono criou um bucket novo `store` no Cloudflare
+R2 e a loja passou a falar com R2 direto, deixando de usar Supabase Storage
+pra mídia de produto. Documentos/Empresa (`store_document_files`,
+`store_company_documents`) **continuam no Supabase Storage** (`lib/storage.ts`,
+inalterado) — mesma fronteira que o catálogo pessoal já tem (`documents` é
+sempre Supabase Storage, dados financeiros + RLS nativa, nunca passa por R2).
+
+**Dois buckets possíveis por linha de `store_product_media`**
+(`bucket: 'store' | 'media'`, coluna nova da 0017):
+
+- `'store'` (padrão) — bucket próprio da loja no R2. Fotos/vídeos enviados
+  aqui (`uploadProductMedia`, `lib/r2Storage.ts`).
+- `'media'` — bucket do catálogo pessoal, mesmo nome de bucket de lá
+  (`storage/r2Provider.ts`, migrations do repo pai). Usado só por item
+  **importado da coleção** (§7): a linha referencia o `storage_path`
+  ORIGINAL do specimen, sem duplicar o arquivo. A loja só LÊ desse bucket —
+  nunca escreve nem apaga (`deleteProductMedia` em `products/api.ts` pula o
+  `removeMedia` quando `bucket === 'media'`; apagar a linha só remove o
+  vínculo local, o arquivo do catálogo pessoal continua intacto).
+
+**`lib/r2Storage.ts`** é a única porta de entrada pro R2 aqui — chama a
+MESMA Edge Function `r2-storage` do catálogo pessoal (`bucket` agora aceita
+`'store'` na função também, deploy de 18/08/2026), sem o provedor pluggable
+que o catálogo tem (`supabase|r2|gdrive`): a loja só fala R2 pra mídia de
+produto, então não precisa da abstração. `signMediaRows()` (`products/api.ts`)
+agrupa por bucket antes de pedir URL assinada em lote, porque a Edge
+Function assina um bucket por chamada — uma tela que mistura fotos `store` e
+`media` (produto importado com fotos adicionadas depois) dispara até duas
+chamadas, não uma por foto.
+
+**Campo novo no bucket R2 (ex.: a Cloudflare mudar de conta/token)**: só
+`R2_ACCOUNT_ID`/`R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY` nos Secrets da
+Edge Function `r2-storage` (repo do catálogo pessoal) — a loja não guarda
+nenhuma credencial de R2 própria, só chama a função com `bucket: 'store'`.

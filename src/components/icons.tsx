@@ -872,6 +872,41 @@ export function ClockIcon(props: IconProps) {
   )
 }
 
+/** Caminhão de entrega — Fornecedores. */
+export function TruckIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M2 7h11v10H2z" />
+      <path d="M13 10h4l4 3.5V17h-8z" />
+      <circle cx="6.5" cy="18" r="1.75" />
+      <circle cx="16.5" cy="18" r="1.75" />
+    </svg>
+  )
+}
+
+/** Cédula com moeda no centro — Fluxo de caixa. */
+export function CashIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="2" y="6" width="20" height="12" rx="2" />
+      <circle cx="12" cy="12" r="3" />
+      <path d="M6 9v.01M18 15v.01" />
+    </svg>
+  )
+}
+
+/** Fachada de prédio (janelas em grade) — página Empresa. */
+export function BuildingIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M5 21V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v17" />
+      <path d="M13 21v-9a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v9" />
+      <path d="M3 21h18" />
+      <path d="M8 7h0M8 11h0M8 15h0" />
+    </svg>
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Ícones COLORIDOS do cabeçalho (Configurações, Modo de edição, Modo privado)
 // — exceção deliberada ao padrão currentColor do resto do pool (claude.md §4):

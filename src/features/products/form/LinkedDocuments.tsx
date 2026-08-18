@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { DOCUMENT_KIND_LABELS, type StoreDocument } from '../../../types/db'
 import { fetchDocumentsForProduct, unlinkProductFromDocument } from '../../documents/api'
-import { UnlinkIcon } from '../../../components/icons'
+import { DocumentIcon, UnlinkIcon } from '../../../components/icons'
 import { Section } from './Field'
 
 /**
@@ -25,7 +25,7 @@ export function LinkedDocuments({ productId }: { productId: string }) {
   }
 
   return (
-    <Section title="Documentos">
+    <Section title="Documentos" icon={<DocumentIcon />}>
       {documents.length === 0 && (
         <p className="text-sm text-stone-400">
           Nenhum documento vinculado. O vínculo é feito na ficha do{' '}

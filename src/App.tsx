@@ -6,12 +6,16 @@ import { DialogProvider } from './components/DialogProvider'
 import { Layout } from './components/Layout'
 import { ProductsPage } from './features/products/ProductsPage'
 import { ProductPage } from './features/products/ProductPage'
+import { ScanPage } from './features/products/ScanPage'
 import { CustomersPage } from './features/customers/CustomersPage'
 import { SalesPage } from './features/sales/SalesPage'
 import { PricingPage } from './features/pricing/PricingPage'
 import { CompanyPage } from './features/company/CompanyPage'
 import { DocumentsPage } from './features/documents/DocumentsPage'
 import { DocumentPage } from './features/documents/DocumentPage'
+import { SuppliersPage } from './features/suppliers/SuppliersPage'
+import { CashPage } from './features/cash/CashPage'
+import { StatsPage } from './features/stats/StatsPage'
 
 export function App() {
   return (
@@ -25,10 +29,14 @@ export function App() {
                 <Route path="/" element={<Navigate to="/produtos" replace />} />
                 <Route path="/produtos" element={<ProductsPage />} />
                 <Route path="/produtos/:id" element={<ProductPage />} />
+                <Route path="/escanear" element={<ScanPage />} />
                 <Route path="/clientes" element={<CustomersPage />} />
                 <Route path="/vendas" element={<SalesPage />} />
+                <Route path="/fornecedores" element={<SuppliersPage />} />
                 <Route path="/documentos" element={<DocumentsPage />} />
                 <Route path="/documentos/:id" element={<DocumentPage />} />
+                <Route path="/caixa" element={<CashPage />} />
+                <Route path="/estatisticas" element={<StatsPage />} />
                 <Route path="/precificacao" element={<PricingPage />} />
                 <Route path="/empresa" element={<CompanyPage />} />
               </Route>

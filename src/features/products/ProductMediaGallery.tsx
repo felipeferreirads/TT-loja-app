@@ -1,8 +1,9 @@
 import { useEffect, useState, type ChangeEvent } from 'react'
 import type { StoreProductMedia } from '../../types/db'
 import { fetchProductMedia, uploadProductMedia, deleteProductMedia } from './api'
-import { signedUrl } from '../../lib/storage'
+import { mediaSignedUrl } from '../../lib/r2Storage'
 import { useConfirm } from '../../components/DialogProvider'
+import { PhotoIcon } from '../../components/icons'
 
 export function ProductMediaGallery({ productId }: { productId: string }) {
   const [media, setMedia] = useState<StoreProductMedia[]>([])
@@ -18,7 +19,7 @@ export function ProductMediaGallery({ productId }: { productId: string }) {
         // Bucket é privado: cada arquivo precisa de uma URL assinada pra ser
         // exibido, e elas expiram — por isso resolvidas a cada carregamento.
         const entries = await Promise.all(
-          items.map(async (m) => [m.id, await signedUrl(m.storage_path).catch(() => '')] as const),
+          items.map(async (m) => [m.id, await mediaSignedUrl(m.bucket, m.storage_path).catch(() => '')] as const),
         )
         setUrls(Object.fromEntries(entries))
       })
@@ -52,7 +53,12 @@ export function ProductMediaGallery({ productId }: { productId: string }) {
   return (
     <section className="space-y-3 rounded-lg border border-stone-800 p-4">
       <div className="flex items-center justify-between">
-        <h2 className="font-medium text-stone-200">Fotos e vídeos</h2>
+        <h2 className="flex items-center gap-2 font-medium text-stone-200">
+          <span className="text-stone-400">
+            <PhotoIcon />
+          </span>
+          Fotos e vídeos
+        </h2>
         <label className="btn-secondary cursor-pointer">
           {busy ? 'Enviando…' : 'Adicionar'}
           <input type="file" accept="image/*,video/*" multiple onChange={handleUpload} disabled={busy} className="hidden" />
@@ -70,6 +76,14 @@ export function ProductMediaGallery({ productId }: { productId: string }) {
                 <video src={urls[m.id]} controls className="aspect-square w-full object-cover" />
               ) : (
                 <img src={urls[m.id]} alt={m.caption ?? ''} className="aspect-square w-full object-cover" />
+              )}
+              {m.bucket === 'media' && (
+                <span
+                  title="Foto original da coleção pessoal — apagar aqui só remove o vínculo, não o arquivo"
+                  className="absolute top-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-xs text-stone-300"
+                >
+                  Do catálogo
+                </span>
               )}
               <button
                 type="button"

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CloseIcon, SearchIcon } from '../../components/icons'
+import { CloseIcon, SearchIcon } from './icons'
 
 const strip = (s: string) =>
   s

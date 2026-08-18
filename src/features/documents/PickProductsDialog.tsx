@@ -30,7 +30,7 @@ export function PickProductsDialog({
     return products.filter((p) => {
       if (exclude.has(p.id)) return false
       if (!q) return true
-      return [p.name, p.sku, p.species, p.variety].some((v) => v?.toLowerCase().includes(q))
+      return [p.name, p.sku, p.minerals?.[0]?.name].some((v) => v?.toLowerCase().includes(q))
     })
   }, [products, excludeIds, query])
 

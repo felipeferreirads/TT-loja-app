@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { ITEM_KIND_LABELS } from '../../../types/db'
 import { formatMoney } from '../../../lib/format'
 import { priceFromCost, type PricingParams } from '../../../lib/pricing'
+import { TagIcon } from '../../../components/icons'
 import { Field, Labeled, Section } from './Field'
 import type { Draft } from './draft'
 
@@ -23,7 +24,7 @@ export function CommercialSection({
   const suggested = pricing && cost > 0 ? priceFromCost(cost, pricing) : null
 
   return (
-    <Section title="Dados da loja">
+    <Section title="Dados da loja" icon={<TagIcon />}>
       <Labeled label="Tipo de item">
         <select value={draft.kind} onChange={(e) => set('kind')(e.target.value)} className="input mt-1">
           {Object.entries(ITEM_KIND_LABELS).map(([value, label]) => (

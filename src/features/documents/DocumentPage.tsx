@@ -8,6 +8,7 @@ import {
   type StoreDocumentInput,
   type StoreDocumentKind,
   type StoreProduct,
+  type StoreSupplier,
 } from '../../types/db'
 import {
   createDocument,
@@ -20,9 +21,12 @@ import {
   updateDocument,
   uploadDocumentFile,
 } from './api'
+import { fetchSuppliers, createSupplier, type StoreSupplierInput } from '../suppliers/api'
+import { SupplierFormDialog } from '../suppliers/SupplierFormDialog'
 import { PickProductsDialog } from './PickProductsDialog'
 import { signedUrl } from '../../lib/storage'
 import { useConfirm } from '../../components/DialogProvider'
+import { SearchSelect } from '../../components/SearchSelect'
 import { ArrowLeftIcon, PlusIcon, TrashIcon, UnlinkIcon } from '../../components/icons'
 
 type Draft = Record<string, string>
@@ -30,6 +34,7 @@ type Draft = Record<string, string>
 const FIELDS = [
   'title',
   'doc_date',
+  'supplier_id',
   'supplier_name',
   'number',
   'series',
@@ -92,9 +97,15 @@ export function DocumentPage() {
   const [draft, setDraft] = useState<Draft | null>(isNew ? toDraft(null) : null)
   const [files, setFiles] = useState<StoreDocumentFile[]>([])
   const [products, setProducts] = useState<StoreProduct[]>([])
+  const [suppliers, setSuppliers] = useState<StoreSupplier[]>([])
+  const [newSupplierOpen, setNewSupplierOpen] = useState(false)
   const [picking, setPicking] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchSuppliers().then(setSuppliers).catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (isNew || !id) return
@@ -111,6 +122,19 @@ export function DocumentPage() {
   if (!draft) return <p className="text-sm text-stone-400">Carregando…</p>
 
   const set = (key: string) => (v: string) => setDraft({ ...draft, [key]: v })
+
+  const pickSupplier = (supplierId: string) => {
+    const supplier = suppliers.find((s) => s.id === supplierId)
+    setDraft({ ...draft, supplier_id: supplierId, supplier_name: supplier?.name ?? '' })
+  }
+
+  // Cadastro rápido durante a edição, mesmo padrão do cliente no PDV.
+  const handleCreateSupplier = async (input: StoreSupplierInput) => {
+    const created = await createSupplier(input)
+    setSuppliers(await fetchSuppliers())
+    pickSupplier(created.id)
+    setNewSupplierOpen(false)
+  }
 
   const handleSave = async () => {
     setBusy(true)
@@ -206,7 +230,27 @@ export function DocumentPage() {
             <Field label="Data" value={draft.doc_date} onChange={set('doc_date')} type="date" />
             <Field label="Valor total" value={draft.total_amount} onChange={set('total_amount')} type="number" />
           </div>
-          <Field label="Fornecedor" value={draft.supplier_name} onChange={set('supplier_name')} />
+          <label className="block">
+            <span className="flex items-center justify-between text-sm text-stone-300">
+              Fornecedor
+              <button
+                type="button"
+                onClick={() => setNewSupplierOpen(true)}
+                className="text-xs text-amber-500 hover:underline"
+              >
+                + cadastrar
+              </button>
+            </span>
+            <div className="mt-1">
+              <SearchSelect
+                items={suppliers.map((s) => ({ id: s.id, label: s.name }))}
+                value={draft.supplier_id}
+                onChange={pickSupplier}
+                placeholder="Digite para buscar um fornecedor…"
+                emptyText="Nenhum fornecedor encontrado."
+              />
+            </div>
+          </label>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Número" value={draft.number} onChange={set('number')} />
             <Field label="Série" value={draft.series} onChange={set('series')} />
@@ -307,6 +351,10 @@ export function DocumentPage() {
           onCancel={() => setPicking(false)}
           onConfirm={(ids) => void handleLink(ids)}
         />
+      )}
+
+      {newSupplierOpen && (
+        <SupplierFormDialog supplier={null} onSave={handleCreateSupplier} onClose={() => setNewSupplierOpen(false)} />
       )}
     </div>
   )

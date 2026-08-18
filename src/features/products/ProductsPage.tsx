@@ -6,8 +6,10 @@ import { ProductCard } from './ProductCard'
 import { formatMoney, stripAccents } from '../../lib/format'
 import { useConfirm } from '../../components/DialogProvider'
 import { SearchField } from '../../components/SearchField'
-import { GridViewIcon, ListViewIcon, PlusIcon, SearchIcon, TrashIcon } from '../../components/icons'
+import { GridViewIcon, ImportIcon, ListViewIcon, PlusIcon, SearchIcon, TrashIcon } from '../../components/icons'
 import { SortControl } from '../../components/SortControl'
+import { ExportMenu } from './export/ExportMenu'
+import { ImportFromCollectionDialog } from './ImportFromCollectionDialog'
 
 type ViewMode = 'grid' | 'list'
 const VIEW_STORAGE_KEY = 'tt_loja_products_view'
@@ -31,6 +33,7 @@ export function ProductsPage() {
   const [view, setView] = useState<ViewMode>(
     () => (localStorage.getItem(VIEW_STORAGE_KEY) as ViewMode | null) ?? 'grid',
   )
+  const [importing, setImporting] = useState(false)
   // Busca e filtro moram na query string pra sobreviverem ao "voltar" depois
   // de abrir um produto — mesmo padrão da Coleção no catálogo pessoal.
   const [params, setParams] = useSearchParams()
@@ -70,7 +73,7 @@ export function ProductsPage() {
     const filtered = products.filter((p) => {
       if (kindFilter && p.kind !== kindFilter) return false
       if (!q) return true
-      return [p.name, p.sku, p.species, p.variety, p.origin, p.formula].some(
+      return [p.name, p.sku, p.origin, ...(p.minerals ?? []).map((m) => m.name)].some(
         (v) => v && stripAccents(v).includes(q),
       )
     })
@@ -93,10 +96,17 @@ export function ProductsPage() {
     <div>
       <header className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-bold text-stone-100">Produtos</h1>
-        <Link to="/produtos/novo" className="btn-primary inline-flex items-center gap-1.5">
-          <PlusIcon className="h-4 w-4" />
-          Novo produto
-        </Link>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => setImporting(true)} className="btn-secondary inline-flex items-center gap-1.5">
+            <ImportIcon className="h-4 w-4" />
+            Importar da coleção
+          </button>
+          <ExportMenu products={visible} filename="produtos" />
+          <Link to="/produtos/novo" className="btn-primary inline-flex items-center gap-1.5">
+            <PlusIcon className="h-4 w-4" />
+            Novo produto
+          </Link>
+        </div>
       </header>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -189,7 +199,7 @@ export function ProductsPage() {
                 >
                   <td className="px-3 py-2 text-stone-100">{p.name}</td>
                   <td className="px-3 py-2 text-stone-400">{ITEM_KIND_LABELS[p.kind]}</td>
-                  <td className="px-3 py-2 text-stone-400">{p.species ?? '—'}</td>
+                  <td className="px-3 py-2 text-stone-400">{p.minerals?.[0]?.name ?? '—'}</td>
                   <td className="px-3 py-2 text-stone-400">{p.stock_quantity}</td>
                   <td className="px-3 py-2 text-stone-400">{formatMoney(p.sale_price)}</td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
@@ -210,6 +220,16 @@ export function ProductsPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {importing && (
+        <ImportFromCollectionDialog
+          onCancel={() => setImporting(false)}
+          onDone={() => {
+            setImporting(false)
+            load()
+          }}
+        />
       )}
     </div>
   )

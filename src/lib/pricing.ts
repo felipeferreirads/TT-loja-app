@@ -1,4 +1,4 @@
-import type { StorePricingField, StorePricingSettings } from '../types/db'
+import type { StorePaymentMethod, StorePricingField, StorePricingSettings } from '../types/db'
 
 /**
  * Fórmulas transcritas da planilha de precificação do dono
@@ -97,5 +97,29 @@ export function netFromPrice(
     pix: afterDiscount * (1 - pixDiscount) * (1 - p.tax - p.pix_rate) - p.invoice_fee,
     card1x: afterDiscount * (1 - p.tax - p.card_rate) - p.invoice_fee - p.card_fixed_fee,
     card3x: afterDiscount * (1 - p.tax - p.card_rate - p.installment3_rate) - p.invoice_fee - p.card_fixed_fee,
+  }
+}
+
+/**
+ * Quanto sobra líquido (imposto + taxa do meio de pagamento + nota fiscal já
+ * descontados) de uma venda JÁ REALIZADA — `total` é o valor final gravado
+ * em `store_sales.total`, já pós-desconto, então não aplica desconto de novo
+ * (diferente de `netFromPrice`, que simula uma venda hipotética a partir do
+ * preço de tabela). Usado pelas Estatísticas pra separar margem bruta
+ * (receita − custo) de lucro líquido (receita líquida − custo).
+ *
+ * `cartao` assume a taxa de 1x — `store_sales` não guarda se a venda foi
+ * parcelada, só a forma de pagamento. `dinheiro`/`outro` não têm taxa de
+ * meio de pagamento, só imposto + nota fiscal (a nota fiscal é emitida
+ * independente de como o cliente pagou).
+ */
+export function netFromSaleTotal(total: number, method: StorePaymentMethod, p: PricingParams): number {
+  switch (method) {
+    case 'pix':
+      return total * (1 - p.tax - p.pix_rate) - p.invoice_fee
+    case 'cartao':
+      return total * (1 - p.tax - p.card_rate) - p.invoice_fee - p.card_fixed_fee
+    default:
+      return total * (1 - p.tax) - p.invoice_fee
   }
 }

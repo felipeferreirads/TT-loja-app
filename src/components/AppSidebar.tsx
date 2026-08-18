@@ -1,11 +1,15 @@
 import { NavLink } from 'react-router-dom'
 import {
+  BuildingIcon,
   CardIcon,
+  CashIcon,
   ChartIcon,
   DocumentIcon,
   PackageIcon,
+  QrCodeIcon,
   SpecimenIcon,
   TagIcon,
+  TruckIcon,
 } from './icons'
 import type { ComponentType, SVGProps } from 'react'
 
@@ -19,11 +23,15 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { to: '/produtos', label: 'Produtos', Icon: SpecimenIcon },
+  { to: '/escanear', label: 'Escanear', Icon: QrCodeIcon },
   { to: '/vendas', label: 'Vendas', Icon: PackageIcon },
   { to: '/clientes', label: 'Clientes', Icon: CardIcon },
+  { to: '/fornecedores', label: 'Fornecedores', Icon: TruckIcon },
   { to: '/documentos', label: 'Documentos', Icon: DocumentIcon },
+  { to: '/caixa', label: 'Fluxo de caixa', Icon: CashIcon },
+  { to: '/estatisticas', label: 'Estatísticas', Icon: ChartIcon },
   { to: '/precificacao', label: 'Precificação', Icon: TagIcon },
-  { to: '/empresa', label: 'Empresa', Icon: ChartIcon },
+  { to: '/empresa', label: 'Empresa', Icon: BuildingIcon },
 ]
 
 function itemClass(isActive: boolean, compact: boolean): string {

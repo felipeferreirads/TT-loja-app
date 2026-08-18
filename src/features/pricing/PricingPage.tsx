@@ -4,6 +4,7 @@ import type { StorePricingField, StorePricingPreset } from '../../types/db'
 import { fetchPricingSettings, savePricingSettings, fetchPricingPresets, createPricingPreset, deletePricingPreset } from './api'
 import { PresetSelect } from './PresetSelect'
 import { formatMoney } from '../../lib/format'
+import { PencilIcon, LockIcon } from '../../components/icons'
 
 const PARAM_LABELS: { key: StorePricingField; label: string; percent: boolean }[] = [
   { key: 'markup', label: 'Markup', percent: true },
@@ -20,6 +21,10 @@ function formatPercent(fraction: number): string {
   return `${(fraction * 100).toFixed(2).replace('.', ',')}%`
 }
 
+function formatParamValue(value: number, percent: boolean): string {
+  return percent ? formatPercent(value) : formatMoney(value)
+}
+
 export function PricingPage() {
   const [params, setParams] = useState<PricingParams | null>(null)
   const [presets, setPresets] = useState<StorePricingPreset[]>([])
@@ -28,6 +33,7 @@ export function PricingPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [editing, setEditing] = useState(false)
 
   const loadPresets = () => fetchPricingPresets().then(setPresets)
 
@@ -52,6 +58,7 @@ export function PricingPage() {
     try {
       await savePricingSettings(params)
       setSaved(true)
+      setEditing(false)
       setTimeout(() => setSaved(false), 2000)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -79,23 +86,74 @@ export function PricingPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <section className="space-y-3 rounded-lg border border-stone-800 p-4">
-          <h2 className="font-medium text-stone-200">Parâmetros</h2>
-          {PARAM_LABELS.map(({ key, label, percent }) => (
-            <PresetSelect
-              key={key}
-              label={label}
-              percent={percent}
-              value={params[key]}
-              onChange={(v) => setParams({ ...params, [key]: v })}
-              builtin={BUILTIN_PRESETS[key]}
-              custom={presets.filter((p) => p.field === key)}
-              onCreatePreset={(l, v) => handleCreatePreset(key, l, v)}
-              onDeletePreset={handleDeletePreset}
-            />
-          ))}
-          <button type="button" onClick={() => void handleSave()} disabled={saving} className="btn-primary w-full">
-            {saving ? 'Salvando…' : saved ? 'Salvo!' : 'Salvar parâmetros'}
-          </button>
+          <div className="flex items-center justify-between">
+            <h2 className="font-medium text-stone-200">Parâmetros</h2>
+            {!editing && (
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="btn-secondary inline-flex items-center gap-1.5 px-3 py-1 text-sm"
+              >
+                <PencilIcon className="h-4 w-4" />
+                Editar
+              </button>
+            )}
+          </div>
+
+          {editing ? (
+            <>
+              {PARAM_LABELS.map(({ key, label, percent }) => (
+                <PresetSelect
+                  key={key}
+                  label={label}
+                  percent={percent}
+                  value={params[key]}
+                  onChange={(v) => setParams({ ...params, [key]: v })}
+                  builtin={BUILTIN_PRESETS[key]}
+                  custom={presets.filter((p) => p.field === key)}
+                  onCreatePreset={(l, v) => handleCreatePreset(key, l, v)}
+                  onDeletePreset={handleDeletePreset}
+                />
+              ))}
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setEditing(false)} className="btn-secondary flex-1">
+                  Cancelar
+                </button>
+                <button type="button" onClick={() => void handleSave()} disabled={saving} className="btn-primary flex-1">
+                  {saving ? 'Salvando…' : saved ? 'Salvo!' : 'Salvar parâmetros'}
+                </button>
+              </div>
+            </>
+          ) : (
+            <dl className="space-y-2 text-sm">
+              {PARAM_LABELS.map(({ key, label, percent }) =>
+                key === 'markup' ? (
+                  <div key={key} className="flex items-center justify-between border-t border-stone-800 pt-2 first:border-t-0 first:pt-0">
+                    <dt className="text-stone-400">{label}</dt>
+                    <dd className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        step="1"
+                        value={(params.markup * 100).toFixed(2)}
+                        onChange={(e) => setParams({ ...params, markup: (Number(e.target.value) || 0) / 100 })}
+                        onBlur={() => void handleSave()}
+                        className="w-16 rounded border border-stone-700 bg-stone-800 px-1 py-0.5 text-right text-sm font-medium text-stone-100 outline-none focus:border-amber-600"
+                      />
+                      <span className="text-stone-500">%</span>
+                    </dd>
+                  </div>
+                ) : (
+                  <div key={key} className="flex items-center justify-between border-t border-stone-800 pt-2 first:border-t-0 first:pt-0">
+                    <dt className="flex items-center gap-1.5 text-stone-400">
+                      <LockIcon className="h-3.5 w-3.5 text-stone-600" />
+                      {label}
+                    </dt>
+                    <dd className="font-medium text-stone-100">{formatParamValue(params[key], percent)}</dd>
+                  </div>
+                ),
+              )}
+            </dl>
+          )}
         </section>
 
         <section className="space-y-3 rounded-lg border border-stone-800 p-4">

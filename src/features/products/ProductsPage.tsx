@@ -6,12 +6,22 @@ import { ProductCard } from './ProductCard'
 import { formatMoney, stripAccents } from '../../lib/format'
 import { useConfirm } from '../../components/DialogProvider'
 import { SearchField } from '../../components/SearchField'
-import { GridViewIcon, ListViewIcon, PlusIcon, TrashIcon } from '../../components/icons'
+import { GridViewIcon, ListViewIcon, PlusIcon, SearchIcon, TrashIcon } from '../../components/icons'
+import { SortControl } from '../../components/SortControl'
 
 type ViewMode = 'grid' | 'list'
 const VIEW_STORAGE_KEY = 'tt_loja_products_view'
 
 const KIND_FILTERS = Object.entries(ITEM_KIND_LABELS) as [StoreItemKind, string][]
+
+type ProductSortField = 'name' | 'sale_price' | 'stock_quantity' | 'created_at'
+
+const PRODUCT_SORT_OPTIONS: { value: ProductSortField; label: string }[] = [
+  { value: 'name', label: 'Nome' },
+  { value: 'sale_price', label: 'Preço' },
+  { value: 'stock_quantity', label: 'Estoque' },
+  { value: 'created_at', label: 'Data de criação' },
+]
 
 export function ProductsPage() {
   const [products, setProducts] = useState<StoreProduct[]>([])
@@ -26,6 +36,8 @@ export function ProductsPage() {
   const [params, setParams] = useSearchParams()
   const search = params.get('q') ?? ''
   const kindFilter = params.get('tipo') as StoreItemKind | null
+  const sortField = (params.get('ordenar') as ProductSortField | null) ?? 'name'
+  const sortDir = (params.get('dir') as 'asc' | 'desc' | null) ?? 'asc'
 
   const confirm = useConfirm()
   const navigate = useNavigate()
@@ -55,14 +67,21 @@ export function ProductsPage() {
 
   const visible = useMemo(() => {
     const q = stripAccents(search.trim())
-    return products.filter((p) => {
+    const filtered = products.filter((p) => {
       if (kindFilter && p.kind !== kindFilter) return false
       if (!q) return true
       return [p.name, p.sku, p.species, p.variety, p.origin, p.formula].some(
         (v) => v && stripAccents(v).includes(q),
       )
     })
-  }, [products, search, kindFilter])
+    return [...filtered].sort((a, b) => {
+      let diff: number
+      if (sortField === 'name') diff = a.name.localeCompare(b.name, 'pt-BR')
+      else if (sortField === 'created_at') diff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      else diff = a[sortField] - b[sortField]
+      return sortDir === 'asc' ? diff : -diff
+    })
+  }, [products, search, kindFilter, sortField, sortDir])
 
   const handleDelete = async (product: StoreProduct) => {
     if (!(await confirm(`Apagar "${product.name}"? Essa ação não pode ser desfeita.`, { danger: true }))) return
@@ -74,36 +93,48 @@ export function ProductsPage() {
     <div>
       <header className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-bold text-stone-100">Produtos</h1>
-        <Link to="/produtos/novo" className="btn-primary">
-          <PlusIcon className="mr-1" />
+        <Link to="/produtos/novo" className="btn-primary inline-flex items-center gap-1.5">
+          <PlusIcon className="h-4 w-4" />
           Novo produto
         </Link>
       </header>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <SearchField
-          value={search}
-          onCommit={(v) => setParam('q', v || null)}
-          placeholder="Buscar por nome, SKU, espécie, localidade…"
-          className="max-w-md flex-1"
-        />
-        <div className="ml-auto flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => chooseView('grid')}
-            aria-label="Visualizar em grade"
-            className={`tap-icon ${view === 'grid' ? 'text-amber-400' : ''}`}
-          >
-            <GridViewIcon className="h-5 w-5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => chooseView('list')}
-            aria-label="Visualizar em lista"
-            className={`tap-icon ${view === 'list' ? 'text-amber-400' : ''}`}
-          >
-            <ListViewIcon className="h-5 w-5" />
-          </button>
+        <div className="relative max-w-xl flex-1">
+          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-500" />
+          <SearchField
+            value={search}
+            onCommit={(v) => setParam('q', v || null)}
+            placeholder="Buscar por nome, SKU, espécie, localidade…"
+            className="pl-9"
+          />
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <SortControl
+            value={sortField}
+            onChange={(v) => setParam('ordenar', v === 'name' ? null : v)}
+            options={PRODUCT_SORT_OPTIONS}
+            dir={sortDir}
+            onToggleDir={() => setParam('dir', sortDir === 'asc' ? 'desc' : null)}
+          />
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => chooseView('grid')}
+              aria-label="Visualizar em grade"
+              className={`tap-icon ${view === 'grid' ? 'text-amber-400' : ''}`}
+            >
+              <GridViewIcon className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => chooseView('list')}
+              aria-label="Visualizar em lista"
+              className={`tap-icon ${view === 'list' ? 'text-amber-400' : ''}`}
+            >
+              <ListViewIcon className="h-5 w-5" />
+            </button>
+          </div>
         </div>
       </div>
 

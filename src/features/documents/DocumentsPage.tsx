@@ -33,8 +33,8 @@ export function DocumentsPage() {
     <div>
       <header className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-bold text-stone-100">Documentos</h1>
-        <Link to="/documentos/novo" className="btn-primary">
-          <PlusIcon className="mr-1" />
+        <Link to="/documentos/novo" className="btn-primary inline-flex items-center gap-1.5">
+          <PlusIcon className="h-4 w-4" />
           Novo documento
         </Link>
       </header>

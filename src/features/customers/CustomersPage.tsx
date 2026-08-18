@@ -3,6 +3,7 @@ import type { StoreCustomer } from '../../types/db'
 import { fetchCustomers, createCustomer, updateCustomer, deleteCustomer, type StoreCustomerInput } from './api'
 import { CustomerFormDialog } from './CustomerFormDialog'
 import { useConfirm } from '../../components/DialogProvider'
+import { PlusIcon } from '../../components/icons'
 
 export function CustomersPage() {
   const [customers, setCustomers] = useState<StoreCustomer[]>([])
@@ -40,7 +41,8 @@ export function CustomersPage() {
         <div>
           <h1 className="text-xl font-bold text-stone-100">Clientes</h1>
         </div>
-        <button type="button" onClick={() => setEditing('new')} className="btn-primary">
+        <button type="button" onClick={() => setEditing('new')} className="btn-primary inline-flex items-center gap-1.5">
+          <PlusIcon className="h-4 w-4" />
           Novo cliente
         </button>
       </header>

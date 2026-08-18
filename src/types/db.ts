@@ -215,6 +215,19 @@ export interface StoreCompany {
   address_city: string | null
   address_state: string | null
   notes: string | null
+  partner_name: string | null
+  partner_nationality: string | null
+  partner_marital_status: string | null
+  partner_birth_date: string | null
+  partner_cpf: string | null
+  partner_rg: string | null
+  partner_address_zip: string | null
+  partner_address_street: string | null
+  partner_address_number: string | null
+  partner_address_complement: string | null
+  partner_address_district: string | null
+  partner_address_city: string | null
+  partner_address_state: string | null
   created_at: string
   updated_at: string
 }

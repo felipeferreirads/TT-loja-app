@@ -1,6 +1,7 @@
-# Loja — Inventário e Gestão
+# Tesouros da Terra — Loja
 
-Segundo aplicativo, separado do Tesouros da Terra (catálogo pessoal), para
+Segundo aplicativo, separado do catálogo pessoal (mesma marca/logo — o nome
+"Tesouros da Terra" é o mesmo dos dois produtos), para
 operar o lado comercial: estoque, vendas, fornecedores, clientes. Mesmo
 projeto Supabase do catálogo (tabelas próprias, mesmo padrão `owner_id` +
 RLS), com uma ação explícita de transferência de item entre coleção e loja.

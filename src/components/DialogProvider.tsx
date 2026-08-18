@@ -29,9 +29,9 @@ interface PromptOptions {
 }
 
 type DialogState =
-  | { kind: 'confirm'; message: string; options?: ConfirmOptions; resolve: (v: boolean) => void }
-  | { kind: 'alert'; message: string; options?: AlertOptions; resolve: () => void }
-  | { kind: 'prompt'; message: string; defaultValue?: string; options?: PromptOptions; resolve: (v: string | null) => void }
+  | { kind: 'confirm'; id: number; message: string; options?: ConfirmOptions; resolve: (v: boolean) => void }
+  | { kind: 'alert'; id: number; message: string; options?: AlertOptions; resolve: () => void }
+  | { kind: 'prompt'; id: number; message: string; defaultValue?: string; options?: PromptOptions; resolve: (v: string | null) => void }
 
 type ConfirmFn = (message: string, options?: ConfirmOptions) => Promise<boolean>
 type AlertFn = (message: string, options?: AlertOptions) => Promise<void>
@@ -61,17 +61,24 @@ export function usePrompt(): PromptFn {
 
 export function DialogProvider({ children }: { children: ReactNode }) {
   const [dialog, setDialog] = useState<DialogState | null>(null)
+  // Chamadas sequenciais de prompt() (ex.: pedir dois valores em fila) podem
+  // ter o "fechar A" e "abrir B" batchados no mesmo render — sem uma key que
+  // muda a cada diálogo, o React reaproveita a MESMA instância de
+  // PromptDialogView entre as duas chamadas, e o useState interno (o texto
+  // digitado) sobrevive de um prompt pro outro. O id força remontagem.
+  const nextId = useRef(0)
 
   const confirm = useCallback<ConfirmFn>(
-    (message, options) => new Promise((resolve) => setDialog({ kind: 'confirm', message, options, resolve })),
+    (message, options) => new Promise((resolve) => setDialog({ kind: 'confirm', id: ++nextId.current, message, options, resolve })),
     [],
   )
   const alert = useCallback<AlertFn>(
-    (message, options) => new Promise((resolve) => setDialog({ kind: 'alert', message, options, resolve })),
+    (message, options) => new Promise((resolve) => setDialog({ kind: 'alert', id: ++nextId.current, message, options, resolve })),
     [],
   )
   const prompt = useCallback<PromptFn>(
-    (message, defaultValue, options) => new Promise((resolve) => setDialog({ kind: 'prompt', message, defaultValue, options, resolve })),
+    (message, defaultValue, options) =>
+      new Promise((resolve) => setDialog({ kind: 'prompt', id: ++nextId.current, message, defaultValue, options, resolve })),
     [],
   )
 
@@ -82,6 +89,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
           {children}
           {dialog?.kind === 'confirm' && (
             <ConfirmDialogView
+              key={dialog.id}
               message={dialog.message}
               options={dialog.options}
               onResolve={(v) => {
@@ -92,6 +100,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
           )}
           {dialog?.kind === 'alert' && (
             <AlertDialogView
+              key={dialog.id}
               message={dialog.message}
               options={dialog.options}
               onResolve={() => {
@@ -102,6 +111,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
           )}
           {dialog?.kind === 'prompt' && (
             <PromptDialogView
+              key={dialog.id}
               message={dialog.message}
               defaultValue={dialog.defaultValue}
               options={dialog.options}

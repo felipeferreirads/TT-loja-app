@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import './themes.css';
 
 /* Classes utilitárias compartilhadas do app (mesmo padrão visual do Tesouros da Terra) */
 
@@ -16,6 +17,29 @@
 
 .btn-danger {
   @apply inline-flex min-h-11 items-center justify-center rounded-lg bg-red-900/60 px-4 py-2 text-sm font-medium text-red-200 transition hover:bg-red-800;
+}
+
+.tap-icon {
+  @apply inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-stone-400 transition hover:bg-stone-800 hover:text-stone-100;
+}
+
+.section-title {
+  @apply text-xs font-semibold tracking-wide text-stone-400 uppercase;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 body {

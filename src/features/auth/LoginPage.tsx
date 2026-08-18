@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Navigate } from 'react-router-dom'
 import { supabase, supabaseConfigured, setKeepSignedIn } from '../../lib/supabase'
 import { useAuth } from './AuthProvider'
+import { AppLogo } from '../../components/AppLogo'
 
 // Cadastro fechado: o usuário é criado no painel do Supabase (Auth > Users) —
 // mesma conta do dono usada no Tesouros da Terra (ver docs/PROJETO-APP-LOJA.md).
@@ -31,8 +32,8 @@ export function LoginPage() {
     <div className="flex min-h-dvh items-center justify-center bg-stone-950 p-4">
       <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4 rounded-xl bg-stone-900 p-6">
         <div className="text-center">
-          <h1 className="text-xl font-bold text-stone-100">Loja</h1>
-          <p className="mt-1 text-sm text-stone-400">Inventário e Gestão</p>
+          <AppLogo size="lg" />
+          <p className="mt-1 text-sm text-stone-400">Loja · Inventário e Gestão</p>
         </div>
 
         {!supabaseConfigured && (

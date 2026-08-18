@@ -3,7 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Loja — Inventário e Gestão</title>
+    <!-- Aplica tema + "fundo neutro" salvos antes do 1º paint (evita flash ao
+         carregar) — a fonte de verdade fica em src/lib/theme.ts. -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('tt_loja_theme')
+          if (t) document.documentElement.dataset.theme = t
+          var a = localStorage.getItem('tt_loja_accent_only')
+          if (a === null || a === 'true') document.documentElement.setAttribute('data-accent-only', 'true')
+        } catch (e) {}
+      })()
+    </script>
+    <link rel="icon" href="/favicon.svg" />
+    <title>Tesouros da Terra — Loja</title>
   </head>
   <body>
     <div id="root"></div>

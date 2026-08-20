@@ -1,6 +1,6 @@
 import { supabase } from '../../lib/supabase'
 import type { StoreItemKind, StoreProductInput } from '../../types/db'
-import { createProduct, addProductMineral, addFossilSpecies } from './api'
+import { createProduct, addProductMineral, addFossilSpecies, linkQrAlias } from './api'
 import { addYoutubeVideo } from './youtubeVideos'
 
 // ============================================================
@@ -342,17 +342,43 @@ function mapToProductInput(s: CatalogSpecimenFull, priv: CatalogSpecimenPrivate 
   let kind: StoreItemKind
   let name: string
   let speciesOrType: string | null = null
-  let gemCut: string | null = null
+  let isGem = false
+  let cutType: string | null = null
+  let gemShape: string | null = null
+  let gemCutStyle: string | null = null
+  let cutName: string | null = null
+  let gemTreatment: string | null = null
   let weightCt: number | null = null
   const extra: [string, string | number | boolean | null | undefined][] = []
 
   let metClass: string | null = null
   let metTypeGroup: string | null = null
+  let metGroup: string | null = null
+  let metType: string | null = null
   let metStructure: string | null = null
   let metMaterial: string | null = null
   let metShock: string | null = null
   let metWeathering: string | null = null
   let metTotalMass: string | null = null
+  let metCategory: string | null = null
+  let metAge: string | null = null
+  let metFallObserved: string | null = null
+  let metFallDate: string | null = null
+  let metFoundDate: string | null = null
+  let metLargestFragment: string | null = null
+  let metLargestFragmentDimensions: string | null = null
+  let metCrustFusion: string | null = null
+  let metWeatheringSpecimen: string | null = null
+  let metAcidEtched: string | null = null
+  let metMagnetism: string | null = null
+  let metIndividualFragment: string | null = null
+  let metEndCut: string | null = null
+  let metChondrulesVisible: string | null = null
+  let metMetalMatrixVisible: string | null = null
+  let metOlivineVisible: string | null = null
+  let metPolished: string | null = null
+  let metCutSliced: string | null = null
+  let metPolishedWindow: string | null = null
 
   let color: string | null = null
   let colorSecondary: string | null = null
@@ -363,7 +389,10 @@ function mapToProductInput(s: CatalogSpecimenFull, priv: CatalogSpecimenPrivate 
 
   if (s.type === 'mineral') {
     const md = s.mineral_details
-    kind = md?.is_gem ? 'gem' : 'mineral'
+    // "Gema" não é mais um `kind` à parte na loja — vira `is_gem` na mesma
+    // linha, igual ao catálogo pessoal (checkbox, não tipo). Ver migration
+    // 0018_gem_as_mineral_property.sql.
+    kind = 'mineral'
     speciesOrType = md?.species ?? null
     name = md?.species || s.specimen_minerals[0]?.name || '(sem espécie)'
     color = md?.color ?? null
@@ -373,9 +402,13 @@ function mapToProductInput(s: CatalogSpecimenFull, priv: CatalogSpecimenPrivate 
     iridescenceColor = md?.iridescence_color ?? null
     playOfColor = md?.play_of_color ?? null
     if (md?.is_gem) {
-      gemCut = md.cut_name || md.cut_type || null
+      isGem = true
+      cutType = md.cut_type || null
+      gemShape = md.gem_shape || null
+      gemCutStyle = md.gem_cut_style || null
+      cutName = md.cut_name || null
+      gemTreatment = md.gem_treatment || null
       weightCt = s.weight_ct
-      extra.push(['Formato da gema', md.gem_shape], ['Estilo de corte', md.gem_cut_style], ['Tratamento', md.gem_treatment])
     }
   } else if (s.type === 'fossil') {
     kind = 'fossil'
@@ -396,33 +429,35 @@ function mapToProductInput(s: CatalogSpecimenFull, priv: CatalogSpecimenPrivate 
     const md = s.meteorite_details
     name = md?.name || '(sem nome)'
     metClass = md?.classification ?? null
+    // Legado (Grupo+Tipo juntos) preservado; Grupo e Tipo também vão pras
+    // colunas próprias novas (migration 0019), pra bater com o formulário atual.
     metTypeGroup = [md?.group_name, md?.type_name].filter(Boolean).join(' / ') || null
+    metGroup = md?.group_name ?? null
+    metType = md?.type_name ?? null
     metStructure = md?.structure ?? null
     metMaterial = md?.material ?? null
     metShock = md?.shock ?? null
     metWeathering = md?.weathering ?? null
     metTotalMass = md?.total_mass ?? null
-    extra.push(
-      ['Categoria', md?.category],
-      ['Idade', md?.age],
-      ['Queda observada', md?.fall_observed == null ? null : md.fall_observed ? 'Sim' : 'Não'],
-      ['Data da queda', md?.fall_date],
-      ['Data do achado', md?.found_date],
-      ['Maior fragmento', md?.largest_fragment],
-      ['Dimensões do maior fragmento', md?.largest_fragment_dimensions],
-      ['Crosta de fusão', md?.crust_fusion],
-      ['Intemperismo do exemplar', md?.weathering_specimen],
-      ['Côndrulos visíveis', md?.chondrules_visible],
-      ['Fatiado/cortado', md?.cut_sliced],
-      ['Polido', md?.polished],
-      ['Ataque ácido', md?.acid_etched],
-      ['Fragmento individual', md?.individual_fragment],
-      ['End cut', md?.end_cut],
-      ['Janela polida', md?.polished_window],
-      ['Matriz metálica visível', md?.metal_matrix_visible],
-      ['Olivina visível', md?.olivine_visible],
-      ['Magnetismo', md?.magnetism],
-    )
+    metCategory = md?.category ?? null
+    metAge = md?.age ?? null
+    metFallObserved = md?.fall_observed == null ? null : md.fall_observed ? 'Sim' : 'Não'
+    metFallDate = md?.fall_date ?? null
+    metFoundDate = md?.found_date ?? null
+    metLargestFragment = md?.largest_fragment ?? null
+    metLargestFragmentDimensions = md?.largest_fragment_dimensions ?? null
+    metCrustFusion = md?.crust_fusion ?? null
+    metWeatheringSpecimen = md?.weathering_specimen ?? null
+    metAcidEtched = md?.acid_etched ?? null
+    metMagnetism = md?.magnetism ?? null
+    metIndividualFragment = md?.individual_fragment ?? null
+    metEndCut = md?.end_cut ?? null
+    metChondrulesVisible = md?.chondrules_visible ?? null
+    metMetalMatrixVisible = md?.metal_matrix_visible ?? null
+    metOlivineVisible = md?.olivine_visible ?? null
+    metPolished = md?.polished ?? null
+    metCutSliced = md?.cut_sliced ?? null
+    metPolishedWindow = md?.polished_window ?? null
   }
 
   if (s.parent_id) extra.push(['Lote', 'peça filha de um lote no catálogo pessoal'])
@@ -454,16 +489,42 @@ function mapToProductInput(s: CatalogSpecimenFull, priv: CatalogSpecimenPrivate 
     iridescence_color: iridescenceColor,
     play_of_color: playOfColor,
 
-    gem_cut: gemCut,
+    is_gem: isGem,
+    cut_type: cutType,
+    gem_shape: gemShape,
+    gem_cut_style: gemCutStyle,
+    cut_name: cutName,
+    gem_treatment: gemTreatment,
     weight_ct: weightCt,
 
     met_class: metClass,
     met_type_group: metTypeGroup,
+    met_group: metGroup,
+    met_type: metType,
     met_structure: metStructure,
     met_material: metMaterial,
     met_shock: metShock,
     met_weathering: metWeathering,
     met_total_mass: metTotalMass,
+    met_category: metCategory,
+    met_age: metAge,
+    met_fall_observed: metFallObserved,
+    met_fall_date: metFallDate,
+    met_found_date: metFoundDate,
+    met_largest_fragment: metLargestFragment,
+    met_largest_fragment_dimensions: metLargestFragmentDimensions,
+    met_crust_fusion: metCrustFusion,
+    met_weathering_specimen: metWeatheringSpecimen,
+    met_acid_etched: metAcidEtched,
+    met_magnetism: metMagnetism,
+    met_individual_fragment: metIndividualFragment,
+    met_end_cut: metEndCut,
+    met_chondrules_visible: metChondrulesVisible,
+    met_metal_matrix_visible: metMetalMatrixVisible,
+    met_olivine_visible: metOlivineVisible,
+    met_polished: metPolished,
+    met_cut_sliced: metCutSliced,
+    met_polished_window: metPolishedWindow,
   }
 }
 
@@ -555,6 +616,22 @@ async function copyYoutubeVideos(productId: string, specimenId: string): Promise
   for (const v of videos) await addYoutubeVideo(productId, v.youtube_id, v.title, v.sort_order)
 }
 
+/** Etiquetas QR extras já impressas e vinculadas ao specimen no catálogo
+ *  pessoal (`specimen_qr_aliases`) — o produto novo nasce com o MESMO uuid
+ *  do specimen (ver comentário no topo do arquivo), então basta recriar cada
+ *  alias com o MESMO id, apontando pro produto: a etiqueta física impressa
+ *  antes da transferência continua resolvendo sem reimpressão. */
+async function fetchCatalogQrAliases(specimenId: string): Promise<string[]> {
+  const { data, error } = await supabase.from('specimen_qr_aliases').select('id').eq('specimen_id', specimenId)
+  if (error) throw new Error(`Falha ao listar etiquetas QR do espécime: ${error.message}`)
+  return (data ?? []).map((r) => r.id as string)
+}
+
+async function copyQrAliases(productId: string, specimenId: string): Promise<void> {
+  const aliasIds = await fetchCatalogQrAliases(specimenId)
+  for (const aliasId of aliasIds) await linkQrAlias(productId, aliasId)
+}
+
 async function markSpecimenSold(specimenId: string): Promise<void> {
   const { error } = await supabase.from('specimens').update({ is_sold: true }).eq('id', specimenId)
   if (error) throw new Error(`Produto criado, mas falhou ao marcar o espécime como indisponível na coleção: ${error.message}`)
@@ -575,5 +652,6 @@ export async function importSpecimenToStore(specimenId: string): Promise<void> {
   await copyFossilSpecies(specimen.id, specimen)
   await copySpecimenMedia(specimen.id, specimen.id)
   await copyYoutubeVideos(specimen.id, specimen.id)
+  await copyQrAliases(specimen.id, specimen.id)
   await markSpecimenSold(specimen.id)
 }

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ITEM_KIND_LABELS } from '../../../types/db'
+import { ITEM_KIND_LABELS, type StoreItemKind } from '../../../types/db'
 import { formatMoney } from '../../../lib/format'
 import { priceFromCost, type PricingParams } from '../../../lib/pricing'
 import { TagIcon } from '../../../components/icons'
@@ -25,14 +25,23 @@ export function CommercialSection({
 
   return (
     <Section title="Dados da loja" icon={<TagIcon />}>
+      {/* Pílulas de tipo — mesmo padrão visual do seletor de tipo do
+          catálogo pessoal (SpecimenFormPage.tsx). */}
       <Labeled label="Tipo de item">
-        <select value={draft.kind} onChange={(e) => set('kind')(e.target.value)} className="input mt-1">
-          {Object.entries(ITEM_KIND_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
+        <div className="mt-1 flex flex-wrap gap-2">
+          {(Object.keys(ITEM_KIND_LABELS) as StoreItemKind[]).map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => set('kind')(value)}
+              className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition ${
+                draft.kind === value ? 'bg-amber-600 text-white' : 'bg-stone-800 text-stone-300 hover:bg-stone-700'
+              }`}
+            >
+              {ITEM_KIND_LABELS[value]}
+            </button>
           ))}
-        </select>
+        </div>
       </Labeled>
 
       <Field label="Nome" value={draft.name} onChange={set('name')} />

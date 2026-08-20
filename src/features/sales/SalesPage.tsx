@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import type { StoreCustomer, StorePaymentMethod, StoreProduct } from '../../types/db'
 import { fetchProducts } from '../products/api'
 import { fetchCustomers, createCustomer, type StoreCustomerInput } from '../customers/api'
@@ -32,7 +33,15 @@ const PAYMENT_LABELS: Record<StorePaymentMethod, string> = {
   outro: 'Outro',
 }
 
+interface SalesLocationState {
+  /** Vindo do Escanear (modo "Coletar") — ver `ScanPage.tsx`. Pré-carrega o
+   *  carrinho com esses produtos e já abre o diálogo de nova venda. */
+  prefillProductIds?: string[]
+}
+
 export function SalesPage() {
+  const location = useLocation()
+  const navigate = useNavigate()
   const [products, setProducts] = useState<StoreProduct[]>([])
   const [customers, setCustomers] = useState<StoreCustomer[]>([])
   const [sales, setSales] = useState<SaleWithCustomer[]>([])
@@ -69,6 +78,28 @@ export function SalesPage() {
   }
 
   useEffect(load, [])
+
+  // Vindo do Escanear (modo "Coletar"): monta o carrinho com os produtos
+  // lidos e abre o diálogo direto — só depois que `products` carregou, senão
+  // não há como resolver os ids. Limpa o state da rota ao final pra não
+  // refazer o prefill se o dono voltar pra cá depois.
+  useEffect(() => {
+    const state = location.state as SalesLocationState | null
+    const ids = state?.prefillProductIds
+    if (!ids || ids.length === 0 || products.length === 0) return
+    setCart((prev) => {
+      const next = [...prev]
+      for (const id of ids) {
+        const product = products.find((p) => p.id === id)
+        if (!product || next.some((l) => l.product_id === id)) continue
+        next.push({ product_id: product.id, name: product.name, quantity: 1, unit_price: product.sale_price, maxStock: product.stock_quantity })
+      }
+      return next
+    })
+    setSaleDialogOpen(true)
+    navigate(location.pathname, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products, location.state])
 
   const availableProducts = products.filter((p) => p.stock_quantity > 0)
 

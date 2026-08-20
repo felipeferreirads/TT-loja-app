@@ -4,13 +4,15 @@
 export type StoreProductDisposition = 'in_stock' | 'sold' | 'returned_to_collection'
 export type StorePaymentMethod = 'dinheiro' | 'cartao' | 'pix' | 'outro'
 export type StoreCashEntryKind = 'in' | 'out'
-export type StoreItemKind = 'mineral' | 'gem' | 'fossil' | 'meteorite' | 'other'
+// "Gema" não é mais um kind à parte — virou `is_gem` (checkbox) na própria
+// linha de mineral, igual ao catálogo pessoal (migration
+// 0018_gem_as_mineral_property.sql).
+export type StoreItemKind = 'mineral' | 'fossil' | 'meteorite' | 'other'
 export type StoreCustomerDocType = 'cpf' | 'cnpj'
 export type StoreMediaKind = 'image' | 'video'
 
 export const ITEM_KIND_LABELS: Record<StoreItemKind, string> = {
   mineral: 'Mineral',
-  gem: 'Gema',
   fossil: 'Fóssil',
   meteorite: 'Meteorito',
   other: 'Outros',
@@ -52,10 +54,21 @@ export interface StoreProduct {
   /** Minerais da amostra (0015) — ver `store_product_minerals`; o produto pode ter mais de um mineral (Mineral 1, 2, 3...). Vem embutido no SELECT de `store_products`, ordenado por `sort_order`. */
   minerals?: StoreProductMineral[]
 
+  /** @deprecated Legado (Lapidação em texto livre) — substituído por `cut_type`/`cut_name` abaixo. Preservado só pra não perder dado de produtos antigos. */
   gem_cut: string | null
   weight_ct: number | null
 
+  /** Mineral lapidado — checkbox "Lapidado (Gema)", igual ao catálogo pessoal. Os 5 campos abaixo só se aplicam com `is_gem = true`. */
+  is_gem: boolean
+  cut_type: string | null
+  gem_shape: string | null
+  /** Só faz sentido com `cut_type` "Facetado" ou "Misto". */
+  gem_cut_style: string | null
+  cut_name: string | null
+  gem_treatment: string | null
+
   met_class: string | null
+  /** @deprecated Legado (Grupo e Tipo juntos num campo só) — substituído por `met_group`/`met_type` abaixo. */
   met_type_group: string | null
   met_structure: string | null
   /** Grau de choque S1..S6 (auditoria de campos, Tarefa 7). */
@@ -66,6 +79,35 @@ export interface StoreProduct {
   met_material: string | null
   /** Massa total conhecida da queda/achado (auditoria de campos, Tarefa 7). */
   met_total_mass: string | null
+
+  /** Campos exclusivos de meteorito adicionados pra paridade com o catálogo
+   *  pessoal (migration 0019_meteorite_fields_parity.sql) — texto livre
+   *  gravando o valor da opção escolhida no select/toggle correspondente. */
+  met_category: string | null
+  met_group: string | null
+  met_type: string | null
+  met_age: string | null
+  /** 'Sim' | 'Não' | '' (— = não informado). */
+  met_fall_observed: string | null
+  met_fall_date: string | null
+  met_found_date: string | null
+  met_largest_fragment: string | null
+  met_largest_fragment_dimensions: string | null
+  /** 'Sim' | 'Não' | 'Parcial'. */
+  met_crust_fusion: string | null
+  /** Mesma escala de `met_weathering`, mas do EXEMPLAR (não da queda em geral). */
+  met_weathering_specimen: string | null
+  met_acid_etched: string | null
+  met_magnetism: string | null
+  /** Toggles Sim/vazio (não boolean — mesmo padrão do resto do app). */
+  met_individual_fragment: string | null
+  met_end_cut: string | null
+  met_chondrules_visible: string | null
+  met_metal_matrix_visible: string | null
+  met_olivine_visible: string | null
+  met_polished: string | null
+  met_cut_sliced: string | null
+  met_polished_window: string | null
 
   /** Taxonomia de fóssil MULTI-ESPÉCIE — ver `store_product_fossil_species`;
    *  o produto pode ser um lote com várias espécies. Não vem no SELECT de

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ChangeEvent } from 'react'
 import { Section } from './Field'
-import { TrashIcon, YouTubeIcon, PlayIcon, PhotoIcon } from '../../../components/icons'
+import { TrashIcon, YouTubeIcon, PlayIcon, PhotoIcon, PlusIcon } from '../../../components/icons'
 import { usePrompt, useAlert } from '../../../components/DialogProvider'
 import { parseYoutubeId, youtubeThumb } from '../../../lib/youtube'
 
@@ -71,8 +71,8 @@ export function PendingMedia({
           >
             <YouTubeIcon />
           </button>
-          <label className="btn-secondary cursor-pointer">
-            Adicionar
+          <label className="btn-secondary cursor-pointer" title="Adicionar fotos/vídeos" aria-label="Adicionar fotos/vídeos">
+            <PlusIcon />
             <input type="file" accept="image/*,video/*" multiple onChange={handleAdd} className="hidden" />
           </label>
         </div>

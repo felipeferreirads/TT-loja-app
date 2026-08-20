@@ -99,7 +99,7 @@ export function ProductPage() {
 
   /** Mesma reconciliação, pros minerais da amostra (0015). */
   const saveMinerals = async (productId: string) => {
-    if (kind !== 'mineral' && kind !== 'gem') return
+    if (kind !== 'mineral') return
     const currentIds = new Set(minerals.filter((m) => m.id).map((m) => m.id))
     for (const original of originalMinerals) {
       if (!currentIds.has(original.id)) await removeProductMineral(original.id)
@@ -142,7 +142,7 @@ export function ProductPage() {
   }
 
   return (
-    <div>
+    <div className="mx-auto max-w-6xl">
       <header className="mb-4 flex items-start justify-between">
         <div>
           <Link to="/produtos" className="inline-flex items-center gap-1 text-sm text-stone-400 hover:text-stone-200">
@@ -196,10 +196,6 @@ export function ProductPage() {
 
           <EcommerceSection draft={draft} set={set} />
 
-          {(kind === 'mineral' || kind === 'gem') && (
-            <MineralsInSampleSection minerals={minerals} onChange={setMinerals} />
-          )}
-
           <Section title="Notas" icon={<NotesIcon />}>
             <textarea
               value={draft.notes}
@@ -208,6 +204,10 @@ export function ProductPage() {
               className="input min-h-20"
             />
           </Section>
+
+          {kind === 'mineral' && (
+            <MineralsInSampleSection minerals={minerals} onChange={setMinerals} />
+          )}
         </div>
       </div>
     </div>

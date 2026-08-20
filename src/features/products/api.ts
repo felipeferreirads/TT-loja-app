@@ -237,6 +237,16 @@ export async function fetchFossilSpecies(productId: string): Promise<StoreProduc
   return data
 }
 
+/** Catálogo de espécies já cadastradas em QUALQUER produto — alimenta o botão
+ *  "Taxonomia" (busca primeiro na própria loja, antes de consultar PBDB/GBIF).
+ *  Só as colunas de taxonomia, sem `product_id`: o produto de origem não
+ *  importa aqui, só o nome científico e a taxonomia associada a ele. */
+export async function fetchFossilSpeciesCatalog(): Promise<StoreProductFossilSpecies[]> {
+  const { data, error } = await supabase.from('store_product_fossil_species').select('*')
+  if (error) throw new Error(`Falha ao carregar catálogo de espécies: ${error.message}`)
+  return data
+}
+
 export async function addFossilSpecies(
   productId: string,
   input: StoreProductFossilSpeciesInput,

@@ -6,13 +6,46 @@ import { ProductCard } from './ProductCard'
 import { formatMoney, stripAccents } from '../../lib/format'
 import { useConfirm } from '../../components/DialogProvider'
 import { SearchField } from '../../components/SearchField'
-import { GridViewIcon, ImportIcon, ListViewIcon, PlusIcon, SearchIcon, TrashIcon } from '../../components/icons'
+import {
+  GridDenseIcon,
+  GridLargeIcon,
+  GridViewIcon,
+  ImportIcon,
+  ListViewIcon,
+  PlusIcon,
+  QrCodeIcon,
+  TrashIcon,
+} from '../../components/icons'
 import { SortControl } from '../../components/SortControl'
 import { ExportMenu } from './export/ExportMenu'
 import { ImportFromCollectionDialog } from './ImportFromCollectionDialog'
 
-type ViewMode = 'grid' | 'list'
+// 3 densidades de grade + lista — mesmo padrão do catálogo pessoal
+// (SpecimenToolbar.tsx: `MOBILE_VIEW_MODES`), simplificado sem o slider de
+// desktop (a loja não tem coleções grandes o bastante pra justificar xs/xl).
+type ViewMode = 'list' | 'grid-sm' | 'grid-md' | 'grid-lg'
 const VIEW_STORAGE_KEY = 'tt_loja_products_view'
+const VIEW_MODES: { value: ViewMode; icon: typeof ListViewIcon; label: string }[] = [
+  { value: 'list', icon: ListViewIcon, label: 'Visualizar em lista' },
+  { value: 'grid-sm', icon: GridDenseIcon, label: 'Grade densa' },
+  { value: 'grid-md', icon: GridViewIcon, label: 'Grade média' },
+  { value: 'grid-lg', icon: GridLargeIcon, label: 'Grade grande' },
+]
+// `repeat(auto-fill, minmax(...))` — mesmos valores do catálogo pessoal
+// (`GRID_CLASSES` em SpecimenToolbar.tsx), pro card manter largura-alvo
+// constante em vez de esticar num monitor largo.
+const GRID_CLASSES: Record<Exclude<ViewMode, 'list'>, string> = {
+  'grid-sm': 'grid grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-2',
+  'grid-md': 'grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-3',
+  'grid-lg': 'grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4',
+}
+function loadView(): ViewMode {
+  const saved = localStorage.getItem(VIEW_STORAGE_KEY)
+  if (saved === 'grid') return 'grid-md' // migração do valor antigo (só grade/lista)
+  return (['list', 'grid-sm', 'grid-md', 'grid-lg'] as ViewMode[]).includes(saved as ViewMode)
+    ? (saved as ViewMode)
+    : 'grid-md'
+}
 
 const KIND_FILTERS = Object.entries(ITEM_KIND_LABELS) as [StoreItemKind, string][]
 
@@ -30,9 +63,7 @@ export function ProductsPage() {
   const [coverUrls, setCoverUrls] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [view, setView] = useState<ViewMode>(
-    () => (localStorage.getItem(VIEW_STORAGE_KEY) as ViewMode | null) ?? 'grid',
-  )
+  const [view, setView] = useState<ViewMode>(loadView)
   const [importing, setImporting] = useState(false)
   // Busca e filtro moram na query string pra sobreviverem ao "voltar" depois
   // de abrir um produto — mesmo padrão da Coleção no catálogo pessoal.
@@ -97,6 +128,9 @@ export function ProductsPage() {
       <header className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-bold text-stone-100">Produtos</h1>
         <div className="flex items-center gap-2">
+          <Link to="/escanear" className="btn-secondary" title="Escanear QR" aria-label="Escanear QR">
+            <QrCodeIcon className="h-4 w-4" />
+          </Link>
           <button type="button" onClick={() => setImporting(true)} className="btn-secondary inline-flex items-center gap-1.5">
             <ImportIcon className="h-4 w-4" />
             Importar da coleção
@@ -109,17 +143,27 @@ export function ProductsPage() {
         </div>
       </header>
 
+      <div className="mb-3">
+        <SearchField
+          value={search}
+          onCommit={(v) => setParam('q', v || null)}
+          placeholder="Buscar por nome, SKU, espécie, localidade…"
+        />
+      </div>
+
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="relative max-w-xl flex-1">
-          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-500" />
-          <SearchField
-            value={search}
-            onCommit={(v) => setParam('q', v || null)}
-            placeholder="Buscar por nome, SKU, espécie, localidade…"
-            className="pl-9"
-          />
+        <div className="no-scrollbar order-1 flex w-full justify-start gap-2 overflow-x-auto pb-1 text-sm sm:w-auto sm:flex-1">
+          <KindChip active={!kindFilter} onClick={() => setParam('tipo', null)} label="Todos" />
+          {KIND_FILTERS.map(([value, label]) => (
+            <KindChip
+              key={value}
+              active={kindFilter === value}
+              onClick={() => setParam('tipo', kindFilter === value ? null : value)}
+              label={label}
+            />
+          ))}
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="order-2 flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
           <SortControl
             value={sortField}
             onChange={(v) => setParam('ordenar', v === 'name' ? null : v)}
@@ -127,37 +171,23 @@ export function ProductsPage() {
             dir={sortDir}
             onToggleDir={() => setParam('dir', sortDir === 'asc' ? 'desc' : null)}
           />
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => chooseView('grid')}
-              aria-label="Visualizar em grade"
-              className={`tap-icon ${view === 'grid' ? 'text-amber-400' : ''}`}
-            >
-              <GridViewIcon className="h-5 w-5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => chooseView('list')}
-              aria-label="Visualizar em lista"
-              className={`tap-icon ${view === 'list' ? 'text-amber-400' : ''}`}
-            >
-              <ListViewIcon className="h-5 w-5" />
-            </button>
+          <div className="flex shrink-0 overflow-hidden rounded-full bg-stone-800">
+            {VIEW_MODES.map((v) => (
+              <button
+                key={v.value}
+                type="button"
+                onClick={() => chooseView(v.value)}
+                aria-label={v.label}
+                title={v.label}
+                className={`inline-flex min-h-11 items-center px-2.5 text-sm transition sm:h-7 sm:min-h-0 sm:py-0 ${
+                  view === v.value ? 'bg-amber-600 text-white' : 'text-stone-400 hover:bg-stone-700'
+                }`}
+              >
+                <v.icon className="h-4 w-4" />
+              </button>
+            ))}
           </div>
         </div>
-      </div>
-
-      <div className="no-scrollbar mb-4 flex items-center gap-1 overflow-x-auto text-sm">
-        <KindChip active={!kindFilter} onClick={() => setParam('tipo', null)} label="Todos" />
-        {KIND_FILTERS.map(([value, label]) => (
-          <KindChip
-            key={value}
-            active={kindFilter === value}
-            onClick={() => setParam('tipo', kindFilter === value ? null : value)}
-            label={label}
-          />
-        ))}
       </div>
 
       {loading && <p className="text-sm text-stone-400">Carregando…</p>}
@@ -169,8 +199,8 @@ export function ProductsPage() {
         </p>
       )}
 
-      {visible.length > 0 && view === 'grid' && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+      {visible.length > 0 && view !== 'list' && (
+        <div className={GRID_CLASSES[view]}>
           {visible.map((p) => (
             <ProductCard key={p.id} product={p} coverUrl={coverUrls[p.id]} />
           ))}
@@ -240,8 +270,8 @@ function KindChip({ active, onClick, label }: { active: boolean; onClick: () => 
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-h-9 shrink-0 items-center rounded-full px-4 transition ${
-        active ? 'bg-stone-800 text-amber-400' : 'text-stone-400 hover:text-stone-100'
+      className={`inline-flex min-h-11 shrink-0 items-center rounded-full px-3 text-sm whitespace-nowrap transition sm:min-h-0 sm:py-1 ${
+        active ? 'bg-amber-600 text-white' : 'bg-stone-800 text-stone-300 hover:bg-stone-700'
       }`}
     >
       {label}

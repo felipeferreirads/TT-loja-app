@@ -8,8 +8,12 @@ const TEXT_FIELDS = [
   'name', 'sku', 'notes',
   'origin_country', 'origin_state', 'origin', 'dimensions',
   'color', 'color_secondary', 'special_properties', 'uv_color', 'iridescence_color', 'play_of_color',
-  'gem_cut',
+  'gem_cut', 'cut_type', 'gem_shape', 'gem_cut_style', 'cut_name', 'gem_treatment',
   'met_class', 'met_type_group', 'met_structure', 'met_shock', 'met_weathering', 'met_material', 'met_total_mass',
+  'met_category', 'met_group', 'met_type', 'met_age', 'met_fall_observed', 'met_fall_date', 'met_found_date',
+  'met_largest_fragment', 'met_largest_fragment_dimensions', 'met_crust_fusion', 'met_weathering_specimen',
+  'met_acid_etched', 'met_magnetism', 'met_individual_fragment', 'met_end_cut', 'met_chondrules_visible',
+  'met_metal_matrix_visible', 'met_olivine_visible', 'met_polished', 'met_cut_sliced', 'met_polished_window',
   'ecommerce_slug', 'ecommerce_description', 'ecommerce_category_path', 'ecommerce_google_category',
   'ecommerce_tags', 'ecommerce_seo_title', 'ecommerce_seo_description',
 ] as const
@@ -20,7 +24,7 @@ export const NUMERIC_FIELDS = new Set([
 ])
 
 /** Campos booleanos do draft: viajam como string 'true'/'false' até `toInput`. */
-export const BOOLEAN_FIELDS = new Set(['ecommerce_free_shipping', 'ecommerce_published'])
+export const BOOLEAN_FIELDS = new Set(['ecommerce_free_shipping', 'ecommerce_published', 'is_gem'])
 
 export function toDraft(p: StoreProduct | null): Draft {
   const d: Draft = {}

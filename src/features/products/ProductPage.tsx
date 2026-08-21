@@ -37,6 +37,7 @@ import { toDraft, toInput, type Draft } from './form/draft'
 import { ArrowLeftIcon, NotesIcon } from '../../components/icons'
 import { ExportMenu } from './export/ExportMenu'
 import { addYoutubeVideo } from './youtubeVideos'
+import { isUuidLike } from './qr'
 
 export function ProductPage() {
   const { id } = useParams<{ id: string }>()
@@ -44,6 +45,12 @@ export function ProductPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const lotId = searchParams.get('lot')
+  // Criação a partir de uma etiqueta QR "reservada" (`/produtos/novo?reservedId=<uuid>`,
+  // ver `LotItemsSection.tsx` "Nova peça com etiqueta reservada"): o produto
+  // nasce com ESSE uuid em vez de um sorteado — mesmo mecanismo do catálogo
+  // pessoal (`SpecimenFormPage.tsx`).
+  const reservedIdParam = isNew ? searchParams.get('reservedId') : null
+  const reservedId = reservedIdParam && isUuidLike(reservedIdParam) ? reservedIdParam : null
 
   const [draft, setDraft] = useState<Draft | null>(isNew ? toDraft(null) : null)
   const [pricing, setPricing] = useState<PricingParams | null>(null)
@@ -211,7 +218,8 @@ export function ProductPage() {
       if (isNew) {
         // Id gerado no cliente para que fotos/vídeos escolhidos antes de
         // salvar tenham um destino conhecido — o upload acontece logo após o insert.
-        const newId = crypto.randomUUID()
+        // Com etiqueta reservada, o uuid é o já escaneado, não um sorteado.
+        const newId = reservedId ?? crypto.randomUUID()
         const created = await createProduct({ ...input, id: newId })
         for (const file of pendingFiles) await uploadProductMedia(newId, file)
         for (const [i, youtubeId] of pendingYoutube.entries()) {
@@ -254,6 +262,13 @@ export function ProductPage() {
       </header>
 
       {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
+
+      {reservedId && (
+        <p className="mb-4 rounded-lg border border-amber-800/60 bg-amber-950/30 px-3 py-2 text-sm text-amber-200">
+          Este produto vai nascer com o código já escaneado na etiqueta (
+          <span className="font-mono">{reservedId.slice(0, 8)}…</span>), sem precisar de outra etiqueta depois.
+        </p>
+      )}
 
       {/* Fotos e vídeos primeiro (pedido do dono, 18/08/2026) — é a primeira
           coisa que aparece na ficha, antes até dos dados comerciais. */}

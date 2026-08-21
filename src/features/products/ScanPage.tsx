@@ -13,7 +13,7 @@ import {
 } from '../../components/icons'
 import { fetchCoverUrls, fetchProducts } from './api'
 import { isUuidLike, normalizeScannedValue, resolveScannedValue } from './qr'
-import { barcodeDetectorCtor, openCameraStream, SCAN_INTERVAL_MS } from '../../lib/qrCamera'
+import { barcodeDetectorCtor, openCameraStream, SCAN_INTERVAL_MS, setPreferredCameraId } from '../../lib/qrCamera'
 
 /**
  * Escanear QR (adaptado de `ScanPage.tsx` do catálogo pessoal, claude.md §2).
@@ -62,6 +62,12 @@ export function ScanPage() {
   const [history, setHistory] = useState<StoreProduct[]>([])
   const [mode, setMode] = useState<ScanMode>(readStoredMode)
   const [collectedIds, setCollectedIds] = useState<string[]>(readStoredCollected)
+  // Câmeras traseiras disponíveis (só têm RÓTULO depois da permissão
+  // concedida) e qual está ativa — alimenta o botão "Trocar câmera": o zoom
+  // mínimo (openCameraStream) acerta a lente certa na maioria dos aparelhos,
+  // mas nem sempre, daí o contorno manual.
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([])
+  const [activeDeviceId, setActiveDeviceId] = useState<string | null>(null)
 
   const detectorSupported = barcodeDetectorCtor() !== null
 
@@ -109,7 +115,8 @@ export function ScanPage() {
     setCollectedIds((prev) => (prev.includes(found.id) ? prev : [found.id, ...prev]))
   }, [])
 
-  const startCamera = useCallback(async () => {
+  /** `deviceId` explícito = troca manual (botão "Trocar câmera"); ausente = pedido normal (facingMode + zoom mínimo, ou a câmera lembrada da última troca). */
+  const startCamera = useCallback(async (deviceId?: string) => {
     const Detector = barcodeDetectorCtor()
     if (!Detector) {
       setCamera('unsupported')
@@ -117,7 +124,7 @@ export function ScanPage() {
     }
     setCamera('starting')
     try {
-      const stream = await openCameraStream()
+      const stream = await openCameraStream(deviceId)
       streamRef.current = stream
       const video = videoRef.current
       if (!video) {
@@ -126,12 +133,31 @@ export function ScanPage() {
       }
       video.srcObject = stream
       await video.play()
+      setActiveDeviceId(stream.getVideoTracks()[0]?.getSettings().deviceId ?? null)
       setCamera('running')
+
+      // Rótulo do dispositivo só existe DEPOIS da permissão concedida.
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices()
+        setVideoDevices(devices.filter((d) => d.kind === 'videoinput'))
+      } catch {
+        // Sem enumerateDevices (navegador antigo): só perde o botão de trocar câmera.
+      }
     } catch (err) {
       const name = err instanceof Error ? err.name : ''
       setCamera(name === 'NotAllowedError' || name === 'SecurityError' ? 'denied' : 'error')
     }
   }, [])
+
+  /** Troca pra próxima câmera da lista (cíclico) e lembra a escolha pras próximas vezes. */
+  const switchCamera = useCallback(() => {
+    if (videoDevices.length < 2) return
+    const currentIndex = videoDevices.findIndex((d) => d.deviceId === activeDeviceId)
+    const next = videoDevices[(currentIndex + 1) % videoDevices.length]
+    setPreferredCameraId(next.deviceId)
+    stopCamera()
+    void startCamera(next.deviceId)
+  }, [videoDevices, activeDeviceId, stopCamera, startCamera])
 
   useEffect(() => {
     void startCamera()
@@ -253,6 +279,14 @@ export function ScanPage() {
           </div>
         )}
       </div>
+
+      {camera === 'running' && videoDevices.length > 1 && (
+        <div className="mt-2 flex justify-end">
+          <button type="button" onClick={switchCamera} className="text-xs text-stone-400 hover:underline">
+            Trocar câmera
+          </button>
+        </div>
+      )}
 
       <form onSubmit={submitManual} className="mt-3 flex gap-2">
         <input

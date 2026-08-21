@@ -5,7 +5,7 @@ import { CloseIcon, LinkIcon, QrCodeIcon, TrashIcon } from '../../../components/
 import type { StoreProduct } from '../../../types/db'
 import { deleteQrAlias, fetchProducts, linkQrAlias, repointQrAlias } from '../api'
 import { isUuidLike, normalizeScannedValue, resolveScannedValue } from '../qr'
-import { barcodeDetectorCtor, openCameraStream, SCAN_INTERVAL_MS } from '../../../lib/qrCamera'
+import { barcodeDetectorCtor, openCameraStream, SCAN_INTERVAL_MS, setPreferredCameraId } from '../../../lib/qrCamera'
 import { Section } from './Field'
 
 /**
@@ -140,6 +140,10 @@ function QrLinkScanner({ onDetect, onClose }: { onDetect: (value: string) => voi
   const streamRef = useRef<MediaStream | null>(null)
   const [camera, setCamera] = useState<CameraState>('idle')
   const [manual, setManual] = useState('')
+  // Mesmo contorno do ScanPage: em aparelhos com várias lentes traseiras
+  // separadas, o pedido automático às vezes pega a grande-angular.
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([])
+  const [activeDeviceId, setActiveDeviceId] = useState<string | null>(null)
   const detectorSupported = barcodeDetectorCtor() !== null
 
   const stopCamera = () => {
@@ -147,7 +151,7 @@ function QrLinkScanner({ onDetect, onClose }: { onDetect: (value: string) => voi
     streamRef.current = null
   }
 
-  const startCamera = async () => {
+  const startCamera = async (deviceId?: string) => {
     const Detector = barcodeDetectorCtor()
     if (!Detector) {
       setCamera('unsupported')
@@ -155,7 +159,7 @@ function QrLinkScanner({ onDetect, onClose }: { onDetect: (value: string) => voi
     }
     setCamera('starting')
     try {
-      const stream = await openCameraStream()
+      const stream = await openCameraStream(deviceId)
       streamRef.current = stream
       const video = videoRef.current
       if (!video) {
@@ -164,11 +168,28 @@ function QrLinkScanner({ onDetect, onClose }: { onDetect: (value: string) => voi
       }
       video.srcObject = stream
       await video.play()
+      setActiveDeviceId(stream.getVideoTracks()[0]?.getSettings().deviceId ?? null)
       setCamera('running')
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices()
+        setVideoDevices(devices.filter((d) => d.kind === 'videoinput'))
+      } catch {
+        // Sem enumerateDevices (navegador antigo): só perde o botão de trocar câmera.
+      }
     } catch (err) {
       const name = err instanceof Error ? err.name : ''
       setCamera(name === 'NotAllowedError' || name === 'SecurityError' ? 'denied' : 'error')
     }
+  }
+
+  /** Troca pra próxima câmera da lista (cíclico) e lembra a escolha pras próximas vezes. */
+  const switchCamera = () => {
+    if (videoDevices.length < 2) return
+    const currentIndex = videoDevices.findIndex((d) => d.deviceId === activeDeviceId)
+    const next = videoDevices[(currentIndex + 1) % videoDevices.length]
+    setPreferredCameraId(next.deviceId)
+    stopCamera()
+    startCamera(next.deviceId)
   }
 
   useEffect(() => {
@@ -222,9 +243,16 @@ function QrLinkScanner({ onDetect, onClose }: { onDetect: (value: string) => voi
         <span className="flex items-center gap-2 text-sm font-medium text-white">
           <QrCodeIcon /> Escanear etiqueta
         </span>
-        <button onClick={onClose} title="Cancelar" aria-label="Cancelar" className="tap-icon bg-white/10 text-white">
-          <CloseIcon />
-        </button>
+        <div className="flex items-center gap-3">
+          {camera === 'running' && videoDevices.length > 1 && (
+            <button onClick={switchCamera} className="text-xs text-stone-300 hover:underline">
+              Trocar câmera
+            </button>
+          )}
+          <button onClick={onClose} title="Cancelar" aria-label="Cancelar" className="tap-icon bg-white/10 text-white">
+            <CloseIcon />
+          </button>
+        </div>
       </div>
 
       <div className="relative flex-1 overflow-hidden">
@@ -237,7 +265,7 @@ function QrLinkScanner({ onDetect, onClose }: { onDetect: (value: string) => voi
             {camera === 'denied' && (
               <>
                 Permissão de câmera negada.
-                <button onClick={startCamera} className="btn-secondary">
+                <button onClick={() => startCamera()} className="btn-secondary">
                   Tentar de novo
                 </button>
               </>
@@ -245,7 +273,7 @@ function QrLinkScanner({ onDetect, onClose }: { onDetect: (value: string) => voi
             {camera === 'error' && (
               <>
                 Não foi possível abrir a câmera.
-                <button onClick={startCamera} className="btn-secondary">
+                <button onClick={() => startCamera()} className="btn-secondary">
                   Tentar de novo
                 </button>
               </>

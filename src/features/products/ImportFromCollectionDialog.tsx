@@ -6,7 +6,7 @@ import {
   normalizeScannedValue,
   type ImportableSpecimen,
 } from './importFromCollection'
-import { barcodeDetectorCtor, openCameraStream, SCAN_INTERVAL_MS } from '../../lib/qrCamera'
+import { barcodeDetectorCtor, openCameraStream, SCAN_INTERVAL_MS, setPreferredCameraId } from '../../lib/qrCamera'
 import { CloseIcon, QrCodeIcon, SearchIcon } from '../../components/icons'
 
 const TYPE_LABELS: Record<ImportableSpecimen['type'], string> = {
@@ -53,6 +53,10 @@ export function ImportFromCollectionDialog({
   const [camera, setCamera] = useState<CameraState>('idle')
   const [manualCode, setManualCode] = useState('')
   const [scanFeedback, setScanFeedback] = useState<{ text: string; ok: boolean } | null>(null)
+  // Mesmo contorno do ScanPage/QrLinkSection: em aparelhos com várias lentes
+  // traseiras separadas, o pedido automático às vezes pega a grande-angular.
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([])
+  const [activeDeviceId, setActiveDeviceId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchImportableSpecimens()
@@ -76,7 +80,7 @@ export function ImportFromCollectionDialog({
     streamRef.current = null
   }, [])
 
-  const startCamera = useCallback(async () => {
+  const startCamera = useCallback(async (deviceId?: string) => {
     const Detector = barcodeDetectorCtor()
     if (!Detector) {
       setCamera('unsupported')
@@ -84,7 +88,7 @@ export function ImportFromCollectionDialog({
     }
     setCamera('starting')
     try {
-      const stream = await openCameraStream()
+      const stream = await openCameraStream(deviceId)
       streamRef.current = stream
       const video = videoRef.current
       if (!video) {
@@ -93,12 +97,29 @@ export function ImportFromCollectionDialog({
       }
       video.srcObject = stream
       await video.play()
+      setActiveDeviceId(stream.getVideoTracks()[0]?.getSettings().deviceId ?? null)
       setCamera('running')
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices()
+        setVideoDevices(devices.filter((d) => d.kind === 'videoinput'))
+      } catch {
+        // Sem enumerateDevices (navegador antigo): só perde o botão de trocar câmera.
+      }
     } catch (err) {
       const name = err instanceof Error ? err.name : ''
       setCamera(name === 'NotAllowedError' || name === 'SecurityError' ? 'denied' : 'error')
     }
   }, [])
+
+  /** Troca pra próxima câmera da lista (cíclico) e lembra a escolha pras próximas vezes. */
+  const switchCamera = useCallback(() => {
+    if (videoDevices.length < 2) return
+    const currentIndex = videoDevices.findIndex((d) => d.deviceId === activeDeviceId)
+    const next = videoDevices[(currentIndex + 1) % videoDevices.length]
+    setPreferredCameraId(next.deviceId)
+    stopCamera()
+    void startCamera(next.deviceId)
+  }, [videoDevices, activeDeviceId, stopCamera, startCamera])
 
   useEffect(() => {
     if (mode !== 'scan') {
@@ -278,6 +299,13 @@ export function ImportFromCollectionDialog({
                 </div>
               )}
             </div>
+            {camera === 'running' && videoDevices.length > 1 && (
+              <div className="flex justify-end">
+                <button type="button" onClick={switchCamera} className="text-xs text-stone-400 hover:underline">
+                  Trocar câmera
+                </button>
+              </div>
+            )}
             <form onSubmit={submitManualCode} className="flex gap-2">
               <input
                 value={manualCode}

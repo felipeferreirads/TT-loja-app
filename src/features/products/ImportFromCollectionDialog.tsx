@@ -136,9 +136,15 @@ export function ImportFromCollectionDialog({
       if (!active || busy || !video || video.readyState < 2) return
       busy = true
       try {
+        // Detecta TODOS os códigos do quadro (não só o primeiro) — permite
+        // escanear uma folha inteira de etiquetas de uma vez, igual o modo
+        // "Coletar" do ScanPage.tsx.
         const codes = await detector.detect(video)
-        const raw = codes[0]?.rawValue
-        if (raw && active) await handleScannedValue(raw)
+        if (active) {
+          for (const code of codes) {
+            if (code.rawValue) await handleScannedValue(code.rawValue)
+          }
+        }
       } catch {
         // Quadro ilegível/câmera trocando de foco: silencioso.
       } finally {
@@ -290,39 +296,72 @@ export function ImportFromCollectionDialog({
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto p-2">
-          {loading && <p className="p-2 text-sm text-stone-400">Carregando…</p>}
-          {!loading && !error && visible.length === 0 && (
-            <p className="p-2 text-sm text-stone-400">
-              {specimens.length === 0
-                ? 'Nenhum item disponível pra importar (tudo já está na loja ou marcado como vendido).'
-                : 'Nenhum item encontrado.'}
-            </p>
-          )}
-          {!loading &&
-            visible.map((s) => (
-              <label
-                key={s.id}
-                className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 hover:bg-stone-800"
-              >
-                <input
-                  type="checkbox"
-                  checked={selected.includes(s.id)}
-                  onChange={() => toggle(s.id)}
-                  disabled={busy}
-                  className="accent-amber-600"
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm text-stone-100">{s.displayName}</span>
-                  <span className="block truncate text-xs text-stone-500">
-                    {TYPE_LABELS[s.type]}
-                    {s.code_global ? ` · #${s.code_global}` : ''}
-                    {s.origin ? ` · ${s.origin}` : ''}
+        {mode === 'search' && (
+          <div className="flex-1 overflow-y-auto p-2">
+            {loading && <p className="p-2 text-sm text-stone-400">Carregando…</p>}
+            {!loading && !error && visible.length === 0 && (
+              <p className="p-2 text-sm text-stone-400">
+                {specimens.length === 0
+                  ? 'Nenhum item disponível pra importar (tudo já está na loja ou marcado como vendido).'
+                  : 'Nenhum item encontrado.'}
+              </p>
+            )}
+            {!loading &&
+              visible.map((s) => (
+                <label
+                  key={s.id}
+                  className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 hover:bg-stone-800"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(s.id)}
+                    onChange={() => toggle(s.id)}
+                    disabled={busy}
+                    className="accent-amber-600"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm text-stone-100">{s.displayName}</span>
+                    <span className="block truncate text-xs text-stone-500">
+                      {TYPE_LABELS[s.type]}
+                      {s.code_global ? ` · #${s.code_global}` : ''}
+                      {s.origin ? ` · ${s.origin}` : ''}
+                    </span>
                   </span>
-                </span>
-              </label>
-            ))}
-        </div>
+                </label>
+              ))}
+          </div>
+        )}
+
+        {mode === 'scan' && selected.length > 0 && (
+          <div className="flex-1 overflow-y-auto p-2">
+            <p className="px-2 pb-1 text-xs font-medium text-stone-500">Selecionados nesta sessão ({selected.length})</p>
+            {selected.map((id) => {
+              const s = specimens.find((x) => x.id === id)
+              if (!s) return null
+              return (
+                <div key={id} className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-stone-800">
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm text-stone-100">{s.displayName}</span>
+                    <span className="block truncate text-xs text-stone-500">
+                      {TYPE_LABELS[s.type]}
+                      {s.code_global ? ` · #${s.code_global}` : ''}
+                      {s.origin ? ` · ${s.origin}` : ''}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => toggle(id)}
+                    disabled={busy}
+                    aria-label="Remover"
+                    className="shrink-0 text-stone-500 transition hover:text-stone-300"
+                  >
+                    <CloseIcon />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
 
         {error && <p className="border-t border-stone-800 p-3 text-sm text-red-400">{error}</p>}
         {progress && (

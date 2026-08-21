@@ -10,6 +10,7 @@ import { formatMoney } from '../../lib/format'
 import { PlusIcon, SearchIcon } from '../../components/icons'
 import { SearchSelect } from '../../components/SearchSelect'
 import { SortControl } from '../../components/SortControl'
+import { ReceiptDialog } from './ReceiptDialog'
 
 type SaleSortField = 'date' | 'total'
 
@@ -26,7 +27,7 @@ interface CartLine {
   maxStock: number
 }
 
-const PAYMENT_LABELS: Record<StorePaymentMethod, string> = {
+export const PAYMENT_LABELS: Record<StorePaymentMethod, string> = {
   dinheiro: 'Dinheiro',
   cartao: 'Cartão',
   pix: 'Pix',
@@ -56,10 +57,14 @@ export function SalesPage() {
   // O banco grava `store_sales.discount` sempre em REAIS; o modo percentual é
   // só de entrada, convertido sobre o subtotal na hora de registrar.
   const [discountMode, setDiscountMode] = useState<'brl' | 'pct'>('brl')
+  // Adicional (frete, serviço, embalagem etc.) — somado ao total, não é item
+  // de carrinho nem baixa estoque.
+  const [extra, setExtra] = useState('0')
   const [busy, setBusy] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [newCustomerOpen, setNewCustomerOpen] = useState(false)
   const [saleDialogOpen, setSaleDialogOpen] = useState(false)
+  const [receiptSaleId, setReceiptSaleId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [sortField, setSortField] = useState<SaleSortField>('date')
   // "Mais recentes primeiro" por padrão: data em ordem decrescente.
@@ -137,7 +142,8 @@ export function SalesPage() {
   const subtotal = cart.reduce((sum, l) => sum + l.quantity * l.unit_price, 0)
   const discountValue =
     discountMode === 'pct' ? (subtotal * (Number(discount) || 0)) / 100 : Number(discount) || 0
-  const total = Math.max(0, subtotal - discountValue)
+  const extraValue = Number(extra) || 0
+  const total = Math.max(0, subtotal - discountValue + extraValue)
 
   const handleSubmit = async () => {
     if (cart.length === 0) return
@@ -148,11 +154,13 @@ export function SalesPage() {
         customer_id: customerId || null,
         payment_method: paymentMethod,
         discount: discountValue,
+        extra_amount: extraValue,
         notes: null,
         items: cart.map((l) => ({ product_id: l.product_id, quantity: l.quantity, unit_price: l.unit_price })),
       })
       setCart([])
       setDiscount('0')
+      setExtra('0')
       setCustomerId('')
       setSaleDialogOpen(false)
       load()
@@ -215,14 +223,40 @@ export function SalesPage() {
           {filteredSales.length > 0 && (
             <div className="space-y-2 text-sm">
               {filteredSales.map((s) => (
-                <div key={s.id} className="flex items-center justify-between border-b border-stone-800 pb-2">
-                  <div>
+                <div key={s.id} className="flex items-center justify-between gap-3 border-b border-stone-800 pb-2">
+                  <div className="min-w-0">
                     <p className="text-stone-200">{s.customer?.name ?? 'Sem cliente'}</p>
                     <p className="text-xs text-stone-500">
                       {new Date(s.sale_date).toLocaleString('pt-BR')} · {PAYMENT_LABELS[s.payment_method]}
                     </p>
                   </div>
-                  <span className="font-medium text-stone-100">{formatMoney(s.total)}</span>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setReceiptSaleId(s.id)}
+                      className="text-xs text-stone-500 hover:text-amber-500 hover:underline"
+                    >
+                      Recibo
+                    </button>
+                    {s.documents[0] ? (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/documentos/${s.documents[0].id}`)}
+                        className="text-xs text-amber-500 hover:underline"
+                      >
+                        NF {s.documents[0].number ?? s.documents[0].title} ✓
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/documentos/novo?sale=${s.id}`)}
+                        className="text-xs text-stone-500 hover:text-amber-500 hover:underline"
+                      >
+                        Nota fiscal
+                      </button>
+                    )}
+                    <span className="font-medium text-stone-100">{formatMoney(s.total)}</span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -359,11 +393,35 @@ export function SalesPage() {
                 )}
               </div>
 
+              <label className="block">
+                <span className="text-sm text-stone-300">Adicional (frete, serviço, embalagem…)</span>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={extra}
+                  onChange={(e) => setExtra(e.target.value)}
+                  className="input mt-1"
+                />
+              </label>
+
               <div className="space-y-1 border-t border-stone-800 pt-3">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-stone-400">Subtotal</span>
                   <span className="text-stone-300">{formatMoney(subtotal)}</span>
                 </div>
+                {discountValue > 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-stone-400">Desconto</span>
+                    <span className="text-stone-300">-{formatMoney(discountValue)}</span>
+                  </div>
+                )}
+                {extraValue > 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-stone-400">Adicional</span>
+                    <span className="text-stone-300">+{formatMoney(extraValue)}</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-stone-300">Total</span>
                   <span className="text-lg font-bold text-stone-100">{formatMoney(total)}</span>
@@ -389,6 +447,8 @@ export function SalesPage() {
           </div>,
           document.body,
         )}
+
+      {receiptSaleId && <ReceiptDialog saleId={receiptSaleId} onClose={() => setReceiptSaleId(null)} />}
     </div>
   )
 }

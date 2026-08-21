@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ITEM_KIND_LABELS, type StoreProduct } from '../../types/db'
 import { formatMoney } from '../../lib/format'
-import { PhotoIcon } from '../../components/icons'
+import { PhotoIcon, StackIcon } from '../../components/icons'
 
 /** Tile da visualização em grade — capa, nome, tipo, preço e estoque. */
 export function ProductCard({ product, coverUrl }: { product: StoreProduct; coverUrl?: string }) {
@@ -11,11 +11,21 @@ export function ProductCard({ product, coverUrl }: { product: StoreProduct; cove
       to={`/produtos/${product.id}`}
       className="group flex flex-col overflow-hidden rounded-lg border border-stone-800 transition hover:border-stone-600"
     >
-      <div className="flex aspect-square w-full items-center justify-center bg-stone-900">
+      <div className="relative flex aspect-square w-full items-center justify-center bg-stone-900">
         {coverUrl ? (
           <img src={coverUrl} alt={product.name} loading="lazy" className="h-full w-full object-cover" />
         ) : (
           <PhotoIcon className="h-8 w-8 text-stone-700" />
+        )}
+        {product.lot_suffix && (
+          <span className="absolute top-1 left-1 rounded bg-black/60 px-1.5 py-0.5 font-mono text-[10px] text-amber-400">
+            #{product.lot_suffix}
+          </span>
+        )}
+        {product.is_lot && (
+          <span className="absolute top-1 right-1 rounded bg-black/60 p-1" title="Lote">
+            <StackIcon className="h-3 w-3 text-stone-300" />
+          </span>
         )}
       </div>
       <div className="flex flex-1 flex-col gap-1 p-2">

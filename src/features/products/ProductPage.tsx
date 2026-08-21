@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import type { StoreItemKind, StoreProduct, StoreProductFossilSpecies, StoreProductMineral } from '../../types/db'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import type { StoreItemKind, StoreProduct, StoreProductFossilSpecies, StoreProductMineral, StoreSkuPrefix } from '../../types/db'
 import {
   fetchProduct,
+  fetchProductChildren,
   createProduct,
   updateProduct,
   uploadProductMedia,
@@ -14,6 +15,10 @@ import {
   updateProductMineral,
   removeProductMineral,
 } from './api'
+import { fetchSkuPrefixes, suggestSku } from './skuPrefixes'
+import { LotItemsSection } from './LotItemsSection'
+import { nextLotSuffix } from './lots'
+import { ProductStockHistorySection } from './ProductStockHistorySection'
 import { ProductMediaGallery } from './ProductMediaGallery'
 import { ProductYoutubeGallery } from './ProductYoutubeGallery'
 import { fetchPricingSettings } from '../pricing/api'
@@ -25,6 +30,7 @@ import { FossilTaxonomySection, fossilSpeciesToDraft, fossilSpeciesToInput, type
 import { EcommerceSection } from './form/EcommerceSection'
 import { PendingMedia } from './form/PendingMedia'
 import { LinkedDocuments } from './form/LinkedDocuments'
+import { CertificatesSection } from './form/CertificatesSection'
 import { QrLinkSection } from './form/QrLinkSection'
 import { Section } from './form/Field'
 import { toDraft, toInput, type Draft } from './form/draft'
@@ -36,6 +42,8 @@ export function ProductPage() {
   const { id } = useParams<{ id: string }>()
   const isNew = id === 'novo'
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const lotId = searchParams.get('lot')
 
   const [draft, setDraft] = useState<Draft | null>(isNew ? toDraft(null) : null)
   const [pricing, setPricing] = useState<PricingParams | null>(null)
@@ -50,10 +58,33 @@ export function ProductPage() {
   // Guardado à parte do draft (que só tem strings) pra alimentar o
   // ExportMenu e a seção de QR com os tipos reais de StoreProduct.
   const [savedProduct, setSavedProduct] = useState<StoreProduct | null>(null)
+  const [skuPrefixes, setSkuPrefixes] = useState<StoreSkuPrefix[]>([])
+  // SKU nasce "automático" (sugerido sozinho, sem botão — igual o catálogo
+  // pessoal): true enquanto o dono não editar o campo à mão. Editar uma vez
+  // desliga a sugestão pro resto da criação, pra não sobrescrever o que ele
+  // digitou quando a espécie mudar de novo.
+  const [skuAuto, setSkuAuto] = useState(true)
+  // Sub-prefixo escolhido à mão (id de uma linha "por espécie" cadastrada em
+  // Empresa) — sobrepõe a detecção automática pelo nome digitado no mineral/
+  // fóssil. null = automático (comportamento de sempre).
+  const [manualSubPrefixId, setManualSubPrefixId] = useState<string | null>(null)
 
   const refreshProduct = () => {
     if (!id || isNew) return
     fetchProduct(id).then(setSavedProduct).catch(() => {})
+  }
+
+  // Depois de registrar uma entrada de estoque, o `stock_quantity` real já
+  // mudou no banco (a RPC soma direto) — sincroniza o número exibido no
+  // campo "Qtd. em estoque" sem o dono precisar recarregar a página.
+  const refreshStock = () => {
+    if (!id || isNew) return
+    fetchProduct(id)
+      .then((p) => {
+        setSavedProduct(p)
+        setDraft((d) => (d ? { ...d, stock_quantity: String(p.stock_quantity) } : d))
+      })
+      .catch(() => {})
   }
 
   useEffect(() => {
@@ -75,12 +106,73 @@ export function ProductPage() {
       .catch(() => {})
   }, [id, isNew])
 
+  useEffect(() => {
+    fetchSkuPrefixes().then(setSkuPrefixes).catch(() => {})
+  }, [])
+
+  // "Adicionar peça" a partir de um lote (LotItemsSection) chega aqui como
+  // /produtos/novo?lot=<id> — prefill de parent_id + próximo sufixo livre e
+  // o mesmo tipo do lote, pra não obrigar o dono a escolher tipo de novo.
+  useEffect(() => {
+    if (!isNew || !lotId) return
+    Promise.all([fetchProduct(lotId), fetchProductChildren(lotId)])
+      .then(([lot, children]) => {
+        setDraft((d) => (d ? { ...d, parent_id: lotId, lot_suffix: String(nextLotSuffix(children)), kind: lot.kind } : d))
+      })
+      .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isNew, lotId])
+
+  // O sub-prefixo escolhido à mão depende do tipo (as opções mudam) — trocar
+  // o tipo de item invalida a escolha anterior.
+  useEffect(() => {
+    setManualSubPrefixId(null)
+  }, [draft?.kind])
+
+  // ----- sugestão automática de SKU (só na criação, e só enquanto o dono não
+  //       mexeu no campo à mão) — mesmo espírito do "Preencher código
+  //       automaticamente" do catálogo pessoal (suggestNextCodes em
+  //       specimens/api.ts), sem toggle de preferência nem botão: aqui é
+  //       sempre ligado. Debounce curto porque a espécie muda a cada tecla
+  //       digitada no autocomplete de mineral/fóssil. -----
+  useEffect(() => {
+    if (!isNew || !skuAuto || !draft) return
+    const kind = draft.kind as StoreItemKind
+    // Sub-prefixo manual vence o nome digitado — o `match_key` da linha já é
+    // exatamente o valor que `resolvePrefix` compara (normalizado), então dá
+    // pra passar direto no lugar da espécie detectada.
+    const manualRow = manualSubPrefixId ? skuPrefixes.find((p) => p.id === manualSubPrefixId) : undefined
+    const species = manualRow
+      ? manualRow.match_key
+      : kind === 'mineral'
+        ? minerals[0]?.name?.trim() || null
+        : kind === 'fossil'
+          ? fossilSpecies[0]?.name?.trim() || null
+          : null
+    const isGem = kind === 'mineral' && draft.is_gem === 'true'
+    const timer = setTimeout(() => {
+      suggestSku(kind, species, isGem, skuPrefixes)
+        .then((sku) => setDraft((d) => (d ? { ...d, sku } : d)))
+        .catch(() => {})
+    }, 400)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isNew, skuAuto, draft?.kind, draft?.is_gem, minerals[0]?.name, fossilSpecies[0]?.name, skuPrefixes, manualSubPrefixId])
+
   if (error && !draft) return <p className="text-sm text-red-400">{error}</p>
   if (!draft) return <p className="text-sm text-stone-400">Carregando…</p>
 
   const set = (key: string) => (v: string) => setDraft((d) => ({ ...(d as Draft), [key]: v }))
   const setMany = (values: Draft) => setDraft((d) => ({ ...(d as Draft), ...values }))
   const kind = draft.kind as StoreItemKind
+  // Editar o SKU à mão desliga a sugestão automática pro resto da criação.
+  const setSku = (v: string) => {
+    setSkuAuto(false)
+    set('sku')(v)
+  }
+  // Sub-prefixos por espécie cadastrados pro tipo atual — mesma lista vale
+  // pra gema (a espécie continua sendo do mineral, `is_gem` não filtra aqui).
+  const subPrefixOptions = skuPrefixes.filter((p) => p.kind === kind && p.match_key !== '')
 
   /** Reconcilia a lista de espécies do fóssil contra o banco: remove as que
    *  saíram da lista, atualiza as existentes, cria as novas. */
@@ -180,7 +272,15 @@ export function ProductPage() {
 
       <div className="grid items-start gap-4 lg:grid-cols-2">
         <div className="space-y-4">
-          <CommercialSection draft={draft} set={set} pricing={pricing} />
+          <CommercialSection
+            draft={draft}
+            set={set}
+            onSkuChange={setSku}
+            pricing={pricing}
+            subPrefixOptions={isNew ? subPrefixOptions : []}
+            manualSubPrefixId={manualSubPrefixId}
+            onManualSubPrefixChange={setManualSubPrefixId}
+          />
 
           {kind !== 'other' && (
             <SpecimenDataSection draft={draft} set={set} setMany={setMany} kind={kind} />
@@ -188,10 +288,16 @@ export function ProductPage() {
 
           {kind === 'fossil' && <FossilTaxonomySection species={fossilSpecies} onChange={setFossilSpecies} />}
 
+          {!isNew && savedProduct?.is_lot && <LotItemsSection lot={savedProduct} />}
+
           {!isNew && savedProduct && <QrLinkSection product={savedProduct} onChanged={refreshProduct} />}
+
+          {!isNew && id && <CertificatesSection productId={id} />}
         </div>
 
         <div className="space-y-4">
+          {!isNew && id && <ProductStockHistorySection productId={id} onStockChanged={refreshStock} />}
+
           {!isNew && id && <LinkedDocuments productId={id} />}
 
           <EcommerceSection draft={draft} set={set} />

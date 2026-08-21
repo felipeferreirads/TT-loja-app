@@ -42,6 +42,17 @@ export async function fetchProduct(id: string): Promise<StoreProduct> {
   return { ...data, qr_aliases: data.qr_aliases ?? [], minerals: data.minerals ?? [] } as StoreProduct
 }
 
+/** Peças de um lote (0022) — produtos com `parent_id` apontando pro lote. */
+export async function fetchProductChildren(parentId: string): Promise<StoreProduct[]> {
+  const { data, error } = await supabase
+    .from('store_products')
+    .select(PRODUCT_SELECT)
+    .eq('parent_id', parentId)
+    .order('sort_order', { foreignTable: 'store_product_minerals' })
+  if (error) throw error
+  return (data ?? []).map((p) => ({ ...p, qr_aliases: p.qr_aliases ?? [], minerals: p.minerals ?? [] })) as StoreProduct[]
+}
+
 /** `id` opcional: o formulário gera um no cliente quando há fotos/vídeos
  *  escolhidos antes de salvar, pra saber o destino do upload sem um round-trip. */
 export async function createProduct(input: StoreProductInput & { id?: string }): Promise<StoreProduct> {
@@ -50,7 +61,10 @@ export async function createProduct(input: StoreProductInput & { id?: string }):
   return data
 }
 
-export async function updateProduct(id: string, input: StoreProductInput): Promise<StoreProduct> {
+/** Aceita PATCH parcial (ex.: só `parent_id`/`lot_suffix` ao vincular/desvincular
+ *  uma peça de lote) — diferente de `createProduct`, que insere uma linha nova
+ *  e por isso exige `name`. */
+export async function updateProduct(id: string, input: Partial<StoreProductInput>): Promise<StoreProduct> {
   const { data, error } = await supabase.from('store_products').update(input).eq('id', id).select().single()
   if (error) throw error
   return data

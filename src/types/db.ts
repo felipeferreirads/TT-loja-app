@@ -32,6 +32,16 @@ export interface StoreProduct {
   source_specimen_id: string | null
   disposition: StoreProductDisposition
 
+  /** Sistema de lotes (0022) — peça = produto completo próprio, copiado do
+   *  catálogo pessoal (`parent_id`+`lot_suffix`+`is_lot`/`is_lot_summary`,
+   *  ver `features/products/lots.ts`). `parent_id` aponta pro produto "lote"
+   *  que a peça pertence; `is_lot`/`is_lot_summary` marcam o produto QUE É
+   *  um lote (sempre setados juntos pela UI, nunca um sem o outro). */
+  parent_id: string | null
+  lot_suffix: string | null
+  is_lot: boolean
+  is_lot_summary: boolean
+
   origin_country: string | null
   /** ISO 3166-2 — ver `subdivisions_reference`. */
   origin_state: string | null
@@ -239,13 +249,27 @@ export interface StoreProductMineral {
 
 export type StoreProductMineralInput = Partial<Omit<StoreProductMineral, 'id' | 'owner_id' | 'product_id' | 'created_at' | 'updated_at'>>
 
-export type StoreDocumentKind = 'nota_fiscal' | 'recibo' | 'importacao' | 'certificado' | 'outro'
+/** Prefixo de SKU (0020) — um padrão por `kind` (`match_key` vazio) e, opcionalmente, um customizado por espécie/nome (`match_key` = nome normalizado). String vazia, não null: NULL não colide em unique constraint. `is_gem` (0021) marca a linha padrão de GEMA (mineral com `is_gem=true`) — só faz sentido com `kind='mineral'` e `match_key=''`; species (`match_key` não-vazio) sempre tem `is_gem=false`. Ver `suggestSku` em `features/products/skuPrefixes.ts`. */
+export interface StoreSkuPrefix {
+  id: string
+  owner_id: string
+  kind: StoreItemKind
+  match_key: string
+  is_gem: boolean
+  prefix: string
+  digits: number
+  created_at: string
+  updated_at: string
+}
+
+export type StoreSkuPrefixInput = Partial<Omit<StoreSkuPrefix, 'id' | 'owner_id' | 'created_at' | 'updated_at'>>
+
+export type StoreDocumentKind = 'nota_fiscal' | 'recibo' | 'importacao' | 'outro'
 
 export const DOCUMENT_KIND_LABELS: Record<StoreDocumentKind, string> = {
   nota_fiscal: 'Nota fiscal',
   recibo: 'Recibo',
   importacao: 'Importação',
-  certificado: 'Certificado',
   outro: 'Outro',
 }
 
@@ -262,6 +286,10 @@ export interface StoreDocument {
   access_key: string | null
   total_amount: number | null
   notes: string | null
+  /** Venda vinculada (0024) — nota fiscal de SAÍDA. `supplier_id` acima é pra
+   *  nota de compra; os dois campos são independentes, um documento normalmente
+   *  usa só um dos dois conforme o sentido (compra vs. venda). */
+  sale_id: string | null
   created_at: string
   updated_at: string
 }
@@ -278,6 +306,23 @@ export interface StoreDocumentFile {
   caption: string | null
   sort_order: number
   created_at: string
+}
+
+/** Certificado de autenticidade do produto (laudo de laboratório) — na ficha
+ *  do item, não em Documentos (ver claude.md §"certificado"). */
+export interface StoreProductCertificate {
+  id: string
+  owner_id: string
+  product_id: string
+  lab: string | null
+  code: string | null
+  link: string | null
+  notes: string | null
+  pdf_path: string | null
+  image_path: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
 }
 
 export interface StoreCustomer {
@@ -315,6 +360,7 @@ export interface StoreSale {
   sale_date: string
   payment_method: StorePaymentMethod
   discount: number
+  extra_amount: number
   total: number
   notes: string | null
   created_at: string
@@ -327,6 +373,24 @@ export interface StoreSaleItem {
   product_id: string | null
   quantity: number
   unit_price: number
+  created_at: string
+}
+
+/** Entrada de estoque (0023) — restock lançado à mão (data/quantidade/custo/
+ *  fornecedor/documento opcionais); soma em `store_products.stock_quantity`
+ *  via a RPC `create_store_stock_entry` (não por update direto). Complementa
+ *  `StoreSaleItem` (saída) no histórico do produto, ver
+ *  `ProductStockHistorySection.tsx`. */
+export interface StoreStockEntry {
+  id: string
+  owner_id: string
+  product_id: string
+  quantity: number
+  unit_cost: number | null
+  supplier_id: string | null
+  document_id: string | null
+  entry_date: string
+  notes: string | null
   created_at: string
 }
 

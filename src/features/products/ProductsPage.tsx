@@ -227,7 +227,11 @@ export function ProductsPage() {
                   onClick={() => navigate(`/produtos/${p.id}`)}
                   className="cursor-pointer transition hover:bg-stone-900"
                 >
-                  <td className="px-3 py-2 text-stone-100">{p.name}</td>
+                  <td className="px-3 py-2 text-stone-100">
+                    {p.lot_suffix && <span className="mr-1.5 font-mono text-xs text-amber-500">#{p.lot_suffix}</span>}
+                    {p.name}
+                    {p.is_lot && <span className="ml-1.5 text-xs text-stone-500">(lote)</span>}
+                  </td>
                   <td className="px-3 py-2 text-stone-400">{ITEM_KIND_LABELS[p.kind]}</td>
                   <td className="px-3 py-2 text-stone-400">{p.minerals?.[0]?.name ?? '—'}</td>
                   <td className="px-3 py-2 text-stone-400">{p.stock_quantity}</td>

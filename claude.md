@@ -60,8 +60,10 @@ comentário no topo do arquivo diz isso** ("Copiado do catálogo pessoal",
 | `src/components/icons.tsx` | idem | Cópia integral — zero dependências, nada a simplificar |
 | `src/lib/theme.ts` + `src/themes.css` | idem | Sem persistência em `user_settings` (só `localStorage`, chave prefixada `tt_loja_`); sem seletor de idioma nos nomes |
 | `src/components/SearchField.tsx` | `src/features/specimens/SearchField.tsx` | Cópia integral (já era PT-only e sem i18n) |
-| `src/features/products/form/*` | `src/features/specimens/SpecimenFormPage.tsx` + `formFields.ts` | Só as seções geológicas/taxonômicas (Identificação de espécie, Origem, Propriedades minerais, Taxonomia de fóssil, Meteorito). Categorias, lote/código global, dados privados/PIN e certificados **não foram portados** — não existem no domínio comercial |
-| `src/features/documents/*` | `src/features/documents/*` | Modelo equivalente (`store_documents`/`store_document_files`/`store_document_products` em vez de `documents`/`document_files`/`document_specimens`), mas domínio próprio: vincula PRODUTOS, não espécimes |
+| `src/features/products/form/*` | `src/features/specimens/SpecimenFormPage.tsx` + `formFields.ts` | Só as seções geológicas/taxonômicas (Identificação de espécie, Origem, Propriedades minerais, Taxonomia de fóssil, Meteorito). Categorias e código global **não foram portados** — não existem no domínio comercial. Sistema de lotes FOI portado à parte (ver linha abaixo e §9). Certificados de autenticidade FORAM portados (20/08/2026, `CertificatesSection.tsx`) — ver linha abaixo |
+| `src/features/products/certificates.ts` + `form/CertificatesSection.tsx` | `src/features/specimens/certificates.ts` + `SpecimenCertificates.tsx` | Copiado 20/08/2026 (movido de dentro de `store_documents` pra dentro da ficha do produto, igual o catálogo pessoal). Simplificado: sem gate de modo de edição (a ficha da loja é sempre editável, não tem "ficha somente-leitura" separada do formulário) e sem miniatura .webp de PDF/self-heal (poucos certificados esperados — decisão do dono, não replicar sem necessidade real). Arquivo fica no bucket "store" (Supabase Storage), pasta `certificates/{productId}/{certificateId}/…`, não R2 — mesma decisão de escopo pequeno |
+| `src/features/products/lots.ts` (+ `.test.ts`) | `src/features/specimens/lots.ts` | Lógica pura portada quase verbatim (20/08/2026) — só troca `is_sold` por `stock_quantity <= 0` (peça de lote na loja é um `store_products` completo com estoque próprio, não um campo `is_sold`). `LotItemsSection.tsx`/`SplitLotDialog.tsx` daqui são versões enxutas dos de lá (sem grid/seleção em massa/fluxo de foto em lote — ver §9) |
+| `src/features/documents/*` | `src/features/documents/*` | Modelo equivalente (`store_documents`/`store_document_files`/`store_document_products` em vez de `documents`/`document_files`/`document_specimens`), mas domínio próprio: vincula PRODUTOS, não espécimes. `StoreDocumentKind` NÃO tem `'certificado'` (removido 20/08/2026, migration `0025_product_certificates.sql`) — certificado vive só em `store_product_certificates`, na ficha do produto, nunca em Documentos |
 | `src/lib/qrCamera.ts`, `src/lib/youtube.ts` | idem | Cópia integral — zero dependências de domínio/i18n |
 | `src/features/products/qr.ts` | `src/features/specimens/datasheet/qr.ts` | Só a metade de LEITURA (`normalizeScannedValue`/`isUuidLike`/`resolveScannedValue`) — a loja não tem geração de folha de QR/código curto por tipo, então não existe a metade de escrita/geração |
 | `src/features/products/ScanPage.tsx` | `src/features/specimens/ScanPage.tsx` | Só o modo "abrir" (lê um código, navega pra ficha). O modo "lote" (acumular vários pra ação em massa) do catálogo pessoal ficou de fora — sem um fluxo de categorização em massa na loja que justifique o esforço; portar de lá se essa necessidade aparecer |
@@ -91,19 +93,27 @@ src/
     products/             Produtos: lista (busca+filtro+ordenação+grade/lista),
                           ficha, form/ (seções: mídia/vídeo → comercial →
                           espécime → propriedades → taxonomia de fóssil
-                          (multi-espécie) → etiqueta QR → documentos →
+                          (multi-espécie) → etiqueta QR → certificados de
+                          autenticidade → histórico de estoque → documentos →
                           e-commerce → notas), galeria de mídia, galeria de
                           vídeos do YouTube, leitor de QR (ScanPage),
+                          certificates.ts + form/CertificatesSection.tsx
+                          (certificados de autenticidade, ver §2),
                           export/ (CSV Nuvemshop/Shopify),
-                          importFromCollection.ts (Importar da Coleção,
-                          ver §7)
+                          importFromCollection.ts (Importar da Coleção, ver
+                          §7), skuPrefixes.ts (geração automática de SKU),
+                          lots.ts + LotItemsSection.tsx + SplitLotDialog.tsx
+                          (sistema de lotes, ver §9), stockHistory.ts +
+                          ProductStockHistorySection.tsx (entradas/saídas de
+                          estoque, ver §9)
     customers/            Clientes
     suppliers/             Fornecedores (CRUD simples: nome, contato, notas)
     sales/                Vendas/PDV (venda + baixa de estoque via RPC
                           `create_store_sale`, transação atômica)
-    documents/             Documentos (nota fiscal/recibo/certificado) com
-                          arquivos anexos, produtos vinculados e fornecedor
-                          (picker sobre `store_suppliers`, com
+    documents/             Documentos (nota fiscal/recibo/importação/outro —
+                          SEM certificado, que vive na ficha do produto, ver
+                          §2) com arquivos anexos, produtos vinculados e
+                          fornecedor (picker sobre `store_suppliers`, com
                           "+cadastrar" — não é mais texto livre)
     cash/                  Fluxo de caixa (`store_cash_entries`): lançamentos
                           manuais de entrada/saída + saldo
@@ -112,7 +122,9 @@ src/
                           mês a mês — agregação em memória sobre
                           `store_sale_items`/`store_sales`
     pricing/               Calculadora de preço (presets nomeados por campo)
-    company/                Dados da empresa + documentos societários
+    company/                Dados da empresa + documentos societários +
+                          SkuPrefixesSection.tsx (prefixos de SKU por tipo/
+                          espécie/gema)
 ```
 
 **Fluxo do formulário de produto** (`ProductPage.tsx` + `form/*`): ordem
@@ -130,6 +142,19 @@ na criação já tenham destino de upload conhecido — `createProduct` aceita
 mesmo padrão (`pendingYoutube` em `ProductPage.tsx`, gravado só depois do
 insert). "Etiqueta QR" e a galeria de fotos/vídeo salvos só aparecem depois
 que o produto já tem `id` (produto novo salva primeiro, depois edita).
+
+**SKU é sugerido sozinho, sem botão** (20/08/2026, `skuPrefixes.ts` +
+`store_sku_prefixes`): tipo/espécie/gema → prefixo → próximo número livre
+pra aquele prefixo (olha o maior `sku` já usado com ele, sem sequence
+dedicada). Prioridade de resolução: espécie customizada (ex. opala → OPL,
+cadastrada em Empresa) > padrão de gema (mineral com `is_gem`) > padrão do
+tipo (`MIN`/`FOS`/`MET`/`OUT`) > fallback fixo se o dono nunca configurou
+nada. `ProductPage.tsx` recalcula com debounce enquanto o produto é NOVO e
+o dono não editou o SKU à mão (`skuAuto`); editar uma vez desliga a
+sugestão pro resto da criação. Um seletor "Sub-prefixo" ao lado do campo
+SKU deixa escolher a espécie na mão em vez de depender do nome digitado no
+mineral/fóssil. Prefixos geridos em Empresa → Prefixos de SKU
+(`SkuPrefixesSection.tsx`).
 
 **Taxonomia de fóssil é MULTI-ESPÉCIE** (18/08/2026, reverte a simplificação
 anterior de "uma espécie só por produto" — mesmo modelo de `fossil_species`
@@ -249,6 +274,9 @@ repo pai. Sem deploy, a busca só devolve lista vazia (não quebra a tela).
 | Arquitetura ampla / roadmap de funcionalidades | `../docs/PROJETO-APP-LOJA.md` no repo pai |
 | Estrutura de pastas, regras de sessão deste repo | Este `claude.md` |
 | Campo novo de espécime que a importação da coleção deveria trazer | `features/products/importFromCollection.ts` — ver §7; se não houver coluna equivalente em `store_products`, vira linha no apêndice de notas (`buildAppendix`), nunca se perde em silêncio |
+| Prefixo/regra nova de geração de SKU | `store_sku_prefixes`, migration + `skuPrefixes.ts` (`resolvePrefix`/`suggestSku`) + `SkuPrefixesSection.tsx` (Empresa) — ver §3 |
+| Campo novo do sistema de lotes (sufixo, herança na divisão) | `lots.ts` (+ `.test.ts`, lógica pura) + `LotItemsSection.tsx`/`SplitLotDialog.tsx` — ver §9 |
+| Campo novo de entrada de estoque | `store_stock_entries`, migration + `StoreStockEntry` (`types/db.ts`) + `stockHistory.ts`/`ProductStockHistorySection.tsx` — ver §9 |
 
 ## 7. Importar da Coleção pessoal → Produtos
 
@@ -355,3 +383,62 @@ chamadas, não uma por foto.
 `R2_ACCOUNT_ID`/`R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY` nos Secrets da
 Edge Function `r2-storage` (repo do catálogo pessoal) — a loja não guarda
 nenhuma credencial de R2 própria, só chama a função com `bucket: 'store'`.
+
+## 9. Sistema de lotes, entradas de estoque e nota fiscal de venda
+
+Três migrations relacionadas (20/08/2026, `0022`–`0024`), pensadas juntas
+pra responder "de onde veio, pra onde foi" de um produto — a "sessão de
+origem" pedida pelo dono.
+
+**Lotes** (`0022_product_lots.sql`) — `store_products` ganhou `parent_id`/
+`lot_suffix`/`is_lot`/`is_lot_summary`, mesmo modelo do catálogo pessoal
+(§2, ver `lots.ts`). Decisão de arquitetura: peça de lote é um
+`store_products` **completo** (SKU/foto/preço/venda próprios), não um
+sub-item — reaproveita toda a infraestrutura de produto já existente em vez
+de inventar um conceito novo. `is_lot`/`is_lot_summary` sempre são setados
+juntos pela UI (`CommercialSection.tsx`, checkbox "Este produto é um
+lote"), nunca um sem o outro — igual lá. `LotItemsSection.tsx` (na ficha do
+lote) oferece três ações: "Adicionar peça" (`/produtos/novo?lot=<id>`,
+prefill de `parent_id`+sufixo em `ProductPage.tsx`), "Dividir em N peças"
+(`SplitLotDialog.tsx`, cria N produtos com `createProduct` + SKU automático
+via `suggestSku`, nome provisório "{lote} (peça N)" porque `name` é
+obrigatório aqui — diferente do catálogo pessoal, onde a peça podia nascer
+sem nome) e "Vincular existente" (reaproveita o `PickProductsDialog.tsx` de
+Documentos). Uma peça exibe o badge "Peça de lote · sufixo N" com
+"Desvincular" na própria ficha (`CommercialSection.tsx`).
+
+**Entradas de estoque** (`0023_stock_entries.sql`) — tabela
+`store_stock_entries` (quantidade/custo/fornecedor/documento/data
+opcionais) + RPC `create_store_stock_entry`, que soma em
+`store_products.stock_quantity` na mesma transação (mesmo padrão atômico de
+`create_store_sale`, 0002). É o caminho recomendado pra dar entrada em
+estoque (ex.: chegou mais "Caixa expositora") — o campo "Qtd. em estoque"
+do formulário continua editável pra correções manuais, mas não fica
+registrado em lugar nenhum. Vale pra QUALQUER produto, não só os
+comprados/vendidos com frequência.
+
+**Nota fiscal de venda** (`0024_document_sale_link.sql`) — `store_documents`
+ganhou `sale_id` opcional (sem enum novo: o mesmo `store_document_kind` de
+sempre, tipicamente `'nota_fiscal'`, serve pros dois sentidos — `supplier_id`
+já existente é pra nota de COMPRA, `sale_id` é pra nota de SAÍDA, os dois
+campos são independentes). Vínculo feito em `DocumentPage.tsx` (campo "Venda
+vinculada", mesmo padrão de `SearchSelect` do fornecedor) ou a partir de
+`SalesPage.tsx` ("Vendas recentes" ganhou um botão por linha: "Nota fiscal"
+se ainda não tem, ou "NF {número} ✓" linkando pra ficha do documento se já
+tem — `/documentos/novo?sale=<id>` pré-preenche o vínculo).
+
+**`ProductStockHistorySection.tsx`** (na ficha do produto, sempre visível)
+funde as duas fontes num timeline só — `stockHistory.ts`:
+`store_stock_entries` (entrada) + `store_sale_items` join `store_sales`
+join cliente e, via `sale_id`, o documento vinculado (saída) — ordenado por
+data decrescente. Essa seção é o motivo de existir o `sale_id`: sem ele a
+saída não teria como mostrar "vendido pra Cliente X, NF tal" na ficha do
+produto.
+
+**Campo novo relacionado a lote/estoque**: se for do LOTE (ex.: mais um modo
+de sufixo), mexe em `lots.ts` (+ `.test.ts`) e propaga pra
+`LotItemsSection.tsx`/`SplitLotDialog.tsx`. Se for de ENTRADA de estoque,
+`store_stock_entries` (migration nova) + `StoreStockEntry` (`types/db.ts`)
++ `stockHistory.ts`/`ProductStockHistorySection.tsx`. Nenhum dos dois passa
+por `EXPORT_FIELDS`/`IMPORT_FIELDS` — são movimentação, não dado do
+produto em si.

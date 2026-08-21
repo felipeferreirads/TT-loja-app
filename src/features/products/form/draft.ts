@@ -6,6 +6,7 @@ export type Draft = Record<string, string>
 
 const TEXT_FIELDS = [
   'name', 'sku', 'notes',
+  'parent_id', 'lot_suffix',
   'origin_country', 'origin_state', 'origin', 'dimensions',
   'color', 'color_secondary', 'special_properties', 'uv_color', 'iridescence_color', 'play_of_color',
   'gem_cut', 'cut_type', 'gem_shape', 'gem_cut_style', 'cut_name', 'gem_treatment',
@@ -24,7 +25,7 @@ export const NUMERIC_FIELDS = new Set([
 ])
 
 /** Campos booleanos do draft: viajam como string 'true'/'false' até `toInput`. */
-export const BOOLEAN_FIELDS = new Set(['ecommerce_free_shipping', 'ecommerce_published', 'is_gem'])
+export const BOOLEAN_FIELDS = new Set(['ecommerce_free_shipping', 'ecommerce_published', 'is_gem', 'is_lot', 'is_lot_summary'])
 
 export function toDraft(p: StoreProduct | null): Draft {
   const d: Draft = {}

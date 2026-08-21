@@ -45,3 +45,11 @@
 body {
   @apply bg-stone-950 text-stone-100;
 }
+
+/* Recibo imprimível (ReceiptDialog) — esconde o resto do app (sidebar,
+   overlay etc.) na hora de imprimir, deixando só o conteúdo do recibo. */
+@media print {
+  body > *:not(:has(#receipt-print-area)) {
+    display: none !important;
+  }
+}

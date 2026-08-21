@@ -2,6 +2,7 @@ import { supabase } from '../../lib/supabase'
 import type { StoreItemKind, StoreProductInput } from '../../types/db'
 import { createProduct, addProductMineral, addFossilSpecies, linkQrAlias } from './api'
 import { addYoutubeVideo } from './youtubeVideos'
+import { fetchSkuPrefixes, suggestSku } from './skuPrefixes'
 
 // ============================================================
 // Importar da Coleção pessoal (Tesouros da Terra) pra Produtos da loja.
@@ -135,7 +136,6 @@ interface CatalogFossilSpecies {
 interface CatalogSpecimenFull {
   id: string
   code_global: number | null
-  sku: string | null
   parent_id: string | null
   type: CatalogSpecimenType
   origin_country: string | null
@@ -278,7 +278,7 @@ function catalogDisplayName(s: {
   return s.meteorite_details?.name || '(sem nome)'
 }
 
-const FULL_SELECT = `id, code_global, sku, parent_id, type, origin_country, origin_state, origin, origin_short,
+const FULL_SELECT = `id, code_global, parent_id, type, origin_country, origin_state, origin, origin_short,
   formation, weight_g, weight_ct, dimensions, quantity, notes,
   mineral_details(*),
   fossil_details(*),
@@ -470,7 +470,10 @@ function mapToProductInput(s: CatalogSpecimenFull, priv: CatalogSpecimenPrivate 
     name,
     kind,
     species_or_type: speciesOrType,
-    sku: s.sku,
+    // SKU não vem mais do catálogo pessoal (coluna removida de lá,
+    // migration 0130 — nunca foi usada de fato) — é gerado depois, em
+    // `importSpecimenToStore`, com o mesmo autofill do formulário
+    // (`suggestSku`, ver skuPrefixes.ts).
     cost_price: costPrice,
     sale_price: 0,
     stock_quantity: s.quantity,
@@ -647,7 +650,23 @@ async function markSpecimenSold(specimenId: string): Promise<void> {
  */
 export async function importSpecimenToStore(specimenId: string): Promise<void> {
   const [specimen, priv] = await Promise.all([fetchCatalogSpecimen(specimenId), fetchCatalogPrivate(specimenId)])
-  await createProduct({ ...mapToProductInput(specimen, priv), id: specimen.id })
+  const input = mapToProductInput(specimen, priv)
+
+  // SKU gerado com o mesmo autofill do formulário (tipo/espécie/gema →
+  // prefixo → próximo número) — busca os prefixos a cada chamada porque a
+  // importação em lote roda sequencialmente (ver ImportFromCollectionDialog)
+  // e cada item precisa enxergar o SKU do item anterior recém-criado pra
+  // não colidir número.
+  const species =
+    input.kind === 'mineral'
+      ? specimen.specimen_minerals[0]?.name ?? null
+      : input.kind === 'fossil'
+        ? specimen.fossil_species[0]?.name ?? null
+        : null
+  const prefixes = await fetchSkuPrefixes()
+  input.sku = await suggestSku(input.kind as StoreItemKind, species, Boolean(input.is_gem), prefixes)
+
+  await createProduct({ ...input, id: specimen.id })
   await copyMinerals(specimen.id, specimen.specimen_minerals)
   await copyFossilSpecies(specimen.id, specimen)
   await copySpecimenMedia(specimen.id, specimen.id)

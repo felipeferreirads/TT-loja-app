@@ -1,5 +1,5 @@
 import { useEffect, useState, type ChangeEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   DOCUMENT_KIND_LABELS,
   ITEM_KIND_LABELS,
@@ -24,6 +24,8 @@ import {
 import { fetchSuppliers, createSupplier, type StoreSupplierInput } from '../suppliers/api'
 import { SupplierFormDialog } from '../suppliers/SupplierFormDialog'
 import { PickProductsDialog } from './PickProductsDialog'
+import { fetchSales, type SaleWithCustomer } from '../sales/api'
+import { formatMoney } from '../../lib/format'
 import { signedUrl } from '../../lib/storage'
 import { useConfirm } from '../../components/DialogProvider'
 import { SearchSelect } from '../../components/SearchSelect'
@@ -41,6 +43,7 @@ const FIELDS = [
   'access_key',
   'total_amount',
   'notes',
+  'sale_id',
 ] as const
 
 function toDraft(d: StoreDocument | null): Draft {
@@ -93,11 +96,14 @@ export function DocumentPage() {
   const isNew = id === 'novo'
   const navigate = useNavigate()
   const confirm = useConfirm()
+  const [searchParams] = useSearchParams()
+  const saleId = searchParams.get('sale')
 
   const [draft, setDraft] = useState<Draft | null>(isNew ? toDraft(null) : null)
   const [files, setFiles] = useState<StoreDocumentFile[]>([])
   const [products, setProducts] = useState<StoreProduct[]>([])
   const [suppliers, setSuppliers] = useState<StoreSupplier[]>([])
+  const [sales, setSales] = useState<SaleWithCustomer[]>([])
   const [newSupplierOpen, setNewSupplierOpen] = useState(false)
   const [picking, setPicking] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -105,7 +111,16 @@ export function DocumentPage() {
 
   useEffect(() => {
     fetchSuppliers().then(setSuppliers).catch(() => {})
+    fetchSales().then(setSales).catch(() => {})
   }, [])
+
+  // Chegando de "Vendas" (?sale=<id>) — pré-preenche o vínculo, o dono só
+  // completa o resto (número, chave de acesso, arquivo).
+  useEffect(() => {
+    if (!isNew || !saleId) return
+    setDraft((d) => (d ? { ...d, sale_id: saleId } : d))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isNew, saleId])
 
   useEffect(() => {
     if (isNew || !id) return
@@ -255,6 +270,22 @@ export function DocumentPage() {
             <Field label="Número" value={draft.number} onChange={set('number')} />
             <Field label="Série" value={draft.series} onChange={set('series')} />
           </div>
+          <label className="block">
+            <span className="text-sm text-stone-300">Venda vinculada (nota fiscal de saída)</span>
+            <div className="mt-1">
+              <SearchSelect
+                items={sales.map((s) => ({
+                  id: s.id,
+                  label: `${new Date(s.sale_date).toLocaleDateString('pt-BR')} · ${s.customer?.name ?? 'Sem cliente'}`,
+                  sublabel: formatMoney(s.total),
+                }))}
+                value={draft.sale_id}
+                onChange={set('sale_id')}
+                placeholder="Digite para buscar uma venda…"
+                emptyText="Nenhuma venda encontrada."
+              />
+            </div>
+          </label>
           {draft.kind === 'nota_fiscal' && (
             <Field label="Chave de acesso" value={draft.access_key} onChange={set('access_key')} />
           )}

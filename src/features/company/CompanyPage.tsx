@@ -11,6 +11,7 @@ import {
 import { signedUrl } from '../../lib/storage'
 import { useConfirm, usePrompt } from '../../components/DialogProvider'
 import { CopyIcon, CheckIcon, DocumentIcon, TrashIcon, PencilIcon, EyeIcon, EyeOffIcon } from '../../components/icons'
+import { SkuPrefixesSection } from './SkuPrefixesSection'
 
 type Field = { key: keyof StoreCompanyInput; label: string; wide?: boolean }
 
@@ -459,6 +460,8 @@ export function CompanyPage() {
             ))}
           </div>
         </section>
+
+        <SkuPrefixesSection />
       </div>
     </div>
   )

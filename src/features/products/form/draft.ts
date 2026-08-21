@@ -20,7 +20,7 @@ const TEXT_FIELDS = [
 ] as const
 
 export const NUMERIC_FIELDS = new Set([
-  'cost_price', 'sale_price', 'stock_quantity', 'weight_g', 'weight_ct',
+  'cost_price', 'sale_price', 'stock_quantity', 'min_stock', 'weight_g', 'weight_ct',
   'ecommerce_package_height_cm', 'ecommerce_package_width_cm', 'ecommerce_package_length_cm',
 ])
 

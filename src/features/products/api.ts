@@ -25,6 +25,7 @@ export async function fetchProducts(): Promise<StoreProduct[]> {
   const { data, error } = await supabase
     .from('store_products')
     .select(PRODUCT_SELECT)
+    .is('deleted_at', null)
     .order('name')
     .order('sort_order', { foreignTable: 'store_product_minerals' })
   if (error) throw error
@@ -48,6 +49,7 @@ export async function fetchProductChildren(parentId: string): Promise<StoreProdu
     .from('store_products')
     .select(PRODUCT_SELECT)
     .eq('parent_id', parentId)
+    .is('deleted_at', null)
     .order('sort_order', { foreignTable: 'store_product_minerals' })
   if (error) throw error
   return (data ?? []).map((p) => ({ ...p, qr_aliases: p.qr_aliases ?? [], minerals: p.minerals ?? [] })) as StoreProduct[]
@@ -70,9 +72,33 @@ export async function updateProduct(id: string, input: Partial<StoreProductInput
   return data
 }
 
+// ─── Lixeira (0027) ─────────────────────────────────────────
+// Exclusão vira soft delete (`deleted_at`), reversível por
+// `TRASH_RETENTION_DAYS` dias — ver `features/trash/api.ts`.
+
 export async function deleteProduct(id: string): Promise<void> {
+  const { error } = await supabase.from('store_products').update({ deleted_at: new Date().toISOString() }).eq('id', id)
+  if (error) throw error
+}
+
+export async function restoreProduct(id: string): Promise<void> {
+  const { error } = await supabase.from('store_products').update({ deleted_at: null }).eq('id', id)
+  if (error) throw error
+}
+
+export async function permanentlyDeleteProduct(id: string): Promise<void> {
   const { error } = await supabase.from('store_products').delete().eq('id', id)
   if (error) throw error
+}
+
+export async function fetchDeletedProducts(): Promise<StoreProduct[]> {
+  const { data, error } = await supabase
+    .from('store_products')
+    .select(PRODUCT_SELECT)
+    .not('deleted_at', 'is', null)
+    .order('deleted_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []).map((p) => ({ ...p, qr_aliases: p.qr_aliases ?? [], minerals: p.minerals ?? [] })) as StoreProduct[]
 }
 
 // ─── Mídia ───────────────────────────────────────────────────

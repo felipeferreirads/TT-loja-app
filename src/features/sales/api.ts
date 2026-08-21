@@ -15,6 +15,10 @@ export interface CreateSaleInput {
   extra_amount: number
   notes: string | null
   items: SaleItemInput[]
+  /** Fiado (0028) — informar `due_date` sem `paid: false` não faz sentido,
+   *  mas o banco não impõe essa regra; a UI (`SalesPage.tsx`) que garante. */
+  due_date?: string | null
+  paid?: boolean
 }
 
 export interface SaleWithCustomer extends StoreSale {
@@ -44,7 +48,18 @@ export async function createSale(input: CreateSaleInput): Promise<StoreSale> {
     p_notes: input.notes,
     p_items: input.items,
     p_extra_amount: input.extra_amount,
+    p_due_date: input.due_date ?? null,
+    p_paid: input.paid ?? true,
   })
+  if (error) throw error
+  return data
+}
+
+/** Quita uma venda fiado ("Contas a receber", `CashPage.tsx`) — não gera
+ *  lançamento de caixa sozinho, mesma convenção do resto do fluxo de caixa
+ *  (100% manual): só limpa o pendente. */
+export async function markSalePaid(id: string): Promise<StoreSale> {
+  const { data, error } = await supabase.from('store_sales').update({ paid: true }).eq('id', id).select().single()
   if (error) throw error
   return data
 }

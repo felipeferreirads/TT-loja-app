@@ -4,13 +4,16 @@ import { DOCUMENT_KIND_LABELS, type StoreDocument } from '../../types/db'
 import { fetchDocuments, deleteDocument } from './api'
 import { formatMoney } from '../../lib/format'
 import { useConfirm } from '../../components/DialogProvider'
-import { PlusIcon, TrashIcon } from '../../components/icons'
+import { useToast } from '../../components/ToastProvider'
+import { EmptyState } from '../../components/EmptyState'
+import { DocumentIcon, PlusIcon, TrashIcon } from '../../components/icons'
 
 export function DocumentsPage() {
   const [documents, setDocuments] = useState<StoreDocument[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const confirm = useConfirm()
+  const toast = useToast()
   const navigate = useNavigate()
 
   const load = () => {
@@ -26,6 +29,7 @@ export function DocumentsPage() {
   const handleDelete = async (doc: StoreDocument) => {
     if (!(await confirm(`Apagar "${doc.title}"? Essa ação não pode ser desfeita.`, { danger: true }))) return
     await deleteDocument(doc.id)
+    toast.success('Documento apagado.')
     load()
   }
 
@@ -43,7 +47,7 @@ export function DocumentsPage() {
       {error && <p className="text-sm text-red-400">{error}</p>}
 
       {!loading && !error && documents.length === 0 && (
-        <p className="text-sm text-stone-400">Nenhum documento cadastrado ainda.</p>
+        <EmptyState icon={DocumentIcon} title="Nenhum documento cadastrado ainda" />
       )}
 
       {documents.length > 0 && (

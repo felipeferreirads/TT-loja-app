@@ -28,6 +28,7 @@ import { fetchSales, type SaleWithCustomer } from '../sales/api'
 import { formatMoney } from '../../lib/format'
 import { signedUrl } from '../../lib/storage'
 import { useConfirm } from '../../components/DialogProvider'
+import { useToast } from '../../components/ToastProvider'
 import { SearchSelect } from '../../components/SearchSelect'
 import { ArrowLeftIcon, PlusIcon, TrashIcon, UnlinkIcon } from '../../components/icons'
 
@@ -96,6 +97,7 @@ export function DocumentPage() {
   const isNew = id === 'novo'
   const navigate = useNavigate()
   const confirm = useConfirm()
+  const toast = useToast()
   const [searchParams] = useSearchParams()
   const saleId = searchParams.get('sale')
 
@@ -161,6 +163,7 @@ export function DocumentPage() {
       } else if (id) {
         await updateDocument(id, toInput(draft))
       }
+      toast.success('Documento salvo.')
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {

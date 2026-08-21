@@ -28,6 +28,10 @@ export interface StoreProduct {
   cost_price: number | null
   sale_price: number
   stock_quantity: number
+  /** Opt-in — sem valor, o produto nunca aparece como "estoque baixo" (a
+   *  maioria das peças é única; só faz sentido pra consumíveis/itens
+   *  escolhidos à mão). Ver `ProductCard.tsx`/`DashboardPage.tsx`. */
+  min_stock: number | null
   notes: string | null
   source_specimen_id: string | null
   disposition: StoreProductDisposition
@@ -144,6 +148,8 @@ export interface StoreProduct {
 
   created_at: string
   updated_at: string
+  /** Lixeira (0027) — soft delete, 15 dias de retenção. Ver `features/trash/`. */
+  deleted_at: string | null
 }
 
 export type StoreProductInput = Partial<Omit<StoreProduct, 'id' | 'owner_id' | 'created_at' | 'updated_at'>> &
@@ -342,6 +348,8 @@ export interface StoreCustomer {
   address_city: string | null
   address_state: string | null
   created_at: string
+  /** Lixeira (0027) — soft delete, 15 dias de retenção. Ver `features/trash/`. */
+  deleted_at: string | null
 }
 
 export interface StoreSupplier {
@@ -364,6 +372,11 @@ export interface StoreSale {
   total: number
   notes: string | null
   created_at: string
+  /** Fiado (0028) — `paid=false` + `due_date` marca venda a prazo, listada em
+   *  "Contas a receber" (Caixa) até `markSalePaid`. Venda à vista (padrão)
+   *  nasce `paid=true`/`due_date=null`, sem UI nova pra ela. */
+  due_date: string | null
+  paid: boolean
 }
 
 export interface StoreSaleItem {

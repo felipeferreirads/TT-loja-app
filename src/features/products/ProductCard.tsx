@@ -1,11 +1,14 @@
 import { Link } from 'react-router-dom'
 import { ITEM_KIND_LABELS, type StoreProduct } from '../../types/db'
 import { formatMoney } from '../../lib/format'
-import { PhotoIcon, StackIcon } from '../../components/icons'
+import { PhotoIcon, StackIcon, WarningIcon } from '../../components/icons'
 
 /** Tile da visualização em grade — capa, nome, tipo, preço e estoque. */
 export function ProductCard({ product, coverUrl }: { product: StoreProduct; coverUrl?: string }) {
   const outOfStock = product.stock_quantity <= 0
+  // Opt-in (`min_stock`) — só acende pra quem o dono escolheu monitorar, não
+  // pra toda peça única sem estoque de reposição.
+  const lowStock = !outOfStock && product.min_stock != null && product.stock_quantity <= product.min_stock
   return (
     <Link
       to={`/produtos/${product.id}`}
@@ -36,7 +39,12 @@ export function ProductCard({ product, coverUrl }: { product: StoreProduct; cove
         </span>
         <span className="mt-auto flex items-center justify-between pt-1 text-xs">
           <span className="text-stone-200">{formatMoney(product.sale_price)}</span>
-          <span className={outOfStock ? 'text-red-400' : 'text-stone-500'}>{product.stock_quantity} un.</span>
+          <span
+            className={`inline-flex items-center gap-1 ${outOfStock ? 'text-red-400' : lowStock ? 'text-amber-500' : 'text-stone-500'}`}
+          >
+            {lowStock && <WarningIcon className="h-3 w-3" />}
+            {product.stock_quantity} un.
+          </span>
         </span>
       </div>
     </Link>

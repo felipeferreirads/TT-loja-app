@@ -31,7 +31,7 @@ export function Layout() {
         <button type="button" onClick={toggleSidebar} aria-label="Mostrar/ocultar navegação" className="tap-icon">
           <SidebarIcon className="h-5 w-5" />
         </button>
-        <Link to="/produtos" className="flex shrink-0 items-center gap-3">
+        <Link to="/" className="flex shrink-0 items-center gap-3">
           <AppLogo />
           <span className="hidden text-sm font-medium text-stone-200 sm:inline">Loja · Inventário e Gestão</span>
         </Link>

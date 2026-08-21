@@ -3,7 +3,9 @@ import type { StoreSupplier } from '../../types/db'
 import { fetchSuppliers, createSupplier, updateSupplier, deleteSupplier, type StoreSupplierInput } from './api'
 import { SupplierFormDialog } from './SupplierFormDialog'
 import { useConfirm } from '../../components/DialogProvider'
-import { PlusIcon } from '../../components/icons'
+import { useToast } from '../../components/ToastProvider'
+import { EmptyState } from '../../components/EmptyState'
+import { PlusIcon, TruckIcon } from '../../components/icons'
 
 export function SuppliersPage() {
   const [suppliers, setSuppliers] = useState<StoreSupplier[]>([])
@@ -11,6 +13,7 @@ export function SuppliersPage() {
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState<StoreSupplier | null | 'new'>(null)
   const confirm = useConfirm()
+  const toast = useToast()
 
   const load = () => {
     setLoading(true)
@@ -26,12 +29,14 @@ export function SuppliersPage() {
     if (editing && editing !== 'new') await updateSupplier(editing.id, input)
     else await createSupplier(input)
     setEditing(null)
+    toast.success('Fornecedor salvo.')
     load()
   }
 
   const handleDelete = async (supplier: StoreSupplier) => {
     if (!(await confirm(`Apagar "${supplier.name}"? Essa ação não pode ser desfeita.`, { danger: true }))) return
     await deleteSupplier(supplier.id)
+    toast.success('Fornecedor apagado.')
     load()
   }
 
@@ -49,7 +54,7 @@ export function SuppliersPage() {
       {error && <p className="text-sm text-red-400">{error}</p>}
 
       {!loading && !error && suppliers.length === 0 && (
-        <p className="text-sm text-stone-400">Nenhum fornecedor cadastrado ainda.</p>
+        <EmptyState icon={TruckIcon} title="Nenhum fornecedor cadastrado ainda" />
       )}
 
       {suppliers.length > 0 && (

@@ -973,3 +973,35 @@ export function CalculatorIcon(props: IconProps) {
     </svg>
   )
 }
+
+/** Triângulo de exclamação — estoque baixo, conta vencida, erro. */
+export function WarningIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 3.5 2.5 20h19L12 3.5Z" />
+      <path d="M12 10v4" />
+      <path d="M12 17.5h.01" />
+    </svg>
+  )
+}
+
+/** Pessoa — cliente. */
+export function PersonIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M4.5 20c1.4-3.6 4.3-5.5 7.5-5.5s6.1 1.9 7.5 5.5" />
+    </svg>
+  )
+}
+
+/** Casa — início/dashboard. */
+export function HomeIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 11 12 4l8 7" />
+      <path d="M6 9.5V20h12V9.5" />
+      <path d="M10 20v-6h4v6" />
+    </svg>
+  )
+}

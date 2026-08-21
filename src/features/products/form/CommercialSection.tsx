@@ -122,6 +122,13 @@ export function CommercialSection({
         <Field label="Preço de venda" value={draft.sale_price} onChange={set('sale_price')} type="number" />
       </div>
 
+      <div>
+        <Field label="Alertar com estoque ≤ (opcional)" value={draft.min_stock} onChange={set('min_stock')} type="number" placeholder="deixe em branco pra não alertar" />
+        <p className="mt-1 text-xs text-stone-500">
+          Deixe em branco pra peças únicas — normalmente só faz sentido pra consumíveis (embalagem, etc.) ou itens escolhidos à mão.
+        </p>
+      </div>
+
       {suggested && (
         <div className="space-y-2 rounded-lg bg-stone-950 p-3 text-sm">
           <p className="text-xs text-stone-500">

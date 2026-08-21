@@ -5,7 +5,9 @@ import { fetchProducts, deleteProduct, fetchCoverUrls } from './api'
 import { ProductCard } from './ProductCard'
 import { formatMoney, stripAccents } from '../../lib/format'
 import { useConfirm } from '../../components/DialogProvider'
+import { useToast } from '../../components/ToastProvider'
 import { SearchField } from '../../components/SearchField'
+import { EmptyState } from '../../components/EmptyState'
 import {
   GridDenseIcon,
   GridLargeIcon,
@@ -14,7 +16,9 @@ import {
   ListViewIcon,
   PlusIcon,
   QrCodeIcon,
+  SpecimenIcon,
   TrashIcon,
+  WarningIcon,
 } from '../../components/icons'
 import { SortControl } from '../../components/SortControl'
 import { ExportMenu } from './export/ExportMenu'
@@ -70,10 +74,12 @@ export function ProductsPage() {
   const [params, setParams] = useSearchParams()
   const search = params.get('q') ?? ''
   const kindFilter = params.get('tipo') as StoreItemKind | null
+  const lowStockOnly = params.get('baixo') === '1'
   const sortField = (params.get('ordenar') as ProductSortField | null) ?? 'name'
   const sortDir = (params.get('dir') as 'asc' | 'desc' | null) ?? 'asc'
 
   const confirm = useConfirm()
+  const toast = useToast()
   const navigate = useNavigate()
 
   const load = () => {
@@ -103,6 +109,7 @@ export function ProductsPage() {
     const q = stripAccents(search.trim())
     const filtered = products.filter((p) => {
       if (kindFilter && p.kind !== kindFilter) return false
+      if (lowStockOnly && !(p.min_stock != null && p.stock_quantity <= p.min_stock)) return false
       if (!q) return true
       return [p.name, p.sku, p.origin, ...(p.minerals ?? []).map((m) => m.name)].some(
         (v) => v && stripAccents(v).includes(q),
@@ -115,11 +122,12 @@ export function ProductsPage() {
       else diff = a[sortField] - b[sortField]
       return sortDir === 'asc' ? diff : -diff
     })
-  }, [products, search, kindFilter, sortField, sortDir])
+  }, [products, search, kindFilter, lowStockOnly, sortField, sortDir])
 
   const handleDelete = async (product: StoreProduct) => {
-    if (!(await confirm(`Apagar "${product.name}"? Essa ação não pode ser desfeita.`, { danger: true }))) return
+    if (!(await confirm(`Mover "${product.name}" para a lixeira? Pode ser restaurado por 15 dias.`))) return
     await deleteProduct(product.id)
+    toast.success(`"${product.name}" movido para a lixeira.`)
     load()
   }
 
@@ -162,6 +170,12 @@ export function ProductsPage() {
               label={label}
             />
           ))}
+          <KindChip
+            active={lowStockOnly}
+            onClick={() => setParam('baixo', lowStockOnly ? null : '1')}
+            label="Estoque baixo"
+            icon={WarningIcon}
+          />
         </div>
         <div className="order-2 flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
           <SortControl
@@ -194,9 +208,11 @@ export function ProductsPage() {
       {error && <p className="text-sm text-red-400">{error}</p>}
 
       {!loading && !error && visible.length === 0 && (
-        <p className="text-sm text-stone-400">
-          {products.length === 0 ? 'Nenhum produto cadastrado ainda.' : 'Nenhum produto encontrado.'}
-        </p>
+        <EmptyState
+          icon={SpecimenIcon}
+          title={products.length === 0 ? 'Nenhum produto cadastrado ainda' : 'Nenhum produto encontrado'}
+          description={products.length === 0 ? 'Cadastre o primeiro produto ou importe da coleção pessoal.' : undefined}
+        />
       )}
 
       {visible.length > 0 && view !== 'list' && (
@@ -234,7 +250,22 @@ export function ProductsPage() {
                   </td>
                   <td className="px-3 py-2 text-stone-400">{ITEM_KIND_LABELS[p.kind]}</td>
                   <td className="px-3 py-2 text-stone-400">{p.minerals?.[0]?.name ?? '—'}</td>
-                  <td className="px-3 py-2 text-stone-400">{p.stock_quantity}</td>
+                  <td className="px-3 py-2 text-stone-400">
+                    <span
+                      className={`inline-flex items-center gap-1 ${
+                        p.stock_quantity <= 0
+                          ? 'text-red-400'
+                          : p.min_stock != null && p.stock_quantity <= p.min_stock
+                            ? 'text-amber-500'
+                            : ''
+                      }`}
+                    >
+                      {p.min_stock != null && p.stock_quantity <= p.min_stock && p.stock_quantity > 0 && (
+                        <WarningIcon className="h-3.5 w-3.5" />
+                      )}
+                      {p.stock_quantity}
+                    </span>
+                  </td>
                   <td className="px-3 py-2 text-stone-400">{formatMoney(p.sale_price)}</td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
                     <button
@@ -269,15 +300,26 @@ export function ProductsPage() {
   )
 }
 
-function KindChip({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
+function KindChip({
+  active,
+  onClick,
+  label,
+  icon: Icon,
+}: {
+  active: boolean
+  onClick: () => void
+  label: string
+  icon?: typeof WarningIcon
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex min-h-11 shrink-0 items-center rounded-full px-3 text-sm whitespace-nowrap transition sm:min-h-0 sm:py-1 ${
+      className={`inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full px-3 text-sm whitespace-nowrap transition sm:min-h-0 sm:py-1 ${
         active ? 'bg-amber-600 text-white' : 'bg-stone-800 text-stone-300 hover:bg-stone-700'
       }`}
     >
+      {Icon && <Icon className="h-3.5 w-3.5" />}
       {label}
     </button>
   )

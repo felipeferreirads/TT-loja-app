@@ -2,6 +2,20 @@ export function formatMoney(value: number | null | undefined): string {
   return (value ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
+/** Data (sem hora) — aceita `YYYY-MM-DD` puro (coluna `date` do banco) tratando
+ *  como horário local, senão a interpretação UTC do `Date` nativo desloca o
+ *  dia em fusos negativos (ex.: `2026-08-21` viraria 20/08 no Brasil). */
+export function formatDate(value: string | null | undefined): string {
+  if (!value) return '—'
+  const iso = value.length === 10 ? `${value}T00:00:00` : value
+  return new Date(iso).toLocaleDateString('pt-BR')
+}
+
+export function formatDateTime(value: string | null | undefined): string {
+  if (!value) return '—'
+  return new Date(value).toLocaleString('pt-BR')
+}
+
 export const stripAccents = (s: string) =>
   s
     .normalize('NFD')

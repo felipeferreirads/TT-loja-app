@@ -6,8 +6,10 @@ import {
   CashIcon,
   ChartIcon,
   DocumentIcon,
+  HomeIcon,
   PackageIcon,
   SpecimenIcon,
+  TrashIcon,
   TruckIcon,
 } from './icons'
 import type { ComponentType, SVGProps } from 'react'
@@ -24,6 +26,7 @@ export interface NavItem {
 // Produtos (`ProductsPage.tsx`), mesmo padrão do catálogo pessoal (o link
 // para `/scan` fica junto da Coleção, não numa aba própria da navegação).
 export const NAV_ITEMS: NavItem[] = [
+  { to: '/', label: 'Início', Icon: HomeIcon, end: true },
   { to: '/produtos', label: 'Produtos', Icon: SpecimenIcon },
   { to: '/vendas', label: 'Vendas', Icon: PackageIcon },
   { to: '/clientes', label: 'Clientes', Icon: CardIcon },
@@ -33,6 +36,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/estatisticas', label: 'Estatísticas', Icon: ChartIcon },
   { to: '/precificacao', label: 'Precificação', Icon: CalculatorIcon },
   { to: '/empresa', label: 'Empresa', Icon: BuildingIcon },
+  { to: '/lixeira', label: 'Lixeira', Icon: TrashIcon },
 ]
 
 function itemClass(isActive: boolean): string {

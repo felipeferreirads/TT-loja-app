@@ -38,11 +38,13 @@ import { ArrowLeftIcon, NotesIcon } from '../../components/icons'
 import { ExportMenu } from './export/ExportMenu'
 import { addYoutubeVideo } from './youtubeVideos'
 import { isUuidLike } from './qr'
+import { useToast } from '../../components/ToastProvider'
 
 export function ProductPage() {
   const { id } = useParams<{ id: string }>()
   const isNew = id === 'novo'
   const navigate = useNavigate()
+  const toast = useToast()
   const [searchParams] = useSearchParams()
   const lotId = searchParams.get('lot')
   // Criação a partir de uma etiqueta QR "reservada" (`/produtos/novo?reservedId=<uuid>`,
@@ -234,6 +236,7 @@ export function ProductPage() {
         await saveFossilSpecies(id)
         await saveMinerals(id)
       }
+      toast.success('Produto salvo.')
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {

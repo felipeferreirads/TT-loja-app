@@ -10,6 +10,7 @@ import {
 } from './api'
 import { signedUrl } from '../../lib/storage'
 import { useConfirm, usePrompt } from '../../components/DialogProvider'
+import { useToast } from '../../components/ToastProvider'
 import { CopyIcon, CheckIcon, DocumentIcon, TrashIcon, PencilIcon, EyeIcon, EyeOffIcon } from '../../components/icons'
 import { SkuPrefixesSection } from './SkuPrefixesSection'
 
@@ -156,6 +157,7 @@ export function CompanyPage() {
   const [partnerEditing, setPartnerEditing] = useState(false)
   const confirm = useConfirm()
   const prompt = usePrompt()
+  const toast = useToast()
 
   const loadDocs = () => {
     fetchCompanyDocuments()
@@ -188,6 +190,7 @@ export function CompanyPage() {
       setEditing(false)
       setPartnerEditing(false)
       setTimeout(() => setSaved(false), 2000)
+      toast.success('Dados da empresa salvos.')
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -226,6 +229,7 @@ export function CompanyPage() {
     try {
       await uploadCompanyDocument(file, { title: title.trim() || file.name })
       loadDocs()
+      toast.success('Documento anexado.')
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {

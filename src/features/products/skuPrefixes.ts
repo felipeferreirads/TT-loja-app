@@ -7,6 +7,7 @@ export const DEFAULT_KIND_PREFIX: Record<StoreItemKind, string> = {
   mineral: 'MIN',
   fossil: 'FOS',
   meteorite: 'MET',
+  jewelry: 'JOI',
   other: 'OUT',
 }
 

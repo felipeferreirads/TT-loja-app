@@ -14,8 +14,16 @@ catálogo pessoal, produto conceitualmente diferente: enquanto o catálogo é
 sobre **documentar uma coleção**, a loja é sobre **operar o lado comercial**
 (estoque, vendas, clientes, fornecedores, precificação, documentos fiscais).
 
-- React 19 + Vite + TypeScript + Tailwind CSS 4, sem PWA/Capacitor (só
-  navegador — YAGNI pro MVP).
+- React 19 + Vite + TypeScript + Tailwind CSS 4. **PWA leve** (29/08/2026,
+  `vite-plugin-pwa` + `src/pwa/register.ts`): instalável (tela inicial,
+  janela `standalone`) + service worker que faz precache só do shell
+  (JS/CSS/HTML/ícones). **NÃO tem offline de dados** — toda consulta continua
+  indo ao Supabase ao vivo; sem rede o app abre mas não carrega dados. A
+  camada de offline "de verdade" do catálogo pessoal (`src/lib/offline/`,
+  fila de escrita em IndexedDB) NÃO foi portada — seria uma frente própria,
+  só se o dono passar a vender em campo com internet ruim. Sem Capacitor
+  (sem build nativo). O SW só entra no build (`npm run build`), não no
+  `npm run dev` — mesmo padrão do catálogo (`devOptions` desligado).
 - Mesmo projeto Supabase do catálogo pessoal (`zmnncadvfamgveyyrlgt`), mesma
   conta de autenticação (dono único, sem login de funcionário ainda — ver
   `docs/PROJETO-APP-LOJA.md` no repo pai pro raciocínio completo), mesmo
@@ -81,6 +89,7 @@ existia no scaffold inicial do loja-app.
 supabase/migrations/     SQL do banco, numerado — nunca editar retroativamente
 src/
   main.tsx, App.tsx      Bootstrap + rotas (react-router-dom v7) + QueryClientProvider
+  pwa/register.ts        Registro do service worker da PWA leve (ver §1)
   lib/                   supabase client, storage (bucket "store"), format,
                          pricing (calculadora), theme, mineralReference,
                          subdivisionReference, geocode

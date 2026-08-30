@@ -3,13 +3,18 @@ import {
   applyTheme,
   getStoredAccentOnly,
   getStoredTheme,
+  getStoredWarmBackground,
   parseTheme,
   setAccentOnly,
+  setWarmBackground,
   THEME_FAMILIES,
   themeValue,
   type ThemeMode,
 } from '../lib/theme'
 import { CheckIcon, MoonIcon, SunIcon } from './icons'
+
+/** As 3 opções do fundo — ver bloco "Fundo quente" em themes.css. */
+type BackgroundMode = 'full' | 'neutral' | 'warm'
 
 /**
  * Seletor de tema: modo claro/escuro cruzado com a família de cor. Mesmo
@@ -20,9 +25,21 @@ export function ThemeMenu() {
   const [open, setOpen] = useState(false)
   const [theme, setTheme] = useState(getStoredTheme)
   const [accentOnly, setAccentOnlyState] = useState(getStoredAccentOnly)
+  const [warmBackground, setWarmBackgroundState] = useState(getStoredWarmBackground)
   const ref = useRef<HTMLDivElement>(null)
 
   const { family, mode } = parseTheme(theme)
+  // "Quente" não implica sozinho: em tema escuro cai pro binário de sempre
+  // (não existe "quente" no escuro, ver themes.css).
+  const backgroundMode: BackgroundMode = mode === 'light' && warmBackground ? 'warm' : accentOnly ? 'neutral' : 'full'
+  const pickBackgroundMode = (next: BackgroundMode) => {
+    const nextAccentOnly = next !== 'full'
+    const nextWarm = next === 'warm'
+    setAccentOnly(nextAccentOnly)
+    setWarmBackground(nextWarm)
+    setAccentOnlyState(nextAccentOnly)
+    setWarmBackgroundState(nextWarm)
+  }
 
   useEffect(() => {
     if (!open) return
@@ -42,12 +59,6 @@ export function ThemeMenu() {
     const value = themeValue(nextFamily, nextMode)
     applyTheme(value)
     setTheme(value)
-  }
-
-  const toggleAccentOnly = () => {
-    const next = !accentOnly
-    setAccentOnly(next)
-    setAccentOnlyState(next)
   }
 
   return (
@@ -103,10 +114,28 @@ export function ThemeMenu() {
             ))}
           </div>
 
-          <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm text-stone-300">
-            <input type="checkbox" checked={accentOnly} onChange={toggleAccentOnly} className="accent-amber-600" />
-            Fundo neutro
-          </label>
+          <p className="section-title mt-3 mb-2">Fundo</p>
+          <div className="flex flex-col gap-1.5">
+            {(
+              [
+                ['full', 'Tema completo'],
+                ['neutral', 'Fundo neutro'],
+                // Sem "quente" no Escuro — o creme/areia não tem equivalente lá.
+                ...(mode === 'light' ? ([['warm', 'Fundo quente']] as const) : []),
+              ] as [BackgroundMode, string][]
+            ).map(([value, label]) => (
+              <label key={value} className="flex cursor-pointer items-center gap-2 text-sm text-stone-300">
+                <input
+                  type="radio"
+                  name="background-mode"
+                  checked={backgroundMode === value}
+                  onChange={() => pickBackgroundMode(value)}
+                  className="accent-amber-600"
+                />
+                {label}
+              </label>
+            ))}
+          </div>
         </div>
       )}
     </div>

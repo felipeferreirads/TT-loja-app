@@ -2,9 +2,10 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- Aplica tema + "fundo neutro" salvos antes do 1º paint (evita flash ao
-         carregar) — a fonte de verdade fica em src/lib/theme.ts. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- Aplica tema + "fundo neutro"/"fundo quente" salvos antes do 1º paint
+         (evita flash ao carregar) — a fonte de verdade fica em
+         src/lib/theme.ts. -->
     <script>
       (function () {
         try {
@@ -12,10 +13,18 @@
           if (t) document.documentElement.dataset.theme = t
           var a = localStorage.getItem('tt_loja_accent_only')
           if (a === null || a === 'true') document.documentElement.setAttribute('data-accent-only', 'true')
+          var w = localStorage.getItem('tt_loja_warm_background')
+          if (w === 'true') document.documentElement.setAttribute('data-warm-background', 'true')
         } catch (e) {}
       })()
     </script>
-    <link rel="icon" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/pwa-192.png" />
+    <meta name="theme-color" content="#1c1917" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="TT Loja" />
     <title>Tesouros da Terra — Loja</title>
   </head>
   <body>

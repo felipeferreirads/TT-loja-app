@@ -15,6 +15,7 @@ const TEXT_FIELDS = [
   'met_largest_fragment', 'met_largest_fragment_dimensions', 'met_crust_fusion', 'met_weathering_specimen',
   'met_acid_etched', 'met_magnetism', 'met_individual_fragment', 'met_end_cut', 'met_chondrules_visible',
   'met_metal_matrix_visible', 'met_olivine_visible', 'met_polished', 'met_cut_sliced', 'met_polished_window',
+  'jwl_material', 'jwl_stone', 'jwl_size', 'jwl_clasp', 'jwl_finish', 'jwl_adjustable',
   'ecommerce_slug', 'ecommerce_description', 'ecommerce_category_path', 'ecommerce_google_category',
   'ecommerce_tags', 'ecommerce_seo_title', 'ecommerce_seo_description',
 ] as const

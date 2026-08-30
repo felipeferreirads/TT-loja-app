@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ITEM_KIND_LABELS, type StoreItemKind, type StoreProduct } from '../../types/db'
 import { fetchProducts, deleteProduct, fetchCoverUrls } from './api'
@@ -16,6 +16,7 @@ import {
   ListViewIcon,
   PlusIcon,
   QrCodeIcon,
+  ChevronDownIcon,
   SpecimenIcon,
   TrashIcon,
   WarningIcon,
@@ -69,6 +70,19 @@ export function ProductsPage() {
   const [error, setError] = useState<string | null>(null)
   const [view, setView] = useState<ViewMode>(loadView)
   const [importing, setImporting] = useState(false)
+  // No mobile, os chips de tipo viram uma caixa de seleção: só a pílula do
+  // tipo atual aparece, e expande as demais em coluna abaixo ao tocar —
+  // mesmo padrão do catálogo pessoal (SpecimenToolbar.tsx).
+  const [typeMenuOpen, setTypeMenuOpen] = useState(false)
+  const typeMenuRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!typeMenuOpen) return
+    const onDown = (e: MouseEvent) => {
+      if (typeMenuRef.current && !typeMenuRef.current.contains(e.target as Node)) setTypeMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [typeMenuOpen])
   // Busca e filtro moram na query string pra sobreviverem ao "voltar" depois
   // de abrir um produto — mesmo padrão da Coleção no catálogo pessoal.
   const [params, setParams] = useSearchParams()
@@ -160,7 +174,41 @@ export function ProductsPage() {
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="no-scrollbar order-1 flex w-full justify-start gap-2 overflow-x-auto pb-1 text-sm sm:w-auto sm:flex-1">
+        {/* Mobile: caixa de seleção expansível — só a pílula do tipo atual
+            aparece (largura pelo conteúdo, lado a lado com os outros
+            controles), e expande as demais em coluna abaixo ao tocar. */}
+        <div ref={typeMenuRef} className="relative order-1 shrink-0 sm:hidden">
+          <button
+            type="button"
+            onClick={() => setTypeMenuOpen((v) => !v)}
+            aria-expanded={typeMenuOpen}
+            className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-amber-600 px-3 text-sm whitespace-nowrap text-white transition hover:bg-amber-500"
+          >
+            {kindFilter ? ITEM_KIND_LABELS[kindFilter] : 'Todos'}
+            <ChevronDownIcon className={`h-4 w-4 shrink-0 transition-transform ${typeMenuOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {typeMenuOpen && (
+            <div className="absolute z-10 mt-1 flex w-max min-w-full flex-col gap-1 rounded-xl border border-stone-800 bg-stone-900 p-1.5 shadow-xl shadow-black/30">
+              {([['', 'Todos'] as [string, string]].concat(KIND_FILTERS) as [string, string][])
+                .filter(([value]) => value !== (kindFilter ?? ''))
+                .map(([value, label]) => (
+                  <button
+                    key={value || 'all'}
+                    onClick={() => {
+                      setParam('tipo', value || null)
+                      setTypeMenuOpen(false)
+                    }}
+                    className="inline-flex min-h-8 items-center rounded-full bg-stone-800 px-3 text-left text-sm whitespace-nowrap text-stone-300 transition hover:bg-stone-700"
+                  >
+                    {label}
+                  </button>
+                ))}
+            </div>
+          )}
+        </div>
+
+        {/* Desktop: fileira de chips rolável */}
+        <div className="no-scrollbar order-1 hidden justify-start gap-2 overflow-x-auto pb-1 text-sm sm:flex sm:w-auto sm:flex-1">
           <KindChip active={!kindFilter} onClick={() => setParam('tipo', null)} label="Todos" />
           {KIND_FILTERS.map(([value, label]) => (
             <KindChip
@@ -170,14 +218,19 @@ export function ProductsPage() {
               label={label}
             />
           ))}
-          <KindChip
-            active={lowStockOnly}
-            onClick={() => setParam('baixo', lowStockOnly ? null : '1')}
-            label="Estoque baixo"
-            icon={WarningIcon}
-          />
         </div>
-        <div className="order-2 flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
+
+        {/* "Estoque baixo" é um filtro independente (não faz parte do grupo
+            de tipo, que é seleção única) — fica fora da caixa de seleção. */}
+        <KindChip
+          active={lowStockOnly}
+          onClick={() => setParam('baixo', lowStockOnly ? null : '1')}
+          label="Estoque baixo"
+          icon={WarningIcon}
+          className="order-1"
+        />
+
+        <div className="order-2 ml-auto flex flex-wrap items-center gap-2 sm:ml-0 sm:flex-nowrap">
           <SortControl
             value={sortField}
             onChange={(v) => setParam('ordenar', v === 'name' ? null : v)}
@@ -193,7 +246,7 @@ export function ProductsPage() {
                 onClick={() => chooseView(v.value)}
                 aria-label={v.label}
                 title={v.label}
-                className={`inline-flex min-h-11 items-center px-2.5 text-sm transition sm:h-7 sm:min-h-0 sm:py-0 ${
+                className={`inline-flex h-8 items-center px-2.5 text-sm transition sm:h-7 ${
                   view === v.value ? 'bg-amber-600 text-white' : 'text-stone-400 hover:bg-stone-700'
                 }`}
               >
@@ -305,17 +358,19 @@ function KindChip({
   onClick,
   label,
   icon: Icon,
+  className = '',
 }: {
   active: boolean
   onClick: () => void
   label: string
   icon?: typeof WarningIcon
+  className?: string
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full px-3 text-sm whitespace-nowrap transition sm:min-h-0 sm:py-1 ${
+      className={`inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full px-3 text-sm whitespace-nowrap transition ${className} ${
         active ? 'bg-amber-600 text-white' : 'bg-stone-800 text-stone-300 hover:bg-stone-700'
       }`}
     >

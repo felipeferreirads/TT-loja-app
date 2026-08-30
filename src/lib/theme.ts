@@ -11,6 +11,7 @@
 
 const STORAGE_KEY = 'tt_loja_theme'
 const ACCENT_ONLY_STORAGE_KEY = 'tt_loja_accent_only'
+const WARM_BACKGROUND_STORAGE_KEY = 'tt_loja_warm_background'
 
 export type ThemeMode = 'light' | 'dark'
 
@@ -91,4 +92,30 @@ export function getStoredAccentOnly(): boolean {
     // ignora
   }
   return true
+}
+
+/**
+ * "Fundo quente" — 3ª opção ao lado de "Fundo neutro" (Tema completo/Fundo
+ * neutro/Fundo quente): troca o neutro `stone-*` por um creme/areia fixo,
+ * só em tema CLARO (sem efeito no escuro). Mesmo mecanismo do catálogo
+ * pessoal (`src/lib/theme.ts` + `themes.css` de lá) — copiado.
+ */
+export function setWarmBackground(on: boolean): void {
+  if (on) document.documentElement.setAttribute('data-warm-background', 'true')
+  else document.documentElement.removeAttribute('data-warm-background')
+  try {
+    localStorage.setItem(WARM_BACKGROUND_STORAGE_KEY, String(on))
+  } catch {
+    // ignora
+  }
+}
+
+export function getStoredWarmBackground(): boolean {
+  try {
+    const stored = localStorage.getItem(WARM_BACKGROUND_STORAGE_KEY)
+    if (stored !== null) return stored === 'true'
+  } catch {
+    // ignora
+  }
+  return false
 }

@@ -7,7 +7,7 @@ export type StoreCashEntryKind = 'in' | 'out'
 // "Gema" não é mais um kind à parte — virou `is_gem` (checkbox) na própria
 // linha de mineral, igual ao catálogo pessoal (migration
 // 0018_gem_as_mineral_property.sql).
-export type StoreItemKind = 'mineral' | 'fossil' | 'meteorite' | 'other'
+export type StoreItemKind = 'mineral' | 'fossil' | 'meteorite' | 'jewelry' | 'other'
 export type StoreCustomerDocType = 'cpf' | 'cnpj'
 export type StoreMediaKind = 'image' | 'video'
 
@@ -15,6 +15,7 @@ export const ITEM_KIND_LABELS: Record<StoreItemKind, string> = {
   mineral: 'Mineral',
   fossil: 'Fóssil',
   meteorite: 'Meteorito',
+  jewelry: 'Joia',
   other: 'Outros',
 }
 
@@ -122,6 +123,17 @@ export interface StoreProduct {
   met_polished: string | null
   met_cut_sliced: string | null
   met_polished_window: string | null
+
+  /** Campos exclusivos de joia (`kind='jewelry'`) — ver `form/jewelryFields.ts`/`form/JewelryDataSection.tsx`. */
+  jwl_material: string | null
+  /** Pedra central / gema engastada, texto livre. */
+  jwl_stone: string | null
+  /** Aro (anel) ou comprimento (colar/pulseira), texto livre. */
+  jwl_size: string | null
+  jwl_clasp: string | null
+  jwl_finish: string | null
+  /** 'Sim' | 'Não' | '' — mesmo padrão de toggle Sim/vazio dos campos de meteorito. */
+  jwl_adjustable: string | null
 
   /** Taxonomia de fóssil MULTI-ESPÉCIE — ver `store_product_fossil_species`;
    *  o produto pode ser um lote com várias espécies. Não vem no SELECT de

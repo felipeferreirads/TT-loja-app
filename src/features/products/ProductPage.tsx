@@ -25,6 +25,7 @@ import { fetchPricingSettings } from '../pricing/api'
 import type { PricingParams } from '../../lib/pricing'
 import { CommercialSection } from './form/CommercialSection'
 import { SpecimenDataSection } from './form/SpecimenDataSection'
+import { JewelryDataSection } from './form/JewelryDataSection'
 import { MineralsInSampleSection, mineralRowToDraft, mineralRowToInput, type MineralRowDraft } from './form/MineralsInSampleSection'
 import { FossilTaxonomySection, fossilSpeciesToDraft, fossilSpeciesToInput, type FossilSpeciesDraft } from './form/FossilTaxonomySection'
 import { EcommerceSection } from './form/EcommerceSection'
@@ -300,7 +301,9 @@ export function ProductPage() {
             onManualSubPrefixChange={setManualSubPrefixId}
           />
 
-          {kind !== 'other' && (
+          {kind === 'jewelry' && <JewelryDataSection draft={draft} set={set} />}
+
+          {kind !== 'other' && kind !== 'jewelry' && (
             <SpecimenDataSection draft={draft} set={set} setMany={setMany} kind={kind} />
           )}
 

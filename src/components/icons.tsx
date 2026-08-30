@@ -653,6 +653,16 @@ export function SpecimenIcon(props: IconProps) {
   )
 }
 
+/** Joia (anel com gema). */
+export function JewelryIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M8 3h8l3 4-7 12L5 7l3-4Z" />
+      <path d="M8 3 5 7h14L16 3M5 7l7 4 7-4M12 11 9 7M12 11l3-4" />
+    </svg>
+  )
+}
+
 /** Grade de miniaturas (alternar visualização). */
 export function GridViewIcon(props: IconProps) {
   return (

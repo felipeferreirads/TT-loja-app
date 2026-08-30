@@ -132,6 +132,25 @@
   --color-stone-950: oklch(98.5% 0.005 55);
 }
 
+/* "Fundo quente" — copiado do catálogo pessoal (mesmo bloco, mesma
+   calibração pra bater EXATO com #F1E9D2). Só entra em tema CLARO — não
+   existe "quente" no escuro. Especificidade (0,2,0), igual ao bloco de
+   `data-accent-only` acima, pra ganhar da cor de fundo de cada tema. */
+[data-warm-background='true'][data-theme='light'],
+[data-warm-background='true'][data-theme$='_light'] {
+  --color-stone-50: oklch(9.6% 0.0483 91);
+  --color-stone-100: oklch(16.5% 0.0595 91);
+  --color-stone-200: oklch(21.7% 0.0595 91);
+  --color-stone-300: oklch(32.3% 0.0595 91);
+  --color-stone-400: oklch(39.3% 0.0595 91);
+  --color-stone-500: oklch(50.2% 0.0669 91);
+  --color-stone-600: oklch(65.8% 0.0595 91);
+  --color-stone-700: oklch(81.8% 0.0483 91);
+  --color-stone-800: oklch(87.2% 0.0409 91);
+  --color-stone-900: oklch(91.9% 0.0372 91);
+  --color-stone-950: oklch(93.4% 0.0316 91);
+}
+
 /* amethyst — claro */
 
 [data-theme='amethyst_light'] {

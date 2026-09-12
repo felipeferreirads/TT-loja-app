@@ -51,6 +51,8 @@ export function PricingPage() {
 
   const prices = priceFromCost(Number(cost) || 0, params)
   const net = netFromPrice(Number(finalPrice) || 0, params)
+  const finalPriceNum = Number(finalPrice) || 0
+  const netPercent = (value: number) => (finalPriceNum > 0 ? formatPercent(value / finalPriceNum) : '—')
 
   const handleSave = async () => {
     setSaving(true)
@@ -202,15 +204,24 @@ export function PricingPage() {
           <dl className="space-y-2 text-sm">
             <div className="flex justify-between border-t border-stone-800 pt-2">
               <dt className="text-stone-400">Líquido Pix</dt>
-              <dd className="font-medium text-stone-100">{formatMoney(net.pix)}</dd>
+              <dd className="font-medium text-stone-100">
+                <span className="mr-1 text-stone-500">({netPercent(net.pix)})</span>
+                {formatMoney(net.pix)}
+              </dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-stone-400">Líquido cartão</dt>
-              <dd className="font-medium text-stone-100">{formatMoney(net.card1x)}</dd>
+              <dd className="font-medium text-stone-100">
+                <span className="mr-1 text-stone-500">({netPercent(net.card1x)})</span>
+                {formatMoney(net.card1x)}
+              </dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-stone-400">Líquido cartão 3x</dt>
-              <dd className="font-medium text-stone-100">{formatMoney(net.card3x)}</dd>
+              <dd className="font-medium text-stone-100">
+                <span className="mr-1 text-stone-500">({netPercent(net.card3x)})</span>
+                {formatMoney(net.card3x)}
+              </dd>
             </div>
           </dl>
         </section>

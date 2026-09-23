@@ -3,6 +3,7 @@ import { Section } from './Field'
 import { TrashIcon, YouTubeIcon, PlayIcon, PhotoIcon, PlusIcon } from '../../../components/icons'
 import { usePrompt, useAlert } from '../../../components/DialogProvider'
 import { parseYoutubeId, youtubeThumb } from '../../../lib/youtube'
+import { useFileDrop, DROP_ACTIVE_CLASS } from '../../../lib/useFileDrop'
 
 /**
  * Fotos, vídeos e vídeos do YouTube escolhidos ANTES de o produto existir:
@@ -38,6 +39,11 @@ export function PendingMedia({
     e.target.value = ''
   }
 
+  const { isDragging, dropProps } = useFileDrop({
+    onFiles: (dropped) => onChange([...files, ...dropped]),
+    accept: 'image/*,video/*',
+  })
+
   const addYoutube = async () => {
     const input = await prompt('Link do vídeo do YouTube')
     if (input === null) return
@@ -57,6 +63,12 @@ export function PendingMedia({
 
   return (
     <Section title="Fotos e vídeos" icon={<PhotoIcon />}>
+      <div
+        {...dropProps}
+        className={`space-y-3 rounded-lg border border-dashed p-2 transition-colors ${
+          isDragging ? DROP_ACTIVE_CLASS : 'border-transparent'
+        }`}
+      >
       <div className="flex items-center justify-between">
         <p className="text-sm text-stone-400">
           {total === 0 ? 'Nenhum arquivo escolhido.' : `${total} item(ns) — enviados ao salvar.`}
@@ -121,6 +133,7 @@ export function PendingMedia({
           ))}
         </div>
       )}
+      </div>
     </Section>
   )
 }

@@ -27,6 +27,7 @@ import { PickProductsDialog } from './PickProductsDialog'
 import { fetchSales, type SaleWithCustomer } from '../sales/api'
 import { formatMoney } from '../../lib/format'
 import { signedUrl } from '../../lib/storage'
+import { useFileDrop, DROP_ACTIVE_CLASS } from '../../lib/useFileDrop'
 import { useConfirm } from '../../components/DialogProvider'
 import { useToast } from '../../components/ToastProvider'
 import { SearchSelect } from '../../components/SearchSelect'
@@ -135,6 +136,14 @@ export function DocumentPage() {
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
   }, [id, isNew])
 
+  // Hook antes dos returns antecipados (regra dos hooks); `uploadFiles` só é
+  // chamada no drop, depois da renderização, então já está definida.
+  const { isDragging, dropProps } = useFileDrop({
+    onFiles: (f) => void uploadFiles(f),
+    accept: 'application/pdf,image/*',
+    disabled: busy || isNew,
+  })
+
   if (error && !draft) return <p className="text-sm text-red-400">{error}</p>
   if (!draft) return <p className="text-sm text-stone-400">Carregando…</p>
 
@@ -171,10 +180,8 @@ export function DocumentPage() {
     }
   }
 
-  const handleUpload = async (e: ChangeEvent<HTMLInputElement>) => {
-    if (!id || isNew) return
-    const chosen = Array.from(e.target.files ?? [])
-    if (chosen.length === 0) return
+  const uploadFiles = async (chosen: File[]) => {
+    if (!id || isNew || chosen.length === 0) return
     setBusy(true)
     try {
       for (const file of chosen) await uploadDocumentFile(id, file)
@@ -183,8 +190,13 @@ export function DocumentPage() {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setBusy(false)
-      e.target.value = ''
     }
+  }
+
+  const handleUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const chosen = Array.from(e.target.files ?? [])
+    e.target.value = ''
+    void uploadFiles(chosen)
   }
 
   const handleOpenFile = async (file: StoreDocumentFile) => {
@@ -303,7 +315,10 @@ export function DocumentPage() {
         </section>
 
         <div className="space-y-4">
-          <section className="space-y-3 rounded-lg border border-stone-800 p-4">
+          <section
+            {...dropProps}
+            className={`space-y-3 rounded-lg border p-4 transition-colors ${isDragging ? DROP_ACTIVE_CLASS : 'border-stone-800'}`}
+          >
             <div className="flex items-center justify-between">
               <h2 className="font-medium text-stone-200">Arquivos</h2>
               {!isNew && (

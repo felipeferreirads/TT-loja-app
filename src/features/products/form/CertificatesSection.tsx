@@ -4,6 +4,7 @@ import { useAlert, useConfirm } from '../../../components/DialogProvider'
 import type { StoreProductCertificate } from '../../../types/db'
 import { useUserId } from '../../auth/AuthProvider'
 import { signedUrl } from '../../../lib/storage'
+import { useFileDrop, DROP_ACTIVE_CLASS } from '../../../lib/useFileDrop'
 import {
   addCertificate,
   fetchCertificates,
@@ -165,8 +166,18 @@ function DraftCertificateCard({
     }
   }
 
+  const { isDragging, dropProps } = useFileDrop({
+    onFiles: (dropped) => void handleFile(dropped[0]),
+    accept: 'application/pdf,image/*',
+    multiple: false,
+    disabled: busy,
+  })
+
   return (
-    <div className="space-y-3 rounded-lg border border-dashed border-stone-700 p-3">
+    <div
+      {...dropProps}
+      className={`space-y-3 rounded-lg border border-dashed p-3 transition-colors ${isDragging ? DROP_ACTIVE_CLASS : 'border-stone-700'}`}
+    >
       <div className="grid grid-cols-2 gap-3">
         <CertField label="Laboratório" value={f.lab ?? ''} onChange={(v) => setF((prev) => ({ ...prev, lab: txt(v) }))} onBlur={handleBlur} />
         <CertField label="Código" value={f.code ?? ''} onChange={(v) => setF((prev) => ({ ...prev, code: txt(v) }))} onBlur={handleBlur} />
@@ -264,8 +275,18 @@ function CertificateCard({
     window.open(url, '_blank', 'noopener')
   }
 
+  const { isDragging, dropProps } = useFileDrop({
+    onFiles: (dropped) => void handleFile(dropped[0]),
+    accept: 'application/pdf,image/*',
+    multiple: false,
+    disabled: busy,
+  })
+
   return (
-    <div className="space-y-3 rounded-lg border border-stone-800 p-3">
+    <div
+      {...dropProps}
+      className={`space-y-3 rounded-lg border p-3 transition-colors ${isDragging ? DROP_ACTIVE_CLASS : 'border-stone-800'}`}
+    >
       <div className="grid grid-cols-2 gap-3">
         <CertField label="Laboratório" value={f.lab ?? ''} onChange={(v) => setF((prev) => ({ ...prev, lab: txt(v) }))} onBlur={handleBlur} />
         <CertField label="Código" value={f.code ?? ''} onChange={(v) => setF((prev) => ({ ...prev, code: txt(v) }))} onBlur={handleBlur} />

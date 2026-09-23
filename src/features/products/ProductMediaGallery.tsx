@@ -4,6 +4,7 @@ import { fetchProductMedia, uploadProductMedia, deleteProductMedia } from './api
 import { mediaSignedUrl } from '../../lib/r2Storage'
 import { useConfirm } from '../../components/DialogProvider'
 import { PhotoIcon } from '../../components/icons'
+import { useFileDrop, DROP_ACTIVE_CLASS } from '../../lib/useFileDrop'
 
 export function ProductMediaGallery({ productId }: { productId: string }) {
   const [media, setMedia] = useState<StoreProductMedia[]>([])
@@ -28,8 +29,7 @@ export function ProductMediaGallery({ productId }: { productId: string }) {
 
   useEffect(load, [productId])
 
-  const handleUpload = async (e: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? [])
+  const uploadFiles = async (files: File[]) => {
     if (files.length === 0) return
     setBusy(true)
     setError(null)
@@ -40,9 +40,20 @@ export function ProductMediaGallery({ productId }: { productId: string }) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setBusy(false)
-      e.target.value = ''
     }
   }
+
+  const handleUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? [])
+    e.target.value = ''
+    void uploadFiles(files)
+  }
+
+  const { isDragging, dropProps } = useFileDrop({
+    onFiles: (f) => void uploadFiles(f),
+    accept: 'image/*,video/*',
+    disabled: busy,
+  })
 
   const handleDelete = async (item: StoreProductMedia) => {
     if (!(await confirm('Apagar este arquivo? Essa ação não pode ser desfeita.', { danger: true }))) return
@@ -51,7 +62,10 @@ export function ProductMediaGallery({ productId }: { productId: string }) {
   }
 
   return (
-    <section className="space-y-3 rounded-lg border border-stone-800 p-4">
+    <section
+      {...dropProps}
+      className={`space-y-3 rounded-lg border p-4 transition-colors ${isDragging ? DROP_ACTIVE_CLASS : 'border-stone-800'}`}
+    >
       <div className="flex items-center justify-between">
         <h2 className="flex items-center gap-2 font-medium text-stone-200">
           <span className="text-stone-400">

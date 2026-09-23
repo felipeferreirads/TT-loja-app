@@ -9,6 +9,7 @@ import {
   type StoreCompanyInput,
 } from './api'
 import { signedUrl } from '../../lib/storage'
+import { useFileDrop, DROP_ACTIVE_CLASS } from '../../lib/useFileDrop'
 import { useConfirm, usePrompt } from '../../components/DialogProvider'
 import { useToast } from '../../components/ToastProvider'
 import { CopyIcon, CheckIcon, DocumentIcon, TrashIcon, PencilIcon, EyeIcon, EyeOffIcon } from '../../components/icons'
@@ -175,6 +176,10 @@ export function CompanyPage() {
     loadDocs()
   }, [])
 
+  // Hook antes dos returns antecipados (regra dos hooks); `uploadFiles` só é
+  // chamada no drop, depois da renderização, então já está definida.
+  const { isDragging, dropProps } = useFileDrop({ onFiles: (f) => void uploadFiles(f), disabled: uploading })
+
   if (error && !form) return <p className="p-6 text-sm text-red-400">{error}</p>
   if (!form) return <p className="p-6 text-sm text-stone-400">Carregando…</p>
 
@@ -218,23 +223,30 @@ export function CompanyPage() {
     }
   }
 
-  const handleUpload = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file) return
-    const title = await prompt('Nome do documento:', file.name, { title: 'Novo documento' })
-    if (title === null) return
-    setUploading(true)
-    setError(null)
-    try {
-      await uploadCompanyDocument(file, { title: title.trim() || file.name })
-      loadDocs()
-      toast.success('Documento anexado.')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setUploading(false)
+  const uploadFiles = async (files: File[]) => {
+    if (uploading) return
+    for (const file of files) {
+      const title = await prompt('Nome do documento:', file.name, { title: 'Novo documento' })
+      if (title === null) continue
+      setUploading(true)
+      setError(null)
+      try {
+        await uploadCompanyDocument(file, { title: title.trim() || file.name })
+        loadDocs()
+        toast.success('Documento anexado.')
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err))
+        break
+      } finally {
+        setUploading(false)
+      }
     }
+  }
+
+  const handleUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? [])
+    e.target.value = ''
+    if (files.length > 0) void uploadFiles(files)
   }
 
   const handleOpen = async (doc: StoreCompanyDocument) => {
@@ -422,15 +434,22 @@ export function CompanyPage() {
           )}
         </section>
 
-        <section className="space-y-3 rounded-xl border border-stone-800 bg-stone-900/20 p-5">
+        <section
+          {...dropProps}
+          className={`space-y-3 rounded-xl border p-5 transition-colors ${
+            isDragging ? DROP_ACTIVE_CLASS : 'border-stone-800 bg-stone-900/20'
+          }`}
+        >
           <div className="flex items-center justify-between">
             <h2 className="font-medium text-stone-200">Documentos</h2>
             <label className="btn-secondary cursor-pointer">
               {uploading ? 'Enviando…' : 'Adicionar'}
-              <input type="file" onChange={handleUpload} disabled={uploading} className="hidden" />
+              <input type="file" multiple onChange={handleUpload} disabled={uploading} className="hidden" />
             </label>
           </div>
-          <p className="text-xs text-stone-500">Contrato social, alvará, certidões — arquivos privados.</p>
+          <p className="text-xs text-stone-500">
+            Contrato social, alvará, certidões — arquivos privados. Arraste e solte aqui para anexar.
+          </p>
 
           {docs.length === 0 && (
             <p className="rounded-lg border border-dashed border-stone-800 py-8 text-center text-sm text-stone-500">

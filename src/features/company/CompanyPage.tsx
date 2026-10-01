@@ -9,6 +9,7 @@ import {
   type StoreCompanyInput,
 } from './api'
 import { signedUrl } from '../../lib/storage'
+import { maskBrazilianPhoneInput, maskCnpjInput, maskCpfInput } from '../../lib/brMask'
 import { useFileDrop, DROP_ACTIVE_CLASS } from '../../lib/useFileDrop'
 import { useConfirm, usePrompt } from '../../components/DialogProvider'
 import { useToast } from '../../components/ToastProvider'
@@ -58,6 +59,13 @@ const PARTNER_ADDRESS_FIELDS: Field[] = [
   { key: 'partner_address_city', label: 'Cidade' },
   { key: 'partner_address_state', label: 'UF' },
 ]
+
+/** Campos com máscara ao digitar (CNPJ/CPF/telefone); os demais passam como estão. */
+const FIELD_MASKS: Partial<Record<keyof StoreCompanyInput, (v: string) => string>> = {
+  cnpj: maskCnpjInput,
+  partner_cpf: maskCpfInput,
+  phone: maskBrazilianPhoneInput,
+}
 
 function formatDateBR(value?: string | null): string {
   if (!value) return ''
@@ -183,7 +191,8 @@ export function CompanyPage() {
   if (error && !form) return <p className="p-6 text-sm text-red-400">{error}</p>
   if (!form) return <p className="p-6 text-sm text-stone-400">Carregando…</p>
 
-  const setField = (key: keyof StoreCompanyInput, value: string) => setForm({ ...form, [key]: value })
+  const setField = (key: keyof StoreCompanyInput, value: string) =>
+    setForm({ ...form, [key]: FIELD_MASKS[key]?.(value) ?? value })
 
   const handleSave = async () => {
     setBusy(true)

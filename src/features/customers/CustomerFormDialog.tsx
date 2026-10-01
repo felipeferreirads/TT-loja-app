@@ -3,6 +3,15 @@ import { createPortal } from 'react-dom'
 import type { StoreCustomer, StoreCustomerDocType } from '../../types/db'
 import type { StoreCustomerInput } from './api'
 
+import { maskBrazilianPhoneInput, maskCnpjInput, maskCpfInput, normalizeBrazilianPhone } from '../../lib/brMask'
+
+/** Sem tipo escolhido, não mexe no texto (pode ser outro documento). */
+function applyDocMask(type: StoreCustomerDocType | '', value: string): string {
+  if (type === 'cpf') return maskCpfInput(value)
+  if (type === 'cnpj') return maskCnpjInput(value)
+  return value
+}
+
 interface Props {
   customer: StoreCustomer | null
   onSave: (input: StoreCustomerInput) => Promise<void>
@@ -69,7 +78,13 @@ export function CustomerFormDialog({ customer, onSave, onClose }: Props) {
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
             <span className="text-sm text-stone-300">Telefone</span>
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} className="input mt-1" />
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(maskBrazilianPhoneInput(e.target.value))}
+              onBlur={() => setPhone((p) => normalizeBrazilianPhone(p))}
+              className="input mt-1"
+            />
           </label>
           <label className="block">
             <span className="text-sm text-stone-300">E-mail</span>
@@ -82,7 +97,11 @@ export function CustomerFormDialog({ customer, onSave, onClose }: Props) {
             <span className="text-sm text-stone-300">Documento</span>
             <select
               value={docType}
-              onChange={(e) => setDocType(e.target.value as StoreCustomerDocType | '')}
+              onChange={(e) => {
+                const next = e.target.value as StoreCustomerDocType | ''
+                setDocType(next)
+                setDocNumber((n) => applyDocMask(next, n))
+              }}
               className="input mt-1"
             >
               <option value="">—</option>
@@ -92,7 +111,11 @@ export function CustomerFormDialog({ customer, onSave, onClose }: Props) {
           </label>
           <label className="col-span-2 block">
             <span className="text-sm text-stone-300">Número do documento</span>
-            <input value={docNumber} onChange={(e) => setDocNumber(e.target.value)} className="input mt-1" />
+            <input
+              value={docNumber}
+              onChange={(e) => setDocNumber(applyDocMask(docType, e.target.value))}
+              className="input mt-1"
+            />
           </label>
         </div>
 

@@ -135,7 +135,7 @@ export function CashPage() {
 
   return (
     <div>
-      <header className="mb-6 flex items-center justify-between">
+      <header className="mb-4 flex flex-wrap items-center justify-between gap-2 sm:mb-6">
         <h1 className="text-xl font-bold text-stone-100">Fluxo de caixa</h1>
         <button type="button" onClick={() => setCreating(true)} className="btn-primary inline-flex items-center gap-1.5">
           <PlusIcon className="h-4 w-4" />
@@ -148,24 +148,24 @@ export function CashPage() {
 
       {!loading && !error && (
         <>
-          <div className="mb-6 grid grid-cols-3 gap-3">
-            <div className="rounded-lg border border-stone-800 p-4">
+          <div className="mb-4 grid grid-cols-3 gap-2 sm:mb-6 sm:gap-3">
+            <div className="min-w-0 rounded-lg border border-stone-800 p-3 sm:p-4">
               <p className="text-xs text-stone-400">Entradas</p>
-              <p className="mt-1 text-xl font-bold text-emerald-500">{formatMoney(totals.totalIn)}</p>
+              <p className="mt-1 text-sm font-bold break-words text-emerald-500 sm:text-xl">{formatMoney(totals.totalIn)}</p>
             </div>
-            <div className="rounded-lg border border-stone-800 p-4">
+            <div className="min-w-0 rounded-lg border border-stone-800 p-3 sm:p-4">
               <p className="text-xs text-stone-400">Saídas</p>
-              <p className="mt-1 text-xl font-bold text-red-400">{formatMoney(totals.totalOut)}</p>
+              <p className="mt-1 text-sm font-bold break-words text-red-400 sm:text-xl">{formatMoney(totals.totalOut)}</p>
             </div>
-            <div className="rounded-lg border border-stone-800 p-4">
+            <div className="min-w-0 rounded-lg border border-stone-800 p-3 sm:p-4">
               <p className="text-xs text-stone-400">Saldo</p>
-              <p className={`mt-1 text-xl font-bold ${totals.balance >= 0 ? 'text-stone-100' : 'text-red-400'}`}>
+              <p className={`mt-1 text-sm font-bold break-words sm:text-xl ${totals.balance >= 0 ? 'text-stone-100' : 'text-red-400'}`}>
                 {formatMoney(totals.balance)}
               </p>
             </div>
           </div>
 
-          <section className="mb-6 space-y-3 rounded-lg border border-stone-800 p-4">
+          <section className="mb-4 space-y-3 rounded-lg border border-stone-800 p-3 sm:mb-6 sm:p-4">
             <h2 className="font-medium text-stone-200">Contas a receber</h2>
             {receivable.length === 0 ? (
               <EmptyState icon={CashIcon} title="Nada pendente" description="Vendas fiado aparecem aqui até serem marcadas como pagas." />
@@ -174,8 +174,8 @@ export function CashPage() {
                 {receivable.map((s) => {
                   const overdue = !!s.due_date && s.due_date < todayIso()
                   return (
-                    <li key={s.id} className="flex items-center gap-3 py-2">
-                      <div className="min-w-0 flex-1">
+                    <li key={s.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 py-2">
+                      <div className="min-w-0 flex-1 basis-40">
                         <p className="truncate text-stone-200">{s.customer?.name ?? 'Sem cliente'}</p>
                         <p className={`text-xs ${overdue ? 'text-red-400' : 'text-stone-500'}`}>
                           Vence {formatDate(s.due_date)} {overdue && '· vencida'} · {PAYMENT_LABELS[s.payment_method]}
@@ -197,7 +197,7 @@ export function CashPage() {
             )}
           </section>
 
-          <section className="mb-6 space-y-3 rounded-lg border border-stone-800 p-4">
+          <section className="mb-4 space-y-3 rounded-lg border border-stone-800 p-3 sm:mb-6 sm:p-4">
             <div className="flex items-center justify-between">
               <h2 className="font-medium text-stone-200">Gastos recorrentes</h2>
               <button
@@ -218,8 +218,8 @@ export function CashPage() {
                 {recurring.map((r) => {
                   const launched = launchedIds.has(r.id)
                   return (
-                    <li key={r.id} className="flex items-center gap-3 py-2">
-                      <div className="min-w-0 flex-1">
+                    <li key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
+                      <div className="min-w-0 flex-1 basis-40">
                         <p className={`truncate ${r.active ? 'text-stone-200' : 'text-stone-500 line-through'}`}>{r.description}</p>
                         <p className="text-xs text-stone-500">
                           {formatMoney(r.amount)}/mês · dia {r.day_of_month}

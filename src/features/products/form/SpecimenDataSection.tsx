@@ -330,7 +330,7 @@ export function SpecimenDataSection({
 
       <Field label="Localidade" value={draft.origin} onChange={set('origin')} />
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         <Labeled label="País de origem">
           <div className="mt-1">
             <CountrySelect value={draft.origin_country} onChange={set('origin_country')} />
@@ -348,12 +348,14 @@ export function SpecimenDataSection({
       </div>
 
       {/* Características físicas */}
-      <div className={`grid gap-3 ${kind === 'mineral' ? 'grid-cols-3' : 'grid-cols-2'}`}>
+      <div className={`grid grid-cols-2 gap-3 ${kind === 'mineral' ? 'sm:grid-cols-3' : ''}`}>
         <Field label="Peso (g)" value={draft.weight_g} onChange={set('weight_g')} type="number" />
         {(kind === 'mineral') && (
           <Field label="Peso (ct)" value={draft.weight_ct} onChange={set('weight_ct')} type="number" />
         )}
-        <Field label="Dimensões (mm)" value={draft.dimensions} onChange={set('dimensions')} placeholder="A × L × P" />
+        <div className={kind === 'mineral' ? 'col-span-2 sm:col-span-1' : undefined}>
+          <Field label="Dimensões (mm)" value={draft.dimensions} onChange={set('dimensions')} placeholder="A × L × P" />
+        </div>
       </div>
 
       {/* Gema (mineral lapidado) — mesma posição/comportamento do catálogo

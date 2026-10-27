@@ -225,15 +225,15 @@ export function DocumentPage() {
 
   return (
     <div>
-      <header className="mb-4 flex items-start justify-between">
-        <div>
+      <header className="mb-4 flex items-start justify-between gap-2">
+        <div className="min-w-0">
           <Link to="/documentos" className="inline-flex items-center gap-1 text-sm text-stone-400 hover:text-stone-200">
             <ArrowLeftIcon />
             Documentos
           </Link>
-          <h1 className="text-xl font-bold text-stone-100">{isNew ? 'Novo documento' : draft.title || 'Documento'}</h1>
+          <h1 className="text-xl font-bold break-words text-stone-100">{isNew ? 'Novo documento' : draft.title || 'Documento'}</h1>
         </div>
-        <button type="button" onClick={() => void handleSave()} disabled={busy} className="btn-primary">
+        <button type="button" onClick={() => void handleSave()} disabled={busy} className="btn-primary shrink-0">
           {busy ? 'Salvando…' : 'Salvar'}
         </button>
       </header>

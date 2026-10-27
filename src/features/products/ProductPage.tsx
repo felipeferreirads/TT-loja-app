@@ -247,15 +247,15 @@ export function ProductPage() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <header className="mb-4 flex items-start justify-between">
-        <div>
+      <header className="mb-4 flex items-start justify-between gap-2">
+        <div className="min-w-0">
           <Link to="/produtos" className="inline-flex items-center gap-1 text-sm text-stone-400 hover:text-stone-200">
             <ArrowLeftIcon />
             Produtos
           </Link>
-          <h1 className="text-xl font-bold text-stone-100">{isNew ? 'Novo produto' : draft.name || 'Produto'}</h1>
+          <h1 className="text-xl font-bold break-words text-stone-100">{isNew ? 'Novo produto' : draft.name || 'Produto'}</h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           {savedProduct && (
             <ExportMenu products={[savedProduct]} filename={savedProduct.ecommerce_slug || savedProduct.sku || savedProduct.id} />
           )}

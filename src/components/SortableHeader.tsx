@@ -9,15 +9,18 @@ export function SortableHeader({
   dir,
   onClick,
   align = 'left',
+  className = '',
 }: {
   label: string
   active: boolean
   dir: 'asc' | 'desc'
   onClick: () => void
   align?: 'left' | 'right'
+  /** Classes extras no `<th>` — ex.: `hidden sm:table-cell` pra esconder a coluna no celular. */
+  className?: string
 }) {
   return (
-    <th className={`px-3 py-2 font-medium ${align === 'right' ? 'text-right' : 'text-left'}`}>
+    <th className={`px-3 py-2 font-medium ${align === 'right' ? 'text-right' : 'text-left'} ${className}`}>
       <button
         type="button"
         onClick={onClick}

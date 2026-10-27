@@ -206,7 +206,7 @@ export function SalesPage() {
 
   return (
     <div>
-      <header className="mb-6 flex items-center justify-between gap-4">
+      <header className="mb-4 flex flex-wrap items-center justify-between gap-2 sm:mb-6">
         <h1 className="text-xl font-bold text-stone-100">Vendas</h1>
         <button type="button" onClick={() => setSaleDialogOpen(true)} className="btn-primary inline-flex items-center gap-1.5">
           <PlusIcon className="h-4 w-4" />
@@ -240,7 +240,7 @@ export function SalesPage() {
       </div>
 
       {!loading && !error && (
-        <section className="rounded-lg border border-stone-800 p-4">
+        <section className="rounded-lg border border-stone-800 p-3 sm:p-4">
           <h2 className="mb-3 font-medium text-stone-200">Vendas recentes</h2>
           {sales.length === 0 && <EmptyState icon={PackageIcon} title="Nenhuma venda registrada ainda" />}
           {sales.length > 0 && filteredSales.length === 0 && (
@@ -251,8 +251,8 @@ export function SalesPage() {
               {filteredSales.map((s) => {
                 const overdue = !s.paid && !!s.due_date && s.due_date < todayIso()
                 return (
-                  <div key={s.id} className="flex items-center justify-between gap-3 border-b border-stone-800 pb-2">
-                    <div className="min-w-0">
+                  <div key={s.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-stone-800 pb-2">
+                    <div className="min-w-0 flex-1 basis-40">
                       <p className="flex items-center gap-1.5 text-stone-200">
                         {s.customer?.name ?? 'Sem cliente'}
                         {!s.paid && (
@@ -265,7 +265,7 @@ export function SalesPage() {
                         {formatDate(s.sale_date)} · {PAYMENT_LABELS[s.payment_method]}
                       </p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                       <button
                         type="button"
                         onClick={() => setReceiptSaleId(s.id)}

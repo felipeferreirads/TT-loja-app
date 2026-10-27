@@ -78,10 +78,10 @@ export function CustomerPage() {
         Clientes
       </Link>
 
-      <header className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-stone-100">{customer.name}</h1>
-          <p className="mt-1 text-sm text-stone-500">
+      <header className="mb-4 flex items-start justify-between gap-2 sm:mb-6 sm:gap-4">
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold break-words text-stone-100">{customer.name}</h1>
+          <p className="mt-1 text-sm break-words text-stone-500">
             {customer.phone ?? '—'} {customer.email && `· ${customer.email}`}
           </p>
         </div>

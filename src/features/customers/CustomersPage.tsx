@@ -64,7 +64,7 @@ export function CustomersPage() {
 
   return (
     <div>
-      <header className="mb-6 flex items-center justify-between">
+      <header className="mb-4 flex flex-wrap items-center justify-between gap-2 sm:mb-6">
         <div>
           <h1 className="text-xl font-bold text-stone-100">Clientes</h1>
         </div>
@@ -87,9 +87,9 @@ export function CustomersPage() {
             <thead className="bg-stone-900 text-stone-400">
               <tr>
                 <SortableHeader label="Nome" active={sortField === 'name'} dir={sortDir} onClick={() => toggleSort('name')} />
-                <th className="px-3 py-2 font-medium">CPF/CNPJ</th>
-                <th className="px-3 py-2 font-medium">Telefone</th>
-                <SortableHeader label="Cidade" active={sortField === 'city'} dir={sortDir} onClick={() => toggleSort('city')} />
+                <th className="hidden px-3 py-2 font-medium sm:table-cell">CPF/CNPJ</th>
+                <th className="hidden px-3 py-2 font-medium sm:table-cell">Telefone</th>
+                <SortableHeader label="Cidade" active={sortField === 'city'} dir={sortDir} onClick={() => toggleSort('city')} className="hidden sm:table-cell" />
                 <th className="px-3 py-2 font-medium"></th>
               </tr>
             </thead>
@@ -100,10 +100,13 @@ export function CustomersPage() {
                     <Link to={`/clientes/${c.id}`} className="hover:underline">
                       {c.name}
                     </Link>
+                    <span className="block text-xs text-stone-500 sm:hidden">
+                      {[c.phone, c.address_city].filter(Boolean).join(' · ')}
+                    </span>
                   </td>
-                  <td className="px-3 py-2 text-stone-400">{c.doc_number ?? '—'}</td>
-                  <td className="px-3 py-2 text-stone-400">{c.phone ?? '—'}</td>
-                  <td className="px-3 py-2 text-stone-400">
+                  <td className="hidden px-3 py-2 text-stone-400 sm:table-cell">{c.doc_number ?? '—'}</td>
+                  <td className="hidden px-3 py-2 text-stone-400 sm:table-cell">{c.phone ?? '—'}</td>
+                  <td className="hidden px-3 py-2 text-stone-400 sm:table-cell">
                     {c.address_city ? `${c.address_city}${c.address_state ? `/${c.address_state}` : ''}` : '—'}
                   </td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">

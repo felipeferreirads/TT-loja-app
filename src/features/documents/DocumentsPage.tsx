@@ -35,7 +35,7 @@ export function DocumentsPage() {
 
   return (
     <div>
-      <header className="mb-4 flex items-center justify-between">
+      <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold text-stone-100">Documentos</h1>
         <Link to="/documentos/novo" className="btn-primary inline-flex items-center gap-1.5">
           <PlusIcon className="h-4 w-4" />
@@ -56,9 +56,9 @@ export function DocumentsPage() {
             <thead className="bg-stone-900 text-stone-400">
               <tr>
                 <th className="px-3 py-2 font-medium">Título</th>
-                <th className="px-3 py-2 font-medium">Tipo</th>
-                <th className="px-3 py-2 font-medium">Data</th>
-                <th className="px-3 py-2 font-medium">Fornecedor</th>
+                <th className="hidden px-3 py-2 font-medium sm:table-cell">Tipo</th>
+                <th className="hidden px-3 py-2 font-medium sm:table-cell">Data</th>
+                <th className="hidden px-3 py-2 font-medium md:table-cell">Fornecedor</th>
                 <th className="px-3 py-2 font-medium">Valor</th>
                 <th className="px-3 py-2 font-medium"></th>
               </tr>
@@ -70,12 +70,22 @@ export function DocumentsPage() {
                   onClick={() => navigate(`/documentos/${d.id}`)}
                   className="cursor-pointer transition hover:bg-stone-900"
                 >
-                  <td className="px-3 py-2 text-stone-100">{d.title}</td>
-                  <td className="px-3 py-2 text-stone-400">{DOCUMENT_KIND_LABELS[d.kind]}</td>
-                  <td className="px-3 py-2 text-stone-400">
+                  <td className="px-3 py-2 text-stone-100">
+                    {d.title}
+                    <span className="block text-xs text-stone-500 sm:hidden">
+                      {[
+                        DOCUMENT_KIND_LABELS[d.kind],
+                        d.doc_date ? new Date(`${d.doc_date}T00:00:00`).toLocaleDateString('pt-BR') : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </span>
+                  </td>
+                  <td className="hidden px-3 py-2 text-stone-400 sm:table-cell">{DOCUMENT_KIND_LABELS[d.kind]}</td>
+                  <td className="hidden px-3 py-2 text-stone-400 sm:table-cell">
                     {d.doc_date ? new Date(`${d.doc_date}T00:00:00`).toLocaleDateString('pt-BR') : '—'}
                   </td>
-                  <td className="px-3 py-2 text-stone-400">{d.supplier_name ?? '—'}</td>
+                  <td className="hidden px-3 py-2 text-stone-400 md:table-cell">{d.supplier_name ?? '—'}</td>
                   <td className="px-3 py-2 text-stone-400">
                     {d.total_amount == null ? '—' : formatMoney(d.total_amount)}
                   </td>

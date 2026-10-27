@@ -90,7 +90,7 @@ export function CommercialSection({
         />
       )}
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         <div className={subPrefixOptions.length > 0 ? 'flex gap-2' : undefined}>
           <div className="flex-1">
             <Field label="SKU" value={draft.sku} onChange={onSkuChange} placeholder="sugerido automaticamente" />

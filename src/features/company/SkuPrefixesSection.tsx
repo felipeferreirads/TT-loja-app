@@ -84,7 +84,7 @@ export function SkuPrefixesSection() {
   }
 
   return (
-    <section className="space-y-3 rounded-xl border border-stone-800 bg-stone-900/20 p-5">
+    <section className="min-w-0 space-y-3 rounded-xl border border-stone-800 bg-stone-900/20 p-4 sm:p-5">
       <div className="flex items-center gap-2">
         <TagIcon className="h-4 w-4 text-stone-400" />
         <h2 className="font-medium text-stone-200">Prefixos de SKU</h2>
@@ -158,8 +158,8 @@ export function SkuPrefixesSection() {
           ))}
         </div>
 
-        <div className="mt-3 flex flex-wrap items-end gap-2">
-          <label className="flex flex-col gap-1 text-xs text-stone-400">
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-end">
+          <label className="order-2 flex flex-col gap-1 text-xs text-stone-400 sm:order-1">
             Tipo
             <select value={newKind} onChange={(e) => setNewKind(e.target.value as StoreItemKind)} className="input">
               {KINDS.map((kind) => (
@@ -169,7 +169,7 @@ export function SkuPrefixesSection() {
               ))}
             </select>
           </label>
-          <label className="flex flex-1 flex-col gap-1 text-xs text-stone-400">
+          <label className="order-1 col-span-2 flex flex-col gap-1 text-xs text-stone-400 sm:order-2 sm:flex-1">
             Espécie (ex.: Opala)
             <input
               type="text"
@@ -178,17 +178,17 @@ export function SkuPrefixesSection() {
               className="input"
             />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-stone-400">
+          <label className="order-3 flex flex-col gap-1 text-xs text-stone-400">
             Prefixo (ex.: OPL)
             <input
               type="text"
               maxLength={8}
               value={newPrefix}
               onChange={(e) => setNewPrefix(e.target.value.toUpperCase())}
-              className="input w-24"
+              className="input sm:w-24"
             />
           </label>
-          <button type="button" onClick={() => void handleAddSpecies()} className="btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-sm">
+          <button type="button" onClick={() => void handleAddSpecies()} className="btn-secondary order-4 col-span-2 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm sm:col-span-1">
             <PlusIcon className="h-4 w-4" />
             Adicionar
           </button>

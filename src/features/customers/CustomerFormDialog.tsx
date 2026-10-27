@@ -62,11 +62,11 @@ export function CustomerFormDialog({ customer, onSave, onClose }: Props) {
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-3 sm:p-4" onClick={onClose}>
       <form
         onSubmit={handleSubmit}
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[90dvh] w-full max-w-lg space-y-4 overflow-y-auto rounded-xl bg-stone-900 p-5"
+        className="max-h-[92dvh] w-full max-w-lg space-y-4 overflow-y-auto rounded-xl bg-stone-900 p-4 sm:p-5"
       >
         <h2 className="text-lg font-bold text-stone-100">{customer ? 'Editar cliente' : 'Novo cliente'}</h2>
 
@@ -75,7 +75,7 @@ export function CustomerFormDialog({ customer, onSave, onClose }: Props) {
           <input required value={name} onChange={(e) => setName(e.target.value)} className="input mt-1" />
         </label>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <label className="block">
             <span className="text-sm text-stone-300">Telefone</span>
             <input
@@ -121,12 +121,12 @@ export function CustomerFormDialog({ customer, onSave, onClose }: Props) {
 
         <fieldset className="space-y-3 border-t border-stone-800 pt-3">
           <legend className="text-sm font-medium text-stone-300">Endereço</legend>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid gap-3 sm:grid-cols-3">
             <label className="block">
               <span className="text-sm text-stone-300">CEP</span>
               <input value={zip} onChange={(e) => setZip(e.target.value)} className="input mt-1" />
             </label>
-            <label className="col-span-2 block">
+            <label className="block sm:col-span-2">
               <span className="text-sm text-stone-300">Rua</span>
               <input value={street} onChange={(e) => setStreet(e.target.value)} className="input mt-1" />
             </label>
@@ -141,8 +141,8 @@ export function CustomerFormDialog({ customer, onSave, onClose }: Props) {
               <input value={complement} onChange={(e) => setComplement(e.target.value)} className="input mt-1" />
             </label>
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <label className="block">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <label className="col-span-2 block sm:col-span-1">
               <span className="text-sm text-stone-300">Bairro</span>
               <input value={district} onChange={(e) => setDistrict(e.target.value)} className="input mt-1" />
             </label>

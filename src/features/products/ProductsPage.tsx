@@ -147,9 +147,9 @@ export function ProductsPage() {
 
   return (
     <div>
-      <header className="mb-4 flex items-center justify-between">
+      <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold text-stone-100">Produtos</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Link to="/escanear" className="btn-secondary" title="Escanear QR" aria-label="Escanear QR">
             <QrCodeIcon className="h-4 w-4" />
           </Link>
@@ -282,8 +282,8 @@ export function ProductsPage() {
             <thead className="bg-stone-900 text-stone-400">
               <tr>
                 <th className="px-3 py-2 font-medium">Nome</th>
-                <th className="px-3 py-2 font-medium">Tipo</th>
-                <th className="px-3 py-2 font-medium">Espécie</th>
+                <th className="hidden px-3 py-2 font-medium sm:table-cell">Tipo</th>
+                <th className="hidden px-3 py-2 font-medium sm:table-cell">Espécie</th>
                 <th className="px-3 py-2 font-medium">Estoque</th>
                 <th className="px-3 py-2 font-medium">Preço</th>
                 <th className="px-3 py-2 font-medium"></th>
@@ -300,9 +300,12 @@ export function ProductsPage() {
                     {p.lot_suffix && <span className="mr-1.5 font-mono text-xs text-amber-500">#{p.lot_suffix}</span>}
                     {p.name}
                     {p.is_lot && <span className="ml-1.5 text-xs text-stone-500">(lote)</span>}
+                    <span className="block text-xs text-stone-500 sm:hidden">
+                      {[ITEM_KIND_LABELS[p.kind], p.minerals?.[0]?.name].filter(Boolean).join(' · ')}
+                    </span>
                   </td>
-                  <td className="px-3 py-2 text-stone-400">{ITEM_KIND_LABELS[p.kind]}</td>
-                  <td className="px-3 py-2 text-stone-400">{p.minerals?.[0]?.name ?? '—'}</td>
+                  <td className="hidden px-3 py-2 text-stone-400 sm:table-cell">{ITEM_KIND_LABELS[p.kind]}</td>
+                  <td className="hidden px-3 py-2 text-stone-400 sm:table-cell">{p.minerals?.[0]?.name ?? '—'}</td>
                   <td className="px-3 py-2 text-stone-400">
                     <span
                       className={`inline-flex items-center gap-1 ${

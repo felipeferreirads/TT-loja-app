@@ -16,7 +16,12 @@ import { useToast } from '../../components/ToastProvider'
 import { CopyIcon, CheckIcon, DocumentIcon, TrashIcon, PencilIcon, EyeIcon, EyeOffIcon } from '../../components/icons'
 import { SkuPrefixesSection } from './SkuPrefixesSection'
 
-type Field = { key: keyof StoreCompanyInput; label: string; wide?: boolean }
+/** `wide` = linha inteira sempre; `short` = meia linha mesmo no celular (CEP, número, UF);
+ *  os demais ocupam a linha inteira no celular e meia linha a partir de `sm`. */
+type Field = { key: keyof StoreCompanyInput; label: string; wide?: boolean; short?: boolean }
+
+const fieldSpan = ({ wide, short }: Field) =>
+  wide ? 'col-span-2' : short ? 'col-span-1' : 'col-span-2 sm:col-span-1'
 
 const IDENTITY_FIELDS: Field[] = [
   { key: 'legal_name', label: 'Razão social', wide: true },
@@ -33,31 +38,31 @@ const CONTACT_FIELDS: Field[] = [
 ]
 
 const ADDRESS_FIELDS: Field[] = [
-  { key: 'address_zip', label: 'CEP' },
+  { key: 'address_zip', label: 'CEP', short: true },
   { key: 'address_street', label: 'Rua' },
-  { key: 'address_number', label: 'Número' },
+  { key: 'address_number', label: 'Número', short: true },
   { key: 'address_complement', label: 'Complemento' },
   { key: 'address_district', label: 'Bairro' },
   { key: 'address_city', label: 'Cidade' },
-  { key: 'address_state', label: 'UF' },
+  { key: 'address_state', label: 'UF', short: true },
 ]
 
 const PARTNER_IDENTITY_FIELDS: Field[] = [
   { key: 'partner_name', label: 'Nome', wide: true },
   { key: 'partner_nationality', label: 'Nacionalidade' },
   { key: 'partner_marital_status', label: 'Estado civil' },
-  { key: 'partner_cpf', label: 'CPF' },
-  { key: 'partner_rg', label: 'RG' },
+  { key: 'partner_cpf', label: 'CPF', short: true },
+  { key: 'partner_rg', label: 'RG', short: true },
 ]
 
 const PARTNER_ADDRESS_FIELDS: Field[] = [
-  { key: 'partner_address_zip', label: 'CEP' },
+  { key: 'partner_address_zip', label: 'CEP', short: true },
   { key: 'partner_address_street', label: 'Rua' },
-  { key: 'partner_address_number', label: 'Número' },
+  { key: 'partner_address_number', label: 'Número', short: true },
   { key: 'partner_address_complement', label: 'Complemento' },
   { key: 'partner_address_district', label: 'Bairro' },
   { key: 'partner_address_city', label: 'Cidade' },
-  { key: 'partner_address_state', label: 'UF' },
+  { key: 'partner_address_state', label: 'UF', short: true },
 ]
 
 /** Campos com máscara ao digitar (CNPJ/CPF/telefone); os demais passam como estão. */
@@ -121,12 +126,12 @@ function FieldGroup({
     <div>
       <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">{title}</h3>
       <div className="grid grid-cols-2 gap-3">
-        {fields.map(({ key, label, wide }) => (
-          <label key={key} className={wide ? 'col-span-2 block' : 'block'}>
-            <span className="text-sm text-stone-300">{label}</span>
+        {fields.map((f) => (
+          <label key={f.key} className={`${fieldSpan(f)} block min-w-0`}>
+            <span className="text-sm text-stone-300">{f.label}</span>
             <input
-              value={(form[key] as string) ?? ''}
-              onChange={(e) => onChange(key, e.target.value)}
+              value={(form[f.key] as string) ?? ''}
+              onChange={(e) => onChange(f.key, e.target.value)}
               className="input mt-1"
             />
           </label>
@@ -141,10 +146,10 @@ function FieldGroupReadOnly({ title, fields, form }: { title: string; fields: Fi
     <div>
       <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">{title}</h3>
       <dl className="grid grid-cols-2 gap-3">
-        {fields.map(({ key, label, wide }) => (
-          <div key={key} className={wide ? 'col-span-2' : undefined}>
-            <dt className="text-sm text-stone-400">{label}</dt>
-            <dd className="mt-0.5 truncate text-sm text-stone-100">{(form[key] as string) || '—'}</dd>
+        {fields.map((f) => (
+          <div key={f.key} className={`${f.wide ? 'col-span-2' : ''} min-w-0`}>
+            <dt className="text-sm text-stone-400">{f.label}</dt>
+            <dd className="mt-0.5 text-sm break-words text-stone-100">{(form[f.key] as string) || '—'}</dd>
           </div>
         ))}
       </dl>
@@ -281,20 +286,20 @@ export function CompanyPage() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <header className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-stone-800 bg-stone-900/40 p-5">
-        <div className="flex items-center gap-4">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-600 to-amber-800 text-lg font-semibold text-amber-50">
+      <header className="mb-4 flex flex-col gap-3 rounded-xl border border-stone-800 bg-stone-900/40 p-4 sm:mb-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-5">
+        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-600 to-amber-800 text-base font-semibold text-amber-50 sm:h-14 sm:w-14 sm:text-lg">
             {initials || 'E'}
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-stone-100">
+          <div className="min-w-0">
+            <h1 className="text-lg font-bold break-words text-stone-100 sm:text-xl">
               {form.trade_name || form.legal_name || 'Empresa'}
             </h1>
             <p className="text-sm text-stone-500">{form.cnpj || 'CNPJ não informado'}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => void handleCopy()} className="btn-secondary inline-flex items-center gap-1.5">
+          <button type="button" onClick={() => void handleCopy()} className="btn-secondary inline-flex w-full items-center justify-center gap-1.5 sm:w-auto">
             {copied ? <CheckIcon className="h-4 w-4" /> : <CopyIcon className="h-4 w-4" />}
             {copied ? 'Copiado!' : 'Copiar dados'}
           </button>
@@ -303,9 +308,9 @@ export function CompanyPage() {
 
       {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="space-y-5 rounded-xl border border-stone-800 bg-stone-900/20 p-5">
-          <div className="flex items-center justify-between">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
+        <section className="min-w-0 space-y-5 rounded-xl border border-stone-800 bg-stone-900/20 p-4 sm:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-medium text-stone-200">Dados cadastrais</h2>
             {!editing && (
               <button
@@ -356,8 +361,8 @@ export function CompanyPage() {
           )}
         </section>
 
-        <section className="space-y-5 rounded-xl border border-stone-800 bg-stone-900/20 p-5">
-          <div className="flex items-center justify-between">
+        <section className="min-w-0 space-y-5 rounded-xl border border-stone-800 bg-stone-900/20 p-4 sm:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-medium text-stone-200">Sócio</h2>
             <div className="flex items-center gap-2">
               <button
@@ -390,17 +395,17 @@ export function CompanyPage() {
               <div>
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">Identificação</h3>
                 <div className="grid grid-cols-2 gap-3">
-                  {PARTNER_IDENTITY_FIELDS.map(({ key, label, wide }) => (
-                    <label key={key} className={wide ? 'col-span-2 block' : 'block'}>
-                      <span className="text-sm text-stone-300">{label}</span>
+                  {PARTNER_IDENTITY_FIELDS.map((f) => (
+                    <label key={f.key} className={`${fieldSpan(f)} block min-w-0`}>
+                      <span className="text-sm text-stone-300">{f.label}</span>
                       <input
-                        value={(form[key] as string) ?? ''}
-                        onChange={(e) => setField(key, e.target.value)}
+                        value={(form[f.key] as string) ?? ''}
+                        onChange={(e) => setField(f.key, e.target.value)}
                         className="input mt-1"
                       />
                     </label>
                   ))}
-                  <label className="block">
+                  <label className="col-span-2 block min-w-0 sm:col-span-1">
                     <span className="text-sm text-stone-300">Nascimento</span>
                     <input
                       type="date"
@@ -426,15 +431,15 @@ export function CompanyPage() {
               <div>
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">Identificação</h3>
                 <dl className="grid grid-cols-2 gap-3">
-                  {PARTNER_IDENTITY_FIELDS.map(({ key, label, wide }) => (
-                    <div key={key} className={wide ? 'col-span-2' : undefined}>
-                      <dt className="text-sm text-stone-400">{label}</dt>
-                      <dd className="mt-0.5 truncate text-sm text-stone-100">{(form[key] as string) || '—'}</dd>
+                  {PARTNER_IDENTITY_FIELDS.map((f) => (
+                    <div key={f.key} className={`${f.wide ? 'col-span-2' : ''} min-w-0`}>
+                      <dt className="text-sm text-stone-400">{f.label}</dt>
+                      <dd className="mt-0.5 text-sm break-words text-stone-100">{(form[f.key] as string) || '—'}</dd>
                     </div>
                   ))}
-                  <div>
+                  <div className="min-w-0">
                     <dt className="text-sm text-stone-400">Nascimento</dt>
-                    <dd className="mt-0.5 truncate text-sm text-stone-100">{formatDateBR(form.partner_birth_date) || '—'}</dd>
+                    <dd className="mt-0.5 text-sm break-words text-stone-100">{formatDateBR(form.partner_birth_date) || '—'}</dd>
                   </div>
                 </dl>
               </div>
@@ -445,7 +450,7 @@ export function CompanyPage() {
 
         <section
           {...dropProps}
-          className={`space-y-3 rounded-xl border p-5 transition-colors ${
+          className={`min-w-0 space-y-3 rounded-xl border p-4 transition-colors sm:p-5 ${
             isDragging ? DROP_ACTIVE_CLASS : 'border-stone-800 bg-stone-900/20'
           }`}
         >

@@ -68,7 +68,11 @@ export function ImportFromCollectionDialog({
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return specimens
-    return specimens.filter((s) => [s.displayName, s.origin, s.code_global ? `#${s.code_global}` : null].some((v) => v?.toLowerCase().includes(q)))
+    return specimens.filter((s) =>
+      [s.displayName, s.origin, s.collectionName, s.code_global ? `#${s.code_global}` : null].some((v) =>
+        v?.toLowerCase().includes(q),
+      ),
+    )
   }, [specimens, query])
 
   const toggle = (id: string) =>
@@ -350,6 +354,7 @@ export function ImportFromCollectionDialog({
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm text-stone-100">{s.displayName}</span>
                     <span className="block truncate text-xs text-stone-500">
+                      {s.collectionName ? `${s.collectionName} · ` : ''}
                       {TYPE_LABELS[s.type]}
                       {s.code_global ? ` · #${s.code_global}` : ''}
                       {s.origin ? ` · ${s.origin}` : ''}
@@ -371,6 +376,7 @@ export function ImportFromCollectionDialog({
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm text-stone-100">{s.displayName}</span>
                     <span className="block truncate text-xs text-stone-500">
+                      {s.collectionName ? `${s.collectionName} · ` : ''}
                       {TYPE_LABELS[s.type]}
                       {s.code_global ? ` · #${s.code_global}` : ''}
                       {s.origin ? ` · ${s.origin}` : ''}

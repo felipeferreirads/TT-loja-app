@@ -33,8 +33,9 @@ export default defineConfig({
         icons: [
           { src: 'pwa-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
           { src: 'pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-          // Fundo sólido + cristal na zona segura central: serve de maskable.
-          { src: 'pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          // Versão à parte pro maskable: cristal menor (mais folga), porque o
+          // Android/iOS recorta o ícone e a versão "any" encostava nas bordas.
+          { src: 'pwa-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       workbox: {

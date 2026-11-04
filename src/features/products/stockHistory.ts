@@ -9,7 +9,7 @@ export interface StockEntryWithRefs extends StoreStockEntry {
 export async function fetchStockEntries(productId: string): Promise<StockEntryWithRefs[]> {
   const { data, error } = await supabase
     .from('store_stock_entries')
-    .select('*, supplier:store_suppliers(name), document:store_documents(id, title, number)')
+    .select('*, supplier:suppliers(name), document:store_documents(id, title, number)')
     .eq('product_id', productId)
     .order('entry_date', { ascending: false })
   if (error) throw new Error(`Falha ao carregar entradas de estoque: ${error.message}`)

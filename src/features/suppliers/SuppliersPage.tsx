@@ -34,15 +34,18 @@ export function SuppliersPage() {
   }
 
   const handleDelete = async (supplier: StoreSupplier) => {
-    if (!(await confirm(`Apagar "${supplier.name}"? Essa ação não pode ser desfeita.`, { danger: true }))) return
-    await deleteSupplier(supplier.id)
-    toast.success('Fornecedor apagado.')
+    const msg = supplier.in_collection
+      ? `Tirar "${supplier.name}" da loja? O cadastro continua na Coleção.`
+      : `Apagar "${supplier.name}"? Essa ação não pode ser desfeita.`
+    if (!(await confirm(msg, { danger: true }))) return
+    await deleteSupplier(supplier)
+    toast.success(supplier.in_collection ? 'Fornecedor removido da loja.' : 'Fornecedor apagado.')
     load()
   }
 
   return (
     <div>
-      <header className="mb-6 flex items-center justify-between">
+      <header className="mb-4 flex flex-wrap items-center justify-between gap-2 sm:mb-6">
         <h1 className="text-xl font-bold text-stone-100">Fornecedores</h1>
         <button type="button" onClick={() => setEditing('new')} className="btn-primary inline-flex items-center gap-1.5">
           <PlusIcon className="h-4 w-4" />
@@ -63,17 +66,24 @@ export function SuppliersPage() {
             <thead className="bg-stone-900 text-stone-400">
               <tr>
                 <th className="px-3 py-2 font-medium">Nome</th>
-                <th className="px-3 py-2 font-medium">Contato</th>
-                <th className="px-3 py-2 font-medium">Notas</th>
+                <th className="hidden px-3 py-2 font-medium sm:table-cell">Contato</th>
+                <th className="hidden px-3 py-2 font-medium md:table-cell">CNPJ / Doc.</th>
+                <th className="hidden px-3 py-2 font-medium md:table-cell">Notas</th>
                 <th className="px-3 py-2 font-medium"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-800">
               {suppliers.map((s) => (
                 <tr key={s.id}>
-                  <td className="px-3 py-2 text-stone-100">{s.name}</td>
-                  <td className="px-3 py-2 text-stone-400">{s.contact ?? '—'}</td>
-                  <td className="max-w-xs truncate px-3 py-2 text-stone-400">{s.notes ?? '—'}</td>
+                  <td className="px-3 py-2 text-stone-100">
+                    {s.name}
+                    <span className="block text-xs break-words text-stone-500 sm:hidden">
+                      {[s.phone, s.email].filter(Boolean).join(' · ')}
+                    </span>
+                  </td>
+                  <td className="hidden px-3 py-2 text-stone-400 sm:table-cell">{[s.phone, s.email].filter(Boolean).join(' · ') || '—'}</td>
+                  <td className="hidden px-3 py-2 font-mono text-xs text-stone-400 md:table-cell">{s.tax_id ?? '—'}</td>
+                  <td className="hidden max-w-xs truncate px-3 py-2 text-stone-400 md:table-cell">{s.notes ?? '—'}</td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
                     <button type="button" onClick={() => setEditing(s)} className="text-amber-500 hover:underline">
                       Editar

@@ -116,13 +116,16 @@ src/
                           ProductStockHistorySection.tsx (entradas/saídas de
                           estoque, ver §9)
     customers/            Clientes
-    suppliers/             Fornecedores (CRUD simples: nome, contato, notas)
+    suppliers/             Fornecedores — tabela `suppliers` COMPARTILHADA com o
+                          catálogo pessoal (0029 + 0151 do catálogo); a loja
+                          lista só `in_store`, apagar item usado pela Coleção só
+                          desliga `in_store`. Ver docs/PLANO-FORNECEDORES.md do catálogo
     sales/                Vendas/PDV (venda + baixa de estoque via RPC
                           `create_store_sale`, transação atômica)
     documents/             Documentos (nota fiscal/recibo/importação/outro —
                           SEM certificado, que vive na ficha do produto, ver
                           §2) com arquivos anexos, produtos vinculados e
-                          fornecedor (picker sobre `store_suppliers`, com
+                          fornecedor (picker sobre `suppliers` (in_store), com
                           "+cadastrar" — não é mais texto livre)
     cash/                  Fluxo de caixa (`store_cash_entries`): lançamentos
                           manuais de entrada/saída + saldo
@@ -315,6 +318,13 @@ resolvendo sem reimpressão nem realocação de alias.
 `store_products` com o mesmo id ainda (a checagem É essa comparação de id,
 não uma coluna de vínculo — consequência direta da decisão acima).
 
+**Múltiplas coleções (23/09/2026, migration 0152 do catálogo)**: só entram
+specimens de coleções `kind = 'owned'` — a coleção de "vistos"
+(`kind = 'observed'`) guarda minerais que o dono NÃO tem e nunca pode virar
+produto. Com 2+ coleções possuídas, a lista mostra o nome da coleção antes do
+tipo/código (`collectionName`), porque `#000123` passou a ser único só dentro
+de cada coleção. Ver `../docs/PLANO-MULTIPLAS-COLECOES.md`.
+
 **Dois jeitos de escolher o item no diálogo**: busca por texto (padrão) ou
 câmera (aba "Escanear", `barcodeDetectorCtor`/`openCameraStream` de
 `lib/qrCamera.ts`, mesmo mecanismo do `ScanPage.tsx`). `resolveScannedSpecimen`
@@ -332,7 +342,7 @@ mesma lista de `selected`.
 exemplo, meteorito tem ~20 campos lá contra 7 aqui. `buildAppendix()` junta
 os campos sem destino em linhas "Rótulo: valor" ao final das notas do
 produto, sob o cabeçalho "— Dados importados da coleção —", em vez de
-descartá-los. `specimen_private.price_net_brl`/`price_gross_brl` viram
+descartá-los. `specimen_private.price_brl`/`price_gross_brl` viram
 `cost_price` (preço pago vira custo de aquisição, dado real pra
 precificação); `previous_owner`/`purchase_notes` viram apêndice.
 

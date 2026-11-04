@@ -32,10 +32,10 @@ interface CartLine {
 }
 
 export const PAYMENT_LABELS: Record<StorePaymentMethod, string> = {
-  dinheiro: 'Dinheiro',
-  cartao: 'Cartão',
+  cash: 'Dinheiro',
+  card: 'Cartão',
   pix: 'Pix',
-  outro: 'Outro',
+  other: 'Outro',
 }
 
 interface SalesLocationState {
@@ -61,7 +61,7 @@ export function SalesPage() {
   const [scanNotFound, setScanNotFound] = useState<string | null>(null)
   const [selectedProductId, setSelectedProductId] = useState('')
   const [customerId, setCustomerId] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState<StorePaymentMethod>('dinheiro')
+  const [paymentMethod, setPaymentMethod] = useState<StorePaymentMethod>('cash')
   const [discount, setDiscount] = useState('0')
   const [discountMode, setDiscountMode] = useState<'brl' | 'pct'>('brl')
   const [extra, setExtra] = useState('0')

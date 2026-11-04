@@ -156,7 +156,7 @@ interface CatalogSpecimenFull {
 }
 
 interface CatalogSpecimenPrivate {
-  price_net_brl: number | null
+  price_brl: number | null
   price_gross_brl: number | null
   previous_owner: string | null
   purchase_notes: string | null
@@ -168,9 +168,12 @@ export interface ImportableSpecimen {
   type: CatalogSpecimenType
   displayName: string
   origin: string | null
+  /** Nome da coleção de origem — só preenchido quando o dono tem 2+ coleções
+   *  possuídas (o código "#000123" deixa de ser único entre elas). */
+  collectionName: string | null
 }
 
-const LIST_SELECT = `id, code_global, type, origin,
+const LIST_SELECT = `id, code_global, type, origin, collection_id,
   mineral_details(species),
   fossil_details(display_name),
   fossil_species(name, popular_name),
@@ -187,9 +190,21 @@ export async function fetchImportableSpecimens(): Promise<ImportableSpecimen[]> 
   if (existingError) throw existingError
   const alreadyImported = new Set((existing ?? []).map((p) => p.id as string))
 
+  // Múltiplas coleções (0152 do catálogo): só coleções POSSUÍDAS entram — a
+  // coleção de "vistos" guarda minerais que o dono não tem, nunca viram produto.
+  const { data: owned, error: ownedError } = await supabase
+    .from('collections')
+    .select('id, name')
+    .eq('kind', 'owned')
+    .is('deleted_at', null)
+  if (ownedError) throw new Error(`Falha ao buscar as coleções: ${ownedError.message}`)
+  const ownedNames = new Map((owned ?? []).map((c) => [c.id as string, c.name as string]))
+  const showCollection = ownedNames.size > 1
+
   const { data, error } = await supabase
     .from('specimens')
     .select(LIST_SELECT)
+    .in('collection_id', [...ownedNames.keys()])
     .is('deleted_at', null)
     .eq('is_sold', false)
     .order('code_global', { ascending: true, nullsFirst: false })
@@ -200,6 +215,7 @@ export async function fetchImportableSpecimens(): Promise<ImportableSpecimen[]> 
     code_global: number | null
     type: CatalogSpecimenType
     origin: string | null
+    collection_id: string
     mineral_details: { species: string | null } | null
     fossil_details: { display_name: string | null } | null
     fossil_species: { name: string | null; popular_name: string | null }[]
@@ -214,6 +230,7 @@ export async function fetchImportableSpecimens(): Promise<ImportableSpecimen[]> 
       type: s.type,
       origin: s.origin,
       displayName: catalogDisplayName(s),
+      collectionName: showCollection ? (ownedNames.get(s.collection_id) ?? null) : null,
     }))
 }
 
@@ -295,7 +312,7 @@ async function fetchCatalogSpecimen(id: string): Promise<CatalogSpecimenFull> {
 async function fetchCatalogPrivate(id: string): Promise<CatalogSpecimenPrivate | null> {
   const { data, error } = await supabase
     .from('specimen_private')
-    .select('price_net_brl, price_gross_brl, previous_owner, purchase_notes')
+    .select('price_brl, price_gross_brl, previous_owner, purchase_notes')
     .eq('specimen_id', id)
     .maybeSingle()
   if (error) return null // Dado privado é um extra (custo/procedência) — a importação não pode falhar por causa dele.
@@ -464,7 +481,7 @@ function mapToProductInput(s: CatalogSpecimenFull, priv: CatalogSpecimenPrivate 
   if (priv?.previous_owner) extra.push(['Proprietário anterior', priv.previous_owner])
   if (priv?.purchase_notes) extra.push(['Notas de compra', priv.purchase_notes])
 
-  const costPrice = priv?.price_net_brl ?? priv?.price_gross_brl ?? null
+  const costPrice = priv?.price_brl ?? priv?.price_gross_brl ?? null
 
   return {
     name,

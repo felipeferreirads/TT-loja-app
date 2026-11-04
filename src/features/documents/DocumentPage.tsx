@@ -54,7 +54,7 @@ function toDraft(d: StoreDocument | null): Draft {
     const value = d ? (d as unknown as Record<string, unknown>)[f] : null
     draft[f] = value == null ? '' : String(value)
   }
-  draft.kind = d?.kind ?? 'nota_fiscal'
+  draft.kind = d?.kind ?? 'tax_invoice'
   return draft
 }
 
@@ -301,7 +301,7 @@ export function DocumentPage() {
               />
             </div>
           </label>
-          {draft.kind === 'nota_fiscal' && (
+          {draft.kind === 'tax_invoice' && (
             <Field label="Chave de acesso" value={draft.access_key} onChange={set('access_key')} />
           )}
           <label className="block">

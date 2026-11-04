@@ -36,7 +36,7 @@ export async function fetchSaleItemStats(): Promise<SaleItemStat[]> {
     quantity: row.quantity,
     unit_price: row.unit_price,
     sale_date: row.sale?.sale_date ?? '',
-    payment_method: row.sale?.payment_method ?? 'outro',
+    payment_method: row.sale?.payment_method ?? 'other',
     product_id: row.product?.id ?? null,
     product_name: row.product?.name ?? null,
     product_kind: row.product?.kind ?? null,

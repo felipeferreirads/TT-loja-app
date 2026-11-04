@@ -2,7 +2,7 @@
 // Ver supabase/migrations/.
 
 export type StoreProductDisposition = 'in_stock' | 'sold' | 'returned_to_collection'
-export type StorePaymentMethod = 'dinheiro' | 'cartao' | 'pix' | 'outro'
+export type StorePaymentMethod = 'cash' | 'card' | 'pix' | 'other'
 export type StoreCashEntryKind = 'in' | 'out'
 // "Gema" não é mais um kind à parte — virou `is_gem` (checkbox) na própria
 // linha de mineral, igual ao catálogo pessoal (migration
@@ -282,13 +282,13 @@ export interface StoreSkuPrefix {
 
 export type StoreSkuPrefixInput = Partial<Omit<StoreSkuPrefix, 'id' | 'owner_id' | 'created_at' | 'updated_at'>>
 
-export type StoreDocumentKind = 'nota_fiscal' | 'recibo' | 'importacao' | 'outro'
+export type StoreDocumentKind = 'tax_invoice' | 'receipt' | 'import' | 'other'
 
 export const DOCUMENT_KIND_LABELS: Record<StoreDocumentKind, string> = {
-  nota_fiscal: 'Nota fiscal',
-  recibo: 'Recibo',
-  importacao: 'Importação',
-  outro: 'Outro',
+  tax_invoice: 'Nota fiscal',
+  receipt: 'Recibo',
+  import: 'Importação',
+  other: 'Outro',
 }
 
 export interface StoreDocument {
@@ -364,13 +364,39 @@ export interface StoreCustomer {
   deleted_at: string | null
 }
 
+/**
+ * Fornecedor — tabela `suppliers` COMPARTILHADA com o catálogo pessoal
+ * (migration 0151 do catálogo + 0029 daqui). A loja lista só `in_store`;
+ * `in_collection` é do catálogo. O nome `StoreSupplier` ficou por histórico.
+ */
 export interface StoreSupplier {
   id: string
   owner_id: string
   name: string
-  contact: string | null
+  kind: 'person' | 'company'
+  legal_name: string | null
+  tax_id: string | null
+  tax_id_type: 'cnpj' | 'cpf' | 'foreign' | null
+  email: string | null
+  phone: string | null
+  phone_is_whatsapp: boolean
+  website: string | null
+  address_zip: string | null
+  address_street: string | null
+  address_number: string | null
+  address_complement: string | null
+  address_district: string | null
+  address_city: string | null
+  address_state: string | null
+  address_country: string | null
+  aliases: string[]
+  /** Redes sociais (0155) — `value` é @perfil ou URL; ver features/suppliers/socialLinks.ts no catálogo. */
+  social_links: SupplierSocialLink[]
   notes: string | null
+  in_collection: boolean
+  in_store: boolean
   created_at: string
+  updated_at: string
 }
 
 export interface StoreSale {
@@ -519,4 +545,10 @@ export interface StorePricingPreset {
   label: string
   value: number
   created_at: string
+}
+
+/** Um perfil de rede social do fornecedor (`suppliers.social_links`, 0155). */
+export interface SupplierSocialLink {
+  network: string
+  value: string
 }

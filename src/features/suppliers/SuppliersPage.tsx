@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { StoreSupplier } from '../../types/db'
 import { fetchSuppliers, createSupplier, updateSupplier, deleteSupplier, type StoreSupplierInput } from './api'
 import { SupplierFormDialog } from './SupplierFormDialog'
+import { contactSummary } from './contactEntries'
 import { useConfirm } from '../../components/DialogProvider'
 import { useToast } from '../../components/ToastProvider'
 import { EmptyState } from '../../components/EmptyState'
@@ -78,10 +79,10 @@ export function SuppliersPage() {
                   <td className="px-3 py-2 text-stone-100">
                     {s.name}
                     <span className="block text-xs break-words text-stone-500 sm:hidden">
-                      {[s.phone, s.email].filter(Boolean).join(' · ')}
+                      {contactSummary(s)}
                     </span>
                   </td>
-                  <td className="hidden px-3 py-2 text-stone-400 sm:table-cell">{[s.phone, s.email].filter(Boolean).join(' · ') || '—'}</td>
+                  <td className="hidden px-3 py-2 text-stone-400 sm:table-cell">{contactSummary(s) || '—'}</td>
                   <td className="hidden px-3 py-2 font-mono text-xs text-stone-400 md:table-cell">{s.tax_id ?? '—'}</td>
                   <td className="hidden max-w-xs truncate px-3 py-2 text-stone-400 md:table-cell">{s.notes ?? '—'}</td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">

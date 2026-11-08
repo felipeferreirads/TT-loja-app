@@ -28,7 +28,10 @@ export async function createSupplier(input: StoreSupplierInput): Promise<StoreSu
   if (existing) {
     const fill: Record<string, unknown> = { in_store: true }
     for (const [k, v] of Object.entries(input)) {
-      if (v != null && v !== '' && (existing as Record<string, unknown>)[k] == null) fill[k] = v
+      const current = (existing as Record<string, unknown>)[k]
+      // Lista vazia (extra_phones, social_links...) conta como "não preenchido".
+      const empty = current == null || (Array.isArray(current) && current.length === 0)
+      if (v != null && v !== '' && !(Array.isArray(v) && v.length === 0) && empty) fill[k] = v
     }
     return updateSupplier(existing.id, fill as StoreSupplierInput)
   }

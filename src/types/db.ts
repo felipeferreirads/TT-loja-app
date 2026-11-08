@@ -364,6 +364,19 @@ export interface StoreCustomer {
   deleted_at: string | null
 }
 
+/** Telefone adicional do fornecedor (`extra_phones`, 0181 do catálogo). `label` pode ser "". */
+export interface PhoneEntry {
+  value: string
+  whatsapp: boolean
+  label: string
+}
+
+/** E-mail adicional do fornecedor (`extra_emails`, 0181 do catálogo). `label` pode ser "". */
+export interface EmailEntry {
+  value: string
+  label: string
+}
+
 /**
  * Fornecedor — tabela `suppliers` COMPARTILHADA com o catálogo pessoal
  * (migration 0151 do catálogo + 0029 daqui). A loja lista só `in_store`;
@@ -377,9 +390,15 @@ export interface StoreSupplier {
   legal_name: string | null
   tax_id: string | null
   tax_id_type: 'cnpj' | 'cpf' | 'foreign' | null
+  /** E-mail principal; os demais ficam em `extra_emails` (0181 do catálogo). */
   email: string | null
+  email_label: string | null
+  extra_emails: EmailEntry[]
+  /** Telefone principal; os demais ficam em `extra_phones` (0181 do catálogo). */
   phone: string | null
   phone_is_whatsapp: boolean
+  phone_label: string | null
+  extra_phones: PhoneEntry[]
   website: string | null
   address_zip: string | null
   address_street: string | null

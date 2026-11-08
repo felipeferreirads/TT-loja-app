@@ -3,7 +3,11 @@ import { createPortal } from 'react-dom'
 import type { StoreSupplier } from '../../types/db'
 import type { StoreSupplierInput } from './api'
 import { CountrySelect } from '../../components/CountrySelect'
-import { maskBrazilianPhoneInput, maskCnpjInput, maskCpfInput, normalizeBrazilianPhone } from '../../lib/brMask'
+import { maskCnpjInput, maskCpfInput } from '../../lib/brMask'
+import { normalizeWebUrl } from '../../lib/url'
+import type { EmailEntry, PhoneEntry } from '../../types/db'
+import { emailEntriesFromRow, emailEntriesToColumns, phoneEntriesFromRow, phoneEntriesToColumns } from './contactEntries'
+import { EmailsEditor, PhonesEditor } from './ContactFields'
 
 interface Props {
   supplier: StoreSupplier | null
@@ -12,7 +16,7 @@ interface Props {
 }
 
 const FIELDS = [
-  'legal_name', 'tax_id', 'email', 'phone', 'website',
+  'legal_name', 'tax_id', 'website',
   'address_zip', 'address_street', 'address_number', 'address_complement',
   'address_district', 'address_city', 'address_state', 'notes',
 ] as const
@@ -22,7 +26,8 @@ export function SupplierFormDialog({ supplier, onSave, onClose }: Props) {
   const [name, setName] = useState(supplier?.name ?? '')
   const [kind, setKind] = useState<StoreSupplier['kind']>(supplier?.kind ?? 'company')
   const [country, setCountry] = useState(supplier?.address_country ?? 'BR')
-  const [whatsapp, setWhatsapp] = useState(supplier?.phone_is_whatsapp ?? false)
+  const [phones, setPhones] = useState<PhoneEntry[]>(() => phoneEntriesFromRow(supplier))
+  const [emails, setEmails] = useState<EmailEntry[]>(() => emailEntriesFromRow(supplier))
   const [text, setText] = useState<Record<TextField, string>>(
     () => Object.fromEntries(FIELDS.map((f) => [f, supplier?.[f] ?? ''])) as Record<TextField, string>,
   )
@@ -47,7 +52,11 @@ export function SupplierFormDialog({ supplier, onSave, onClose }: Props) {
         name: name.trim(),
         kind,
         tax_id_type: clean.tax_id ? (isBR ? (kind === 'person' ? 'cpf' : 'cnpj') : 'foreign') : null,
-        phone_is_whatsapp: whatsapp && !!clean.phone,
+        // Site sem protocolo ("site.com") é salvo com "https://".
+        website: normalizeWebUrl(clean.website ?? '') || null,
+        // O primeiro telefone/e-mail vai para as colunas principais, o resto para as listas extras.
+        ...phoneEntriesToColumns(phones, isBR),
+        ...emailEntriesToColumns(emails),
         address_country: country || null,
         address_district: isBR ? clean.address_district : null,
       })
@@ -100,30 +109,29 @@ export function SupplierFormDialog({ supplier, onSave, onClose }: Props) {
             />
           </label>
           <label className="block">
-            <span className="text-sm text-stone-300">E-mail</span>
-            <input type="email" {...field('email')} />
-          </label>
-          <label className="block">
-            <span className="text-sm text-stone-300">Telefone</span>
-            <input
-              type="tel"
-              {...field('phone')}
-              onChange={(e) =>
-                setText((t) => ({ ...t, phone: isBR ? maskBrazilianPhoneInput(e.target.value) : e.target.value }))
-              }
-              onBlur={() => {
-                if (isBR) setText((t) => ({ ...t, phone: normalizeBrazilianPhone(t.phone) }))
-              }}
-            />
-            <span className="mt-1 flex items-center gap-2 text-xs text-stone-400">
-              <input type="checkbox" checked={whatsapp} onChange={(e) => setWhatsapp(e.target.checked)} />
-              É WhatsApp
-            </span>
-          </label>
-          <label className="block">
             <span className="text-sm text-stone-300">Site</span>
-            <input type="url" {...field('website')} />
+            {/* Texto livre (não type="url"): o navegador recusaria "site.com" sem
+                protocolo. O "https://" é completado ao sair do campo. */}
+            <input
+              {...field('website')}
+              inputMode="url"
+              autoCapitalize="none"
+              placeholder="site.com.br"
+              onBlur={() => setText((t) => ({ ...t, website: normalizeWebUrl(t.website) }))}
+            />
           </label>
+          <div className="sm:col-span-2">
+            <span className="text-sm text-stone-300">Telefones</span>
+            <div className="mt-1">
+              <PhonesEditor entries={phones} onChange={setPhones} isBR={isBR} />
+            </div>
+          </div>
+          <div className="sm:col-span-2">
+            <span className="text-sm text-stone-300">E-mails</span>
+            <div className="mt-1">
+              <EmailsEditor entries={emails} onChange={setEmails} />
+            </div>
+          </div>
         </div>
 
         <fieldset className="grid gap-3 sm:grid-cols-6">

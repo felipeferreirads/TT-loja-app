@@ -1,4 +1,5 @@
 import type { StoreProduct, StoreProductInput } from '../../../types/db'
+import { IMPACTITE_HIDDEN_DRAFT_FIELDS, isImpactite } from './rockFields'
 
 /** Todos os campos do formulário viram string; a conversão pro tipo real
  *  acontece só em `toInput`. */
@@ -7,7 +8,7 @@ export type Draft = Record<string, string>
 const TEXT_FIELDS = [
   'name', 'sku', 'notes',
   'parent_id', 'lot_suffix',
-  'origin_country', 'origin_state', 'origin', 'dimensions',
+  'origin_country', 'origin_state', 'origin', 'dimensions', 'size_class',
   'color', 'color_secondary', 'special_properties', 'uv_color', 'iridescence_color', 'play_of_color',
   'gem_cut', 'cut_type', 'gem_shape', 'gem_cut_style', 'cut_name', 'gem_treatment',
   'met_class', 'met_type_group', 'met_structure', 'met_shock', 'met_weathering', 'met_material', 'met_total_mass',
@@ -15,6 +16,7 @@ const TEXT_FIELDS = [
   'met_largest_fragment', 'met_largest_fragment_dimensions', 'met_crust_fusion', 'met_weathering_specimen',
   'met_acid_etched', 'met_magnetism', 'met_individual_fragment', 'met_end_cut', 'met_chondrules_visible',
   'met_metal_matrix_visible', 'met_olivine_visible', 'met_polished', 'met_cut_sliced', 'met_polished_window',
+  'met_parent_body',
   'jwl_material', 'jwl_stone', 'jwl_size', 'jwl_clasp', 'jwl_finish', 'jwl_adjustable',
   'ecommerce_slug', 'ecommerce_description', 'ecommerce_category_path', 'ecommerce_google_category',
   'ecommerce_tags', 'ecommerce_seo_title', 'ecommerce_seo_description',
@@ -51,6 +53,8 @@ export function toInput(d: Draft): StoreProductInput {
     else if (BOOLEAN_FIELDS.has(key)) out[key] = value === 'true'
     else out[key] = value === '' ? null : value
   }
+  // Impactito (não é meteorito): campos de classificação de meteorito não se aplicam — sem valor "fantasma".
+  if (isImpactite(d.met_category)) for (const key of IMPACTITE_HIDDEN_DRAFT_FIELDS) out[key] = null
   out.name = d.name.trim()
   out.sale_price = Number(d.sale_price) || 0
   out.stock_quantity = Number(d.stock_quantity) || 0

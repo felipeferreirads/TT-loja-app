@@ -7,6 +7,8 @@ export type StoreCashEntryKind = 'in' | 'out'
 // "Gema" não é mais um kind à parte — virou `is_gem` (checkbox) na própria
 // linha de mineral, igual ao catálogo pessoal (migration
 // 0018_gem_as_mineral_property.sql).
+/** Classe de tamanho (0031), da menor para a maior. */
+export type SizeClass = 'micromount' | 'thumbnail' | 'miniature' | 'cabinet' | 'large_cabinet' | 'museum' | 'large'
 export type StoreItemKind = 'mineral' | 'fossil' | 'meteorite' | 'jewelry' | 'other'
 export type StoreCustomerDocType = 'cpf' | 'cnpj'
 export type StoreMediaKind = 'image' | 'video'
@@ -53,6 +55,8 @@ export interface StoreProduct {
   origin: string | null
   weight_g: number | null
   dimensions: string | null
+  /** Classe de tamanho escolhida manualmente (0031). Nulo = calculada de `dimensions` (ver sizeClass.ts). */
+  size_class: SizeClass | null
 
   color: string | null
   /** Cores além da predominante — texto separado por vírgula, editado via `ColorSwatchMultiSelect` (mesmo padrão de `special_properties`). */
@@ -68,6 +72,8 @@ export interface StoreProduct {
 
   /** Minerais da amostra (0015) — ver `store_product_minerals`; o produto pode ter mais de um mineral (Mineral 1, 2, 3...). Vem embutido no SELECT de `store_products`, ordenado por `sort_order`. */
   minerals?: StoreProductMineral[]
+  /** Rochas da amostra (0032) — ver `store_product_rocks`. Vem embutido no SELECT de `store_products`, ordenado por `sort_order`. */
+  rocks?: StoreProductRock[]
 
   /** @deprecated Legado (Lapidação em texto livre) — substituído por `cut_type`/`cut_name` abaixo. Preservado só pra não perder dado de produtos antigos. */
   gem_cut: string | null
@@ -123,6 +129,8 @@ export interface StoreProduct {
   met_polished: string | null
   met_cut_sliced: string | null
   met_polished_window: string | null
+  /** Corpo de origem (0032): mars | moon | vesta | asteroid_belt | unknown. Oculto na categoria Impactito. */
+  met_parent_body: string | null
 
   /** Campos exclusivos de joia (`kind='jewelry'`) — ver `form/jewelryFields.ts`/`form/JewelryDataSection.tsx`. */
   jwl_material: string | null
@@ -266,6 +274,32 @@ export interface StoreProductMineral {
 }
 
 export type StoreProductMineralInput = Partial<Omit<StoreProductMineral, 'id' | 'owner_id' | 'product_id' | 'created_at' | 'updated_at'>>
+
+/** Uma rocha dentro de um produto (0032) — mesmo modelo de `specimen_rocks` do catálogo pessoal. Valores de vocabulário são chaves em inglês (ex.: 'igneous'); `texture` é multi-valor (texto separado por vírgula). */
+export interface StoreProductRock {
+  id: string
+  owner_id: string
+  product_id: string
+  name: string | null
+  rock_type: string | null
+  subtype: string | null
+  grain_size: string | null
+  texture: string | null
+  structure: string | null
+  color_index: string | null
+  hcl_reaction: string | null
+  role: string | null
+  protolith: string | null
+  cement: string | null
+  grain_roundness: string | null
+  crater: string | null
+  notes: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export type StoreProductRockInput = Partial<Omit<StoreProductRock, 'id' | 'owner_id' | 'product_id' | 'created_at' | 'updated_at'>>
 
 /** Prefixo de SKU (0020) — um padrão por `kind` (`match_key` vazio) e, opcionalmente, um customizado por espécie/nome (`match_key` = nome normalizado). String vazia, não null: NULL não colide em unique constraint. `is_gem` (0021) marca a linha padrão de GEMA (mineral com `is_gem=true`) — só faz sentido com `kind='mineral'` e `match_key=''`; species (`match_key` não-vazio) sempre tem `is_gem=false`. Ver `suggestSku` em `features/products/skuPrefixes.ts`. */
 export interface StoreSkuPrefix {

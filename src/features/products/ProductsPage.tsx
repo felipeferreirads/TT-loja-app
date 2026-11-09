@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ITEM_KIND_LABELS, type StoreItemKind, type StoreProduct } from '../../types/db'
-import { fetchProducts, deleteProduct, fetchCoverUrls } from './api'
+import { fetchProducts, deleteProduct, deleteProducts, restoreProducts, updateProducts, fetchCoverUrls } from './api'
 import { ProductCard } from './ProductCard'
 import { formatMoney, stripAccents } from '../../lib/format'
 import { useConfirm } from '../../components/DialogProvider'
@@ -9,13 +9,18 @@ import { useToast } from '../../components/ToastProvider'
 import { SearchField } from '../../components/SearchField'
 import { EmptyState } from '../../components/EmptyState'
 import {
+  CheckIcon,
+  GlobeIcon,
   GridDenseIcon,
   GridLargeIcon,
   GridViewIcon,
   ImportIcon,
   ListViewIcon,
+  PackageIcon,
   PlusIcon,
   QrCodeIcon,
+  SelectIcon,
+  TagIcon,
   ChevronDownIcon,
   SpecimenIcon,
   TrashIcon,
@@ -24,6 +29,9 @@ import {
 import { SortControl } from '../../components/SortControl'
 import { ExportMenu } from './export/ExportMenu'
 import { ImportFromCollectionDialog } from './ImportFromCollectionDialog'
+import { BulkPriceDialog } from './BulkPriceDialog'
+import { BulkSelectionBar, type BulkAction } from '../../components/BulkSelectionBar'
+import { useRowSelection } from '../../lib/useRowSelection'
 
 // 3 densidades de grade + lista — mesmo padrão do catálogo pessoal
 // (SpecimenToolbar.tsx: `MOBILE_VIEW_MODES`), simplificado sem o slider de
@@ -70,6 +78,8 @@ export function ProductsPage() {
   const [error, setError] = useState<string | null>(null)
   const [view, setView] = useState<ViewMode>(loadView)
   const [importing, setImporting] = useState(false)
+  const [pricing, setPricing] = useState(false)
+  const sel = useRowSelection()
   // No mobile, os chips de tipo viram uma caixa de seleção: só a pílula do
   // tipo atual aparece, e expande as demais em coluna abaixo ao tocar —
   // mesmo padrão do catálogo pessoal (SpecimenToolbar.tsx).
@@ -145,6 +155,71 @@ export function ProductsPage() {
     load()
   }
 
+  // Item filtrado/apagado some da lista -> sai da seleção (contagem honesta).
+  const { prune } = sel
+  useEffect(() => {
+    prune(new Set(visible.map((p) => p.id)))
+  }, [visible, prune])
+
+  const selectedProducts = useMemo(() => visible.filter((p) => sel.selected.has(p.id)), [visible, sel.selected])
+  const allPublished = selectedProducts.length > 0 && selectedProducts.every((p) => p.ecommerce_published)
+
+  const bulkDelete = async () => {
+    const n = selectedProducts.length
+    if (!(await confirm(`Mover ${n} ${n === 1 ? 'produto' : 'produtos'} para a lixeira? Podem ser restaurados por 15 dias.`))) return
+    const ids = selectedProducts.map((p) => p.id)
+    try {
+      await deleteProducts(ids)
+      toast.success(`${n} ${n === 1 ? 'produto movido' : 'produtos movidos'} para a lixeira.`, {
+        action: {
+          label: 'Reverter',
+          onClick: async () => {
+            try {
+              await restoreProducts(ids)
+              toast.success(`${n} ${n === 1 ? 'produto restaurado' : 'produtos restaurados'}.`)
+              load()
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : 'Falha ao reverter.')
+            }
+          },
+        },
+      })
+      sel.cancel()
+      load()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Falha ao apagar.')
+    }
+  }
+
+  const bulkPublish = async () => {
+    const publish = !allPublished
+    try {
+      await updateProducts(selectedProducts.map((p) => p.id), { ecommerce_published: publish })
+      toast.success(publish ? 'Publicado na loja online.' : 'Removido da loja online.')
+      load()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Falha ao atualizar.')
+    }
+  }
+
+  // Ordem = prioridade: venda, preço, publicar, apagar (destrutiva por último).
+  const bulkActions: BulkAction[] = [
+    {
+      key: 'sale',
+      label: 'Criar venda',
+      icon: <PackageIcon />,
+      onClick: () => navigate('/vendas', { state: { prefillProductIds: sel.ids } }),
+    },
+    { key: 'price', label: 'Alterar preço', icon: <TagIcon />, onClick: () => setPricing(true) },
+    {
+      key: 'publish',
+      label: allPublished ? 'Remover da loja online' : 'Publicar na loja online',
+      icon: <GlobeIcon />,
+      onClick: () => void bulkPublish(),
+    },
+    { key: 'delete', label: 'Apagar', icon: <TrashIcon />, onClick: () => void bulkDelete(), danger: true },
+  ]
+
   return (
     <div>
       <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -157,6 +232,17 @@ export function ProductsPage() {
             <ImportIcon className="h-4 w-4" />
             Importar da coleção
           </button>
+          {!sel.selecting && visible.length > 0 && (
+            <button
+              type="button"
+              onClick={() => sel.start()}
+              className="btn-secondary"
+              title="Selecionar vários (no celular, toque e segure num item)"
+              aria-label="Selecionar vários"
+            >
+              <SelectIcon className="h-4 w-4" />
+            </button>
+          )}
           <ExportMenu products={visible} filename="produtos" />
           <Link to="/produtos/novo" className="btn-primary inline-flex items-center gap-1.5">
             <PlusIcon className="h-4 w-4" />
@@ -271,7 +357,13 @@ export function ProductsPage() {
       {visible.length > 0 && view !== 'list' && (
         <div className={GRID_CLASSES[view]}>
           {visible.map((p) => (
-            <ProductCard key={p.id} product={p} coverUrl={coverUrls[p.id]} />
+            <ProductCard
+              key={p.id}
+              product={p}
+              coverUrl={coverUrls[p.id]}
+              selection={sel.selecting ? { selected: sel.selected.has(p.id), onToggle: () => sel.toggle(p.id) } : undefined}
+              onLongPress={() => sel.start(p.id)}
+            />
           ))}
         </div>
       )}
@@ -281,6 +373,7 @@ export function ProductsPage() {
           <table className="w-full text-left text-sm">
             <thead className="bg-stone-900 text-stone-400">
               <tr>
+                {sel.selecting && <th className="w-10 px-3 py-2" aria-label="Seleção" />}
                 <th className="px-3 py-2 font-medium">Nome</th>
                 <th className="hidden px-3 py-2 font-medium sm:table-cell">Tipo</th>
                 <th className="hidden px-3 py-2 font-medium sm:table-cell">Espécie</th>
@@ -293,9 +386,21 @@ export function ProductsPage() {
               {visible.map((p) => (
                 <tr
                   key={p.id}
-                  onClick={() => navigate(`/produtos/${p.id}`)}
-                  className="cursor-pointer transition hover:bg-stone-900"
+                  onClick={() => (sel.selecting ? sel.toggle(p.id) : navigate(`/produtos/${p.id}`))}
+                  className={`cursor-pointer transition hover:bg-stone-900 ${sel.selected.has(p.id) ? 'bg-amber-600/10' : ''}`}
                 >
+                  {sel.selecting && (
+                    <td className="px-3 py-2">
+                      <span
+                        className={`inline-flex h-5 w-5 items-center justify-center rounded border text-xs ${
+                          sel.selected.has(p.id) ? 'border-amber-500 bg-amber-600 text-white' : 'border-stone-600 text-transparent'
+                        }`}
+                        aria-hidden
+                      >
+                        <CheckIcon />
+                      </span>
+                    </td>
+                  )}
                   <td className="px-3 py-2 text-stone-100">
                     {p.lot_suffix && <span className="mr-1.5 font-mono text-xs text-amber-500">#{p.lot_suffix}</span>}
                     {p.name}
@@ -324,23 +429,57 @@ export function ProductsPage() {
                   </td>
                   <td className="px-3 py-2 text-stone-400">{formatMoney(p.sale_price)}</td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
-                    <button
-                      type="button"
-                      aria-label="Apagar"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        void handleDelete(p)
-                      }}
-                      className="tap-icon hover:text-red-400"
-                    >
-                      <TrashIcon />
-                    </button>
+                    {!sel.selecting && (
+                      <button
+                        type="button"
+                        aria-label="Apagar"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          void handleDelete(p)
+                        }}
+                        className="tap-icon hover:text-red-400"
+                      >
+                        <TrashIcon />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+
+      {sel.selecting && (
+        // `sticky` dentro do <main> (que é quem rola): a barra fica colada no
+        // rodapé da área de conteúdo, sem cobrir a sidebar no desktop.
+        <div className="sticky bottom-2 z-30 mt-4">
+          <BulkSelectionBar
+            count={sel.selected.size}
+            actions={bulkActions}
+            onClear={sel.clear}
+            onCancel={sel.cancel}
+            selectAll={
+              sel.selected.size < visible.length
+                ? { label: 'Selecionar todos', onClick: () => sel.selectAll(visible.map((p) => p.id)) }
+                : null
+            }
+            mobilePinned={['sale', 'price', 'delete']}
+          />
+        </div>
+      )}
+
+      {pricing && (
+        <BulkPriceDialog
+          products={selectedProducts}
+          onClose={() => setPricing(false)}
+          onDone={() => {
+            setPricing(false)
+            toast.success('Preços atualizados.')
+            sel.cancel()
+            load()
+          }}
+        />
       )}
 
       {importing && (

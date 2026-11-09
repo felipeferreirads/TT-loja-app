@@ -3,11 +3,13 @@
 // nomenclatura/escala, pra dado importado da coleção (`importFromCollection.ts`)
 // bater exatamente com o valor de origem.
 
-export const MET_CATEGORIES = ['Rochoso', 'Rochoso-metálico', 'Metálico']
+export const MET_CATEGORIES = ['Rochoso', 'Rochoso-metálico', 'Metálico', 'Impactito']
 export const MET_CLASSES_BY_CATEGORY: Record<string, string[]> = {
   Rochoso: ['Condrito', 'Acondrito'],
   'Rochoso-metálico': ['Pallasito', 'Mesossiderito'],
   Metálico: ['Octaedrito', 'Hexaedrito', 'Ataxito'],
+  // Impactito (não é meteorito): rocha/vidro terrestre formado por impacto — mesmas classes do catálogo pessoal.
+  Impactito: ['Tectito', 'Suevito', 'Brecha de impacto', 'Fusão de impacto'],
 }
 export const MET_ALL_CLASSES = Object.values(MET_CLASSES_BY_CATEGORY).flat()
 

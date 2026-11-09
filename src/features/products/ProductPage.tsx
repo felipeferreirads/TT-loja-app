@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import type { StoreItemKind, StoreProduct, StoreProductFossilSpecies, StoreProductMineral, StoreSkuPrefix } from '../../types/db'
+import type { StoreItemKind, StoreProduct, StoreProductFossilSpecies, StoreProductMineral, StoreProductRock, StoreSkuPrefix } from '../../types/db'
 import {
   fetchProduct,
   fetchProductChildren,
@@ -14,6 +14,9 @@ import {
   addProductMineral,
   updateProductMineral,
   removeProductMineral,
+  addProductRock,
+  updateProductRock,
+  removeProductRock,
 } from './api'
 import { fetchSkuPrefixes, suggestSku } from './skuPrefixes'
 import { LotItemsSection } from './LotItemsSection'
@@ -27,6 +30,8 @@ import { CommercialSection } from './form/CommercialSection'
 import { SpecimenDataSection } from './form/SpecimenDataSection'
 import { JewelryDataSection } from './form/JewelryDataSection'
 import { MineralsInSampleSection, mineralRowToDraft, mineralRowToInput, type MineralRowDraft } from './form/MineralsInSampleSection'
+import { RocksInSampleSection } from './form/RocksInSampleSection'
+import { isBlankRockRow, rockRowToDraft, rockRowToInput, rocksSectionApplies, type RockRowDraft } from './form/rockFields'
 import { FossilTaxonomySection, fossilSpeciesToDraft, fossilSpeciesToInput, type FossilSpeciesDraft } from './form/FossilTaxonomySection'
 import { EcommerceSection } from './form/EcommerceSection'
 import { PendingMedia } from './form/PendingMedia'
@@ -63,6 +68,8 @@ export function ProductPage() {
   const [originalFossilSpecies, setOriginalFossilSpecies] = useState<StoreProductFossilSpecies[]>([])
   const [minerals, setMinerals] = useState<MineralRowDraft[]>([])
   const [originalMinerals, setOriginalMinerals] = useState<StoreProductMineral[]>([])
+  const [rocks, setRocks] = useState<RockRowDraft[]>([])
+  const [originalRocks, setOriginalRocks] = useState<StoreProductRock[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Guardado à parte do draft (que só tem strings) pra alimentar o
@@ -106,6 +113,8 @@ export function ProductPage() {
         setSavedProduct(p)
         setOriginalMinerals(p.minerals ?? [])
         setMinerals((p.minerals ?? []).map(mineralRowToDraft))
+        setOriginalRocks(p.rocks ?? [])
+        setRocks((p.rocks ?? []).map(rockRowToDraft))
       })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
     fetchFossilSpecies(id)
@@ -213,6 +222,21 @@ export function ProductPage() {
     }
   }
 
+  /** Mesma reconciliação, pras rochas da amostra (0032). Fora das condições da seção (ex.: meteorito que
+   *  deixou de ser Impactito), a lista vale vazia e remove o que existia. */
+  const saveRocks = async (productId: string) => {
+    const current = rocksSectionApplies(kind, draft.met_category) ? rocks.filter((r) => !isBlankRockRow(r)) : []
+    const currentIds = new Set(current.filter((r) => r.id).map((r) => r.id))
+    for (const original of originalRocks) {
+      if (!currentIds.has(original.id)) await removeProductRock(original.id)
+    }
+    for (const [i, r] of current.entries()) {
+      const input = rockRowToInput(r)
+      if (r.id) await updateProductRock(r.id, input, i)
+      else await addProductRock(productId, input, i)
+    }
+  }
+
   const handleSave = async () => {
     setBusy(true)
     setError(null)
@@ -230,12 +254,21 @@ export function ProductPage() {
         }
         await saveFossilSpecies(newId)
         await saveMinerals(newId)
+        await saveRocks(newId)
         setSavedProduct(created)
         navigate(`/produtos/${newId}`, { replace: true })
       } else if (id) {
         setSavedProduct(await updateProduct(id, input))
         await saveFossilSpecies(id)
         await saveMinerals(id)
+        await saveRocks(id)
+        // Recarrega as rochas salvas: linhas novas ganham id e não podem ser reinseridas no próximo salvar.
+        fetchProduct(id)
+          .then((p) => {
+            setOriginalRocks(p.rocks ?? [])
+            setRocks((p.rocks ?? []).map(rockRowToDraft))
+          })
+          .catch(() => {})
       }
       toast.success('Produto salvo.')
     } catch (err) {
@@ -335,6 +368,8 @@ export function ProductPage() {
           {kind === 'mineral' && (
             <MineralsInSampleSection minerals={minerals} onChange={setMinerals} />
           )}
+
+          {rocksSectionApplies(kind, draft.met_category) && <RocksInSampleSection rocks={rocks} onChange={setRocks} />}
         </div>
       </div>
     </div>

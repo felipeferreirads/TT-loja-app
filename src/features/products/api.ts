@@ -10,6 +10,8 @@ import type {
   StoreProductFossilSpeciesInput,
   StoreProductMineral,
   StoreProductMineralInput,
+  StoreProductRock,
+  StoreProductRockInput,
 } from '../../types/db'
 
 // Etiquetas QR "alias" (ver `qr.ts`) e Minerais da amostra (0015) embutidos no
@@ -19,7 +21,7 @@ import type {
 // sem ida extra ao servidor. Diferente de fossil_species (buscado à parte),
 // minerals é pequeno o bastante (poucas linhas por produto) pra ir junto.
 const PRODUCT_SELECT =
-  '*, qr_aliases:store_product_qr_aliases(id, product_id, created_at), minerals:store_product_minerals(*)'
+  '*, qr_aliases:store_product_qr_aliases(id, product_id, created_at), minerals:store_product_minerals(*), rocks:store_product_rocks(*)'
 
 export async function fetchProducts(): Promise<StoreProduct[]> {
   const { data, error } = await supabase
@@ -28,8 +30,9 @@ export async function fetchProducts(): Promise<StoreProduct[]> {
     .is('deleted_at', null)
     .order('name')
     .order('sort_order', { foreignTable: 'store_product_minerals' })
+    .order('sort_order', { foreignTable: 'store_product_rocks' })
   if (error) throw error
-  return (data ?? []).map((p) => ({ ...p, qr_aliases: p.qr_aliases ?? [], minerals: p.minerals ?? [] })) as StoreProduct[]
+  return (data ?? []).map((p) => ({ ...p, qr_aliases: p.qr_aliases ?? [], minerals: p.minerals ?? [], rocks: p.rocks ?? [] })) as StoreProduct[]
 }
 
 export async function fetchProduct(id: string): Promise<StoreProduct> {
@@ -38,9 +41,10 @@ export async function fetchProduct(id: string): Promise<StoreProduct> {
     .select(PRODUCT_SELECT)
     .eq('id', id)
     .order('sort_order', { foreignTable: 'store_product_minerals' })
+    .order('sort_order', { foreignTable: 'store_product_rocks' })
     .single()
   if (error) throw error
-  return { ...data, qr_aliases: data.qr_aliases ?? [], minerals: data.minerals ?? [] } as StoreProduct
+  return { ...data, qr_aliases: data.qr_aliases ?? [], minerals: data.minerals ?? [], rocks: data.rocks ?? [] } as StoreProduct
 }
 
 /** Peças de um lote (0022) — produtos com `parent_id` apontando pro lote. */
@@ -51,8 +55,9 @@ export async function fetchProductChildren(parentId: string): Promise<StoreProdu
     .eq('parent_id', parentId)
     .is('deleted_at', null)
     .order('sort_order', { foreignTable: 'store_product_minerals' })
+    .order('sort_order', { foreignTable: 'store_product_rocks' })
   if (error) throw error
-  return (data ?? []).map((p) => ({ ...p, qr_aliases: p.qr_aliases ?? [], minerals: p.minerals ?? [] })) as StoreProduct[]
+  return (data ?? []).map((p) => ({ ...p, qr_aliases: p.qr_aliases ?? [], minerals: p.minerals ?? [], rocks: p.rocks ?? [] })) as StoreProduct[]
 }
 
 /** `id` opcional: o formulário gera um no cliente quando há fotos/vídeos
@@ -81,6 +86,27 @@ export async function deleteProduct(id: string): Promise<void> {
   if (error) throw error
 }
 
+/** Apagar vários de uma vez (soft delete — mesma lixeira de 15 dias do `deleteProduct`). */
+export async function deleteProducts(ids: string[]): Promise<void> {
+  if (ids.length === 0) return
+  const { error } = await supabase.from('store_products').update({ deleted_at: new Date().toISOString() }).in('id', ids)
+  if (error) throw error
+}
+
+/** Desfaz `deleteProducts`: tira vários produtos da lixeira de uma vez. */
+export async function restoreProducts(ids: string[]): Promise<void> {
+  if (ids.length === 0) return
+  const { error } = await supabase.from('store_products').update({ deleted_at: null }).in('id', ids)
+  if (error) throw error
+}
+
+/** Mesmo PATCH pra vários produtos (ex.: publicar/despublicar no e-commerce). */
+export async function updateProducts(ids: string[], input: Partial<StoreProductInput>): Promise<void> {
+  if (ids.length === 0) return
+  const { error } = await supabase.from('store_products').update(input).in('id', ids)
+  if (error) throw error
+}
+
 export async function restoreProduct(id: string): Promise<void> {
   const { error } = await supabase.from('store_products').update({ deleted_at: null }).eq('id', id)
   if (error) throw error
@@ -98,7 +124,7 @@ export async function fetchDeletedProducts(): Promise<StoreProduct[]> {
     .not('deleted_at', 'is', null)
     .order('deleted_at', { ascending: false })
   if (error) throw error
-  return (data ?? []).map((p) => ({ ...p, qr_aliases: p.qr_aliases ?? [], minerals: p.minerals ?? [] })) as StoreProduct[]
+  return (data ?? []).map((p) => ({ ...p, qr_aliases: p.qr_aliases ?? [], minerals: p.minerals ?? [], rocks: p.rocks ?? [] })) as StoreProduct[]
 }
 
 // ─── Mídia ───────────────────────────────────────────────────
@@ -337,4 +363,27 @@ export async function updateProductMineral(id: string, input: StoreProductMinera
 export async function removeProductMineral(id: string): Promise<void> {
   const { error } = await supabase.from('store_product_minerals').delete().eq('id', id)
   if (error) throw new Error(`Falha ao remover mineral: ${error.message}`)
+}
+
+// ─── Rochas da amostra (0032) ───────────────────────────────────────────────
+
+export async function addProductRock(productId: string, input: StoreProductRockInput, sortOrder: number): Promise<StoreProductRock> {
+  const { data, error } = await supabase
+    .from('store_product_rocks')
+    .insert({ ...input, product_id: productId, sort_order: sortOrder })
+    .select()
+    .single()
+  if (error) throw new Error(`Falha ao adicionar rocha: ${error.message}`)
+  return data
+}
+
+export async function updateProductRock(id: string, input: StoreProductRockInput, sortOrder: number): Promise<StoreProductRock> {
+  const { data, error } = await supabase.from('store_product_rocks').update({ ...input, sort_order: sortOrder }).eq('id', id).select().single()
+  if (error) throw new Error(`Falha ao salvar rocha: ${error.message}`)
+  return data
+}
+
+export async function removeProductRock(id: string): Promise<void> {
+  const { error } = await supabase.from('store_product_rocks').delete().eq('id', id)
+  if (error) throw new Error(`Falha ao remover rocha: ${error.message}`)
 }

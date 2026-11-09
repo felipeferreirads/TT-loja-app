@@ -1,6 +1,7 @@
 import { supabase } from '../../lib/supabase'
-import type { StoreItemKind, StoreProductInput } from '../../types/db'
-import { createProduct, addProductMineral, addFossilSpecies, linkQrAlias } from './api'
+import type { SizeClass, StoreItemKind, StoreProductInput } from '../../types/db'
+import { rocksSectionApplies } from './form/rockFields'
+import { createProduct, addProductMineral, addProductRock, addFossilSpecies, linkQrAlias } from './api'
 import { addYoutubeVideo } from './youtubeVideos'
 import { fetchSkuPrefixes, suggestSku } from './skuPrefixes'
 
@@ -92,6 +93,27 @@ interface CatalogMeteoriteDetails {
   metal_matrix_visible: string | null
   olivine_visible: string | null
   magnetism: string | null
+  /** Corpo de origem (0187 do catálogo): mars | moon | vesta | asteroid_belt | unknown. */
+  parent_body: string | null
+}
+
+/** Rocha da amostra do catálogo pessoal (`specimen_rocks`, 0186). */
+interface CatalogSpecimenRock {
+  name: string | null
+  rock_type: string | null
+  subtype: string | null
+  grain_size: string | null
+  texture: string | null
+  structure: string | null
+  color_index: string | null
+  hcl_reaction: string | null
+  role: string | null
+  protolith: string | null
+  cement: string | null
+  grain_roundness: string | null
+  crater: string | null
+  notes: string | null
+  sort_order: number
 }
 
 interface CatalogSpecimenMineral {
@@ -146,12 +168,14 @@ interface CatalogSpecimenFull {
   weight_g: number | null
   weight_ct: number | null
   dimensions: string | null
+  size_class: SizeClass | null
   quantity: number
   notes: string | null
   mineral_details: CatalogMineralDetails | null
   fossil_details: CatalogFossilDetails | null
   meteorite_details: CatalogMeteoriteDetails | null
   specimen_minerals: CatalogSpecimenMineral[]
+  specimen_rocks: CatalogSpecimenRock[]
   fossil_species: CatalogFossilSpecies[]
 }
 
@@ -296,11 +320,12 @@ function catalogDisplayName(s: {
 }
 
 const FULL_SELECT = `id, code_global, parent_id, type, origin_country, origin_state, origin, origin_short,
-  formation, weight_g, weight_ct, dimensions, quantity, notes,
+  formation, weight_g, weight_ct, dimensions, size_class, quantity, notes,
   mineral_details(*),
   fossil_details(*),
   meteorite_details(*),
   specimen_minerals(*),
+  specimen_rocks(*),
   fossil_species(*)`
 
 async function fetchCatalogSpecimen(id: string): Promise<CatalogSpecimenFull> {
@@ -387,6 +412,7 @@ function mapToProductInput(s: CatalogSpecimenFull, priv: CatalogSpecimenPrivate 
   let metCrustFusion: string | null = null
   let metWeatheringSpecimen: string | null = null
   let metAcidEtched: string | null = null
+  let metParentBody: string | null = null
   let metMagnetism: string | null = null
   let metIndividualFragment: string | null = null
   let metEndCut: string | null = null
@@ -475,6 +501,8 @@ function mapToProductInput(s: CatalogSpecimenFull, priv: CatalogSpecimenPrivate 
     metPolished = md?.polished ?? null
     metCutSliced = md?.cut_sliced ?? null
     metPolishedWindow = md?.polished_window ?? null
+    // Impactito (não é meteorito) não tem corpo de origem.
+    metParentBody = md?.category === 'Impactito' ? null : (md?.parent_body ?? null)
   }
 
   if (s.parent_id) extra.push(['Lote', 'peça filha de um lote no catálogo pessoal'])
@@ -501,6 +529,7 @@ function mapToProductInput(s: CatalogSpecimenFull, priv: CatalogSpecimenPrivate 
     origin: s.origin_short || s.origin,
     weight_g: s.weight_g,
     dimensions: s.dimensions,
+    size_class: s.size_class,
 
     color,
     color_secondary: colorSecondary,
@@ -545,6 +574,7 @@ function mapToProductInput(s: CatalogSpecimenFull, priv: CatalogSpecimenPrivate 
     met_polished: metPolished,
     met_cut_sliced: metCutSliced,
     met_polished_window: metPolishedWindow,
+    met_parent_body: metParentBody,
   }
 }
 
@@ -574,6 +604,35 @@ async function copyMinerals(productId: string, minerals: CatalogSpecimenMineral[
         auto_fields: m.auto_fields,
       },
       m.sort_order,
+    )
+  }
+}
+
+/** Rochas da amostra (0032): copiadas como estão (chaves de vocabulário idênticas às do catálogo). Meteorito só na categoria Impactito. */
+async function copyRocks(productId: string, s: CatalogSpecimenFull): Promise<void> {
+  const rocks = s.specimen_rocks ?? []
+  if (rocks.length === 0) return
+  if (!rocksSectionApplies(s.type as StoreItemKind, s.meteorite_details?.category)) return
+  for (const r of rocks) {
+    await addProductRock(
+      productId,
+      {
+        name: r.name,
+        rock_type: r.rock_type,
+        subtype: r.subtype,
+        grain_size: r.grain_size,
+        texture: r.texture,
+        structure: r.structure,
+        color_index: r.color_index,
+        hcl_reaction: r.hcl_reaction,
+        role: r.role,
+        protolith: r.protolith,
+        cement: r.cement,
+        grain_roundness: r.grain_roundness,
+        crater: r.crater,
+        notes: r.notes,
+      },
+      r.sort_order,
     )
   }
 }
@@ -685,6 +744,7 @@ export async function importSpecimenToStore(specimenId: string): Promise<void> {
 
   await createProduct({ ...input, id: specimen.id })
   await copyMinerals(specimen.id, specimen.specimen_minerals)
+  await copyRocks(specimen.id, specimen)
   await copyFossilSpecies(specimen.id, specimen)
   await copySpecimenMedia(specimen.id, specimen.id)
   await copyYoutubeVideos(specimen.id, specimen.id)

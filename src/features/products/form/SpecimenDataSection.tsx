@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import type { StoreItemKind } from '../../../types/db'
+import type { SizeClass, StoreItemKind } from '../../../types/db'
+import { SIZE_CLASS_LABELS, SIZE_CLASS_RANGES, SIZE_CLASS_VALUES, computedSizeClass } from '../sizeClass'
 import { fetchSubdivisions, matchSubdivision } from '../../../lib/subdivisionReference'
 import { CountrySelect } from '../../../components/CountrySelect'
 import { SubdivisionSelect } from '../../../components/SubdivisionSelect'
@@ -21,6 +22,8 @@ import {
 } from './meteoriteFields'
 import { ChevronDownIcon, SpecimenIcon } from '../../../components/icons'
 import { ToggleSwitch } from '../../../components/ToggleSwitch'
+import { InfoTooltip } from '../../../components/InfoTooltip'
+import { IMPACTITE_HIDDEN_DRAFT_FIELDS, META_PARENT_BODY_HINT, MET_PARENT_BODIES, isImpactite } from './rockFields'
 import { Field, Labeled, Section } from './Field'
 import type { Draft } from './draft'
 
@@ -57,6 +60,10 @@ export function SpecimenDataSection({
   kind: StoreItemKind
 }) {
   const [showColorSecondary, setShowColorSecondary] = useState(false)
+  const computed = computedSizeClass(draft.dimensions)
+  // Impactito (não é meteorito): esconde os campos de classificação de meteorito (ver rockFields.ts).
+  const metImpactite = isImpactite(draft.met_category)
+  const metShown = (key: string) => !(metImpactite && IMPACTITE_HIDDEN_DRAFT_FIELDS.includes(key))
 
   const specialProps = splitProps(draft.special_properties)
   const setSpecialProps = (next: string[]) => set('special_properties')(next.join(', '))
@@ -159,7 +166,8 @@ export function SpecimenDataSection({
             <h3 className="mb-2 text-sm font-semibold text-stone-300">Espécime</h3>
             <div className="space-y-3">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Labeled label="Crosta de fusão">
+                {metShown('met_crust_fusion') && (
+<Labeled label="Crosta de fusão">
                   <select value={draft.met_crust_fusion} onChange={(e) => set('met_crust_fusion')(e.target.value)} className="input mt-1">
                     <option value="">—</option>
                     {MET_YES_NO_PARTIAL.map((o) => (
@@ -169,6 +177,7 @@ export function SpecimenDataSection({
                     ))}
                   </select>
                 </Labeled>
+)}
                 <Labeled label="Intemperismo do exemplar">
                   <select value={draft.met_weathering_specimen} onChange={(e) => set('met_weathering_specimen')(e.target.value)} className="input mt-1">
                     <option value="">—</option>
@@ -179,7 +188,8 @@ export function SpecimenDataSection({
                     ))}
                   </select>
                 </Labeled>
-                <Labeled label="Ataque ácido">
+                {metShown('met_acid_etched') && (
+<Labeled label="Ataque ácido">
                   <select value={draft.met_acid_etched} onChange={(e) => set('met_acid_etched')(e.target.value)} className="input mt-1">
                     <option value="">—</option>
                     {MET_ACID_ETCHED.map((o) => (
@@ -189,6 +199,7 @@ export function SpecimenDataSection({
                     ))}
                   </select>
                 </Labeled>
+)}
                 <Labeled label="Magnetismo">
                   <select value={draft.met_magnetism} onChange={(e) => set('met_magnetism')(e.target.value)} className="input mt-1">
                     <option value="">—</option>
@@ -201,7 +212,7 @@ export function SpecimenDataSection({
                 </Labeled>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                {MET_TOGGLE_FIELDS.map((f) => (
+                {MET_TOGGLE_FIELDS.filter((f) => metShown(f.key)).map((f) => (
                   <div
                     key={f.key}
                     className="flex min-h-11 items-center justify-between gap-2 rounded-xl border border-stone-800 bg-stone-900/70 px-3 text-sm text-stone-300"
@@ -236,10 +247,15 @@ export function SpecimenDataSection({
                     <option value="">—</option>
                     {MET_CATEGORIES.map((o) => (
                       <option key={o} value={o}>
-                        {o}
+                        {isImpactite(o) ? 'Impactito (não é meteorito)' : o}
                       </option>
                     ))}
                   </select>
+                  {metImpactite && (
+                    <p className="mt-1 text-xs text-stone-500">
+                      Rocha ou vidro terrestre formado pelo impacto de um meteorito, como tectitos, suevitos e brechas de impacto. Não tem origem extraterrestre e fica aqui apenas por organização.
+                    </p>
+                  )}
                 </Labeled>
                 <Labeled label="Classe">
                   <select value={draft.met_class} onChange={(e) => set('met_class')(e.target.value)} className="input mt-1">
@@ -251,13 +267,34 @@ export function SpecimenDataSection({
                     ))}
                   </select>
                 </Labeled>
+                {metShown('met_parent_body') && (
+                  <Labeled label="Corpo de origem">
+                    <div className="relative">
+                      <select value={draft.met_parent_body} onChange={(e) => set('met_parent_body')(e.target.value)} className="input mt-1">
+                        <option value="">—</option>
+                        {MET_PARENT_BODIES.map((b) => (
+                          <option key={b.value} value={b.value}>
+                            {b.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <p className="mt-1 flex items-start gap-1 text-xs text-stone-500">
+                      <InfoTooltip text={META_PARENT_BODY_HINT} iconClassName="h-3.5 w-3.5" />
+                      Vem da classificação oficial, não da aparência.
+                    </p>
+                  </Labeled>
+                )}
                 <Field label="Composição" value={draft.met_material} onChange={set('met_material')} />
+                {metShown('met_group') && (
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="Grupo" value={draft.met_group} onChange={set('met_group')} />
                   <Field label="Tipo" value={draft.met_type} onChange={set('met_type')} />
                 </div>
+                )}
                 <div className="grid grid-cols-2 gap-3">
-                  <Labeled label="Choque">
+                  {metShown('met_shock') && (
+<Labeled label="Choque">
                     <select value={draft.met_shock} onChange={(e) => set('met_shock')(e.target.value)} className="input mt-1">
                       <option value="">—</option>
                       {MET_SHOCK.map((o) => (
@@ -267,6 +304,7 @@ export function SpecimenDataSection({
                       ))}
                     </select>
                   </Labeled>
+)}
                   <Labeled label="Intemperismo geral">
                     <select value={draft.met_weathering} onChange={(e) => set('met_weathering')(e.target.value)} className="input mt-1">
                       <option value="">—</option>
@@ -307,7 +345,7 @@ export function SpecimenDataSection({
                 </Labeled>
                 <Field label="Data da queda" value={draft.met_fall_date} onChange={set('met_fall_date')} />
                 <Field label="Data do achado" value={draft.met_found_date} onChange={set('met_found_date')} />
-                <Field label="Idade" value={draft.met_age} onChange={set('met_age')} />
+                <Field label={metImpactite ? 'Idade do impacto' : 'Idade'} value={draft.met_age} onChange={set('met_age')} />
                 <Field label="Massa total conhecida" value={draft.met_total_mass} onChange={set('met_total_mass')} />
                 <Field label="Maior fragmento" value={draft.met_largest_fragment} onChange={set('met_largest_fragment')} />
                 <Field
@@ -355,6 +393,25 @@ export function SpecimenDataSection({
         )}
         <div className={kind === 'mineral' ? 'col-span-2 sm:col-span-1' : undefined}>
           <Field label="Dimensões (mm)" value={draft.dimensions} onChange={set('dimensions')} placeholder="A × L × P" />
+        </div>
+        <div className="col-span-2">
+          <Labeled label="Classe de tamanho">
+            <select
+              value={draft.size_class}
+              onChange={(e) => set('size_class')(e.target.value)}
+              className="input mt-1"
+              title={draft.size_class ? SIZE_CLASS_RANGES[draft.size_class as SizeClass] : undefined}
+            >
+              <option value="">
+                Automática ({computed ? SIZE_CLASS_LABELS[computed] : 'sem medida'})
+              </option>
+              {SIZE_CLASS_VALUES.map((c) => (
+                <option key={c} value={c}>
+                  {SIZE_CLASS_LABELS[c]} — {SIZE_CLASS_RANGES[c]}
+                </option>
+              ))}
+            </select>
+          </Labeled>
         </div>
       </div>
 

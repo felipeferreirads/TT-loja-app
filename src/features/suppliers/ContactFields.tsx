@@ -34,7 +34,7 @@ export function PhonesEditor({
             onChange={(ev) => set(i, { label: ev.target.value })}
             placeholder="Rótulo (ex.: Comercial)"
             aria-label="Rótulo"
-            className="input w-full sm:w-36 sm:shrink-0"
+            className="input sm:w-36! sm:shrink-0"
           />
           <input
             type="tel"
@@ -80,7 +80,7 @@ export function EmailsEditor({ entries, onChange }: { entries: EmailEntry[]; onC
             onChange={(ev) => set(i, { label: ev.target.value })}
             placeholder="Rótulo (ex.: Comercial)"
             aria-label="Rótulo"
-            className="input w-full sm:w-36 sm:shrink-0"
+            className="input sm:w-36! sm:shrink-0"
           />
           <input
             type="email"

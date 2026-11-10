@@ -4,8 +4,9 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import type { StoreCustomer, StorePaymentMethod, StoreProduct } from '../../types/db'
 import { fetchProducts } from '../products/api'
 import { resolveScannedValue } from '../products/qr'
-import { fetchCustomers, createCustomer, type StoreCustomerInput } from '../customers/api'
-import { CustomerFormDialog } from '../customers/CustomerFormDialog'
+import { fetchCustomers, createCustomer } from '../customers/api'
+import type { StoreSupplierInput } from '../suppliers/api'
+import { SupplierFormDialog } from '../suppliers/SupplierFormDialog'
 import { fetchSales, createSale, type SaleWithCustomer } from './api'
 import { formatDate, formatMoney } from '../../lib/format'
 import { CameraIcon, CloseIcon, PackageIcon, PlusIcon, SearchIcon } from '../../components/icons'
@@ -146,7 +147,7 @@ export function SalesPage() {
     setCart((prev) => prev.filter((l) => l.product_id !== productId))
   }
 
-  const handleCreateCustomer = async (input: StoreCustomerInput) => {
+  const handleCreateCustomer = async (input: StoreSupplierInput) => {
     const created = await createCustomer(input)
     setCustomers(await fetchCustomers())
     setCustomerId(created.id)
@@ -301,7 +302,7 @@ export function SalesPage() {
       )}
 
       {newCustomerOpen && (
-        <CustomerFormDialog customer={null} onSave={handleCreateCustomer} onClose={() => setNewCustomerOpen(false)} />
+        <SupplierFormDialog role="customer" supplier={null} onSave={handleCreateCustomer} onClose={() => setNewCustomerOpen(false)} />
       )}
 
       {/* PDV em tela cheia — uso diário no balcão, precisa de espaço pra

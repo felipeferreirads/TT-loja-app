@@ -13,6 +13,8 @@ interface Props {
   supplier: StoreSupplier | null
   onSave: (input: StoreSupplierInput) => Promise<void>
   onClose: () => void
+  /** Mesmo cadastro (`suppliers`) para fornecedor e cliente (0193 do catálogo); muda só o título e o tipo padrão. */
+  role?: 'supplier' | 'customer'
 }
 
 const FIELDS = [
@@ -22,9 +24,10 @@ const FIELDS = [
 ] as const
 type TextField = (typeof FIELDS)[number]
 
-export function SupplierFormDialog({ supplier, onSave, onClose }: Props) {
+export function SupplierFormDialog({ supplier, onSave, onClose, role = 'supplier' }: Props) {
+  const isCustomer = role === 'customer'
   const [name, setName] = useState(supplier?.name ?? '')
-  const [kind, setKind] = useState<StoreSupplier['kind']>(supplier?.kind ?? 'company')
+  const [kind, setKind] = useState<StoreSupplier['kind']>(supplier?.kind ?? (isCustomer ? 'person' : 'company'))
   const [country, setCountry] = useState(supplier?.address_country ?? 'BR')
   const [phones, setPhones] = useState<PhoneEntry[]>(() => phoneEntriesFromRow(supplier))
   const [emails, setEmails] = useState<EmailEntry[]>(() => emailEntriesFromRow(supplier))
@@ -75,9 +78,16 @@ export function SupplierFormDialog({ supplier, onSave, onClose }: Props) {
         onClick={(e) => e.stopPropagation()}
         className="max-h-[90dvh] w-full max-w-2xl space-y-4 overflow-y-auto rounded-xl bg-stone-900 p-5"
       >
-        <h2 className="text-lg font-bold text-stone-100">{supplier ? 'Editar fornecedor' : 'Novo fornecedor'}</h2>
+        <h2 className="text-lg font-bold text-stone-100">
+          {isCustomer ? (supplier ? 'Editar cliente' : 'Novo cliente') : supplier ? 'Editar fornecedor' : 'Novo fornecedor'}
+        </h2>
         {supplier?.in_collection && (
-          <p className="text-xs text-stone-500">Cadastro compartilhado com a Coleção — alterações valem nos dois apps.</p>
+          <p className="text-xs text-stone-500">Cadastro compartilhado com a Coleção. As alterações valem nos dois apps.</p>
+        )}
+        {supplier && (isCustomer ? supplier.is_supplier : supplier.is_customer) && (
+          <p className="text-xs text-stone-500">
+            {isCustomer ? 'Este cadastro também é fornecedor.' : 'Este cadastro também é cliente.'} As alterações valem para os dois papéis.
+          </p>
         )}
 
         <div className="grid gap-3 sm:grid-cols-2">

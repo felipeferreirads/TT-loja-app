@@ -1,20 +1,19 @@
 import { supabase } from '../../lib/supabase'
 import type { StoreCustomer, StoreCustomerDocType, StoreSupplier } from '../../types/db'
+import type { StoreSupplierInput } from '../suppliers/api'
 
 // Clientes vivem no cadastro COMPARTILHADO `suppliers` (loja 0033 + catálogo
-// 0193), com o papel `is_customer = true`. A tela de clientes continua falando
-// o formato `StoreCustomer` (doc_type/doc_number…); este módulo converte de e
-// para as colunas de `suppliers` (tax_id_type/tax_id…). Ver
+// 0193), com o papel `is_customer = true`. O formulário é o mesmo do
+// fornecedor (`SupplierFormDialog` com `role="customer"`: vários telefones e
+// e-mails, PF/PJ, país, site). Listas, recibo e lixeira continuam lendo o
+// formato resumido `StoreCustomer`, convertido por `supplierToCustomer`. Ver
 // docs/PLANO-CADASTRO-UNIFICADO.md no repo do catálogo.
 //
 // Excluir cliente NUNCA apaga um cadastro que outro papel ou o catálogo usa:
 // nesse caso só tira o papel `is_customer`. Só um cliente "puro" (sem papel de
 // fornecedor e fora da coleção) vai para a Lixeira (`deleted_at`) e é apagado.
 
-export type StoreCustomerInput = Pick<StoreCustomer, 'name'> &
-  Partial<Omit<StoreCustomer, 'id' | 'owner_id' | 'created_at' | 'name'>>
-
-/** Linha de `suppliers` → formato que as telas de clientes já usam. */
+/** Linha de `suppliers` → formato resumido usado em listas, recibo e lixeira. */
 export function supplierToCustomer(s: StoreSupplier): StoreCustomer {
   const docType: StoreCustomerDocType | null =
     s.tax_id_type === 'cpf' || s.tax_id_type === 'cnpj' ? s.tax_id_type : null
@@ -39,25 +38,6 @@ export function supplierToCustomer(s: StoreSupplier): StoreCustomer {
   }
 }
 
-/** Só as chaves presentes em `input` viram coluna — editar não zera campo que o formulário não conhece. */
-function customerToColumns(input: Partial<StoreCustomerInput>): Record<string, unknown> {
-  const cols: Record<string, unknown> = {}
-  const copy = [
-    'name', 'phone', 'email', 'notes',
-    'address_zip', 'address_street', 'address_number', 'address_complement',
-    'address_district', 'address_city', 'address_state',
-  ] as const
-  for (const k of copy) if (k in input) cols[k] = input[k]
-  if ('doc_number' in input) cols.tax_id = input.doc_number
-  if ('doc_type' in input) {
-    cols.tax_id_type = input.doc_type
-    // CNPJ = empresa, CPF = pessoa; sem documento, mantém o `kind` que já existe.
-    if (input.doc_type === 'cnpj') cols.kind = 'company'
-    else if (input.doc_type === 'cpf') cols.kind = 'person'
-  }
-  return cols
-}
-
 export async function fetchCustomers(): Promise<StoreCustomer[]> {
   const { data, error } = await supabase
     .from('suppliers')
@@ -69,19 +49,21 @@ export async function fetchCustomers(): Promise<StoreCustomer[]> {
   return (data as StoreSupplier[]).map(supplierToCustomer)
 }
 
-export async function fetchCustomer(id: string): Promise<StoreCustomer> {
+/** Cadastro completo do cliente (telefones e e-mails extras, país, site…), para a ficha e o formulário. */
+export async function fetchCustomerRecord(id: string): Promise<StoreSupplier> {
   const { data, error } = await supabase.from('suppliers').select('*').eq('id', id).single()
   if (error) throw error
-  return supplierToCustomer(data as StoreSupplier)
+  return data as StoreSupplier
 }
+
+const isEmpty = (v: unknown) => v == null || v === '' || (Array.isArray(v) && v.length === 0)
 
 /**
  * Cria já como cliente. Se o cadastro compartilhado já tem alguém com o mesmo
  * nome (índice único por nome), reaproveita: liga `is_customer`, tira da
  * lixeira e completa só os campos vazios — nunca sobrescreve o que já existe.
  */
-export async function createCustomer(input: StoreCustomerInput): Promise<StoreCustomer> {
-  const cols = customerToColumns(input)
+export async function createCustomer(input: StoreSupplierInput): Promise<StoreCustomer> {
   const { data: existing } = await supabase
     .from('suppliers')
     .select('*')
@@ -89,9 +71,9 @@ export async function createCustomer(input: StoreCustomerInput): Promise<StoreCu
     .maybeSingle()
   if (existing) {
     const fill: Record<string, unknown> = { is_customer: true, deleted_at: null }
-    for (const [k, v] of Object.entries(cols)) {
+    for (const [k, v] of Object.entries(input)) {
       if (k === 'name' || k === 'kind') continue
-      if (v != null && v !== '' && (existing as Record<string, unknown>)[k] == null) fill[k] = v
+      if (!isEmpty(v) && isEmpty((existing as Record<string, unknown>)[k])) fill[k] = v
     }
     const { data, error } = await supabase.from('suppliers').update(fill).eq('id', existing.id).select().single()
     if (error) throw error
@@ -99,15 +81,15 @@ export async function createCustomer(input: StoreCustomerInput): Promise<StoreCu
   }
   const { data, error } = await supabase
     .from('suppliers')
-    .insert({ kind: 'person', ...cols, is_supplier: false, is_customer: true, in_collection: false, in_store: true })
+    .insert({ ...input, is_supplier: false, is_customer: true, in_collection: false, in_store: true })
     .select()
     .single()
   if (error) throw error
   return supplierToCustomer(data as StoreSupplier)
 }
 
-export async function updateCustomer(id: string, input: StoreCustomerInput): Promise<StoreCustomer> {
-  const { data, error } = await supabase.from('suppliers').update(customerToColumns(input)).eq('id', id).select().single()
+export async function updateCustomer(id: string, input: Partial<StoreSupplierInput>): Promise<StoreCustomer> {
+  const { data, error } = await supabase.from('suppliers').update(input).eq('id', id).select().single()
   if (error) throw error
   return supplierToCustomer(data as StoreSupplier)
 }

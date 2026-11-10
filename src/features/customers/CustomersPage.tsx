@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import type { StoreCustomer } from '../../types/db'
-import { fetchCustomers, createCustomer, updateCustomer, deleteCustomer, type StoreCustomerInput } from './api'
-import { CustomerFormDialog } from './CustomerFormDialog'
+import type { StoreCustomer, StoreSupplier } from '../../types/db'
+import { fetchCustomers, fetchCustomerRecord, createCustomer, updateCustomer, deleteCustomer } from './api'
+import type { StoreSupplierInput } from '../suppliers/api'
+import { SupplierFormDialog } from '../suppliers/SupplierFormDialog'
 import { useConfirm } from '../../components/DialogProvider'
 import { useToast } from '../../components/ToastProvider'
 import { EmptyState } from '../../components/EmptyState'
@@ -15,7 +16,7 @@ export function CustomersPage() {
   const [customers, setCustomers] = useState<StoreCustomer[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [editing, setEditing] = useState<StoreCustomer | null | 'new'>(null)
+  const [editing, setEditing] = useState<StoreSupplier | null | 'new'>(null)
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const confirm = useConfirm()
@@ -47,7 +48,16 @@ export function CustomersPage() {
     return [...customers].sort((a, b) => (sortDir === 'asc' ? diff(a, b) : -diff(a, b)))
   }, [customers, sortField, sortDir])
 
-  const handleSave = async (input: StoreCustomerInput) => {
+  // A lista guarda o formato resumido; o formulário precisa do cadastro completo.
+  const openEditor = async (c: StoreCustomer) => {
+    try {
+      setEditing(await fetchCustomerRecord(c.id))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  const handleSave = async (input: StoreSupplierInput) => {
     if (editing && editing !== 'new') await updateCustomer(editing.id, input)
     else await createCustomer(input)
     setEditing(null)
@@ -110,7 +120,7 @@ export function CustomersPage() {
                     {c.address_city ? `${c.address_city}${c.address_state ? `/${c.address_state}` : ''}` : '—'}
                   </td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
-                    <button type="button" onClick={() => setEditing(c)} className="text-amber-500 hover:underline">
+                    <button type="button" onClick={() => void openEditor(c)} className="text-amber-500 hover:underline">
                       Editar
                     </button>{' '}
                     <button type="button" onClick={() => void handleDelete(c)} className="text-red-400 hover:underline">
@@ -125,8 +135,9 @@ export function CustomersPage() {
       )}
 
       {editing && (
-        <CustomerFormDialog
-          customer={editing === 'new' ? null : editing}
+        <SupplierFormDialog
+          role="customer"
+          supplier={editing === 'new' ? null : editing}
           onSave={handleSave}
           onClose={() => setEditing(null)}
         />

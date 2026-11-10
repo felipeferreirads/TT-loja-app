@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import type { StoreCustomer } from '../../types/db'
-import { fetchCustomer, updateCustomer, deleteCustomer, type StoreCustomerInput } from './api'
+import type { StoreSupplier } from '../../types/db'
+import { fetchCustomerRecord, updateCustomer, deleteCustomer } from './api'
+import type { StoreSupplierInput } from '../suppliers/api'
 import { fetchCustomerPurchases, type CustomerPurchase } from './purchaseHistory'
-import { CustomerFormDialog } from './CustomerFormDialog'
+import { SupplierFormDialog } from '../suppliers/SupplierFormDialog'
+import { emailEntriesFromRow, phoneEntriesFromRow } from '../suppliers/contactEntries'
 import { ReceiptDialog } from '../sales/ReceiptDialog'
 import { PAYMENT_LABELS } from '../sales/SalesPage'
-import { formatDate, formatMoney } from '../../lib/format'
+import { countryName, formatDate, formatMoney } from '../../lib/format'
+import { safeWebHref } from '../../lib/url'
 import { useConfirm } from '../../components/DialogProvider'
 import { useToast } from '../../components/ToastProvider'
 import { EmptyState } from '../../components/EmptyState'
@@ -22,7 +25,7 @@ export function CustomerPage() {
   const confirm = useConfirm()
   const toast = useToast()
 
-  const [customer, setCustomer] = useState<StoreCustomer | null>(null)
+  const [customer, setCustomer] = useState<StoreSupplier | null>(null)
   const [purchases, setPurchases] = useState<CustomerPurchase[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
@@ -31,7 +34,7 @@ export function CustomerPage() {
   const load = () => {
     if (!id) return
     setLoading(true)
-    Promise.all([fetchCustomer(id), fetchCustomerPurchases(id)])
+    Promise.all([fetchCustomerRecord(id), fetchCustomerPurchases(id)])
       .then(([c, p]) => {
         setCustomer(c)
         setPurchases(p)
@@ -52,7 +55,26 @@ export function CustomerPage() {
     }
   }, [purchases])
 
-  const handleSave = async (input: StoreCustomerInput) => {
+  const contact = useMemo(() => {
+    if (!customer) return null
+    const c = customer
+    const isBR = !c.address_country || c.address_country === 'BR'
+    const line1 = [c.address_street, c.address_number, c.address_complement].filter(Boolean).join(', ')
+    const line2 = [isBR ? c.address_district : null, c.address_city, c.address_state].filter(Boolean).join(' · ')
+    const line3 = [c.address_zip, c.address_country && c.address_country !== 'BR' ? countryName(c.address_country) : null]
+      .filter(Boolean)
+      .join(' · ')
+    const docLabel = c.tax_id_type === 'cnpj' ? 'CNPJ' : c.tax_id_type === 'cpf' ? 'CPF' : 'Documento fiscal'
+    return {
+      phones: phoneEntriesFromRow(c),
+      emails: emailEntriesFromRow(c),
+      address: [line1, line2, line3].filter(Boolean),
+      doc: c.tax_id ? `${docLabel}: ${c.tax_id}` : null,
+      website: safeWebHref(c.website),
+    }
+  }, [customer])
+
+  const handleSave = async (input: StoreSupplierInput) => {
     if (!id) return
     await updateCustomer(id, input)
     setEditing(false)
@@ -82,7 +104,10 @@ export function CustomerPage() {
         <div className="min-w-0">
           <h1 className="text-xl font-bold break-words text-stone-100">{customer.name}</h1>
           <p className="mt-1 text-sm break-words text-stone-500">
-            {customer.phone ?? '—'} {customer.email && `· ${customer.email}`}
+            {customer.kind === 'company' ? 'Pessoa jurídica' : 'Pessoa física'}
+            {customer.legal_name && ` · ${customer.legal_name}`}
+            {customer.is_supplier && ' · Também é fornecedor'}
+            {customer.in_collection && ' · Compartilhado com a Coleção'}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
@@ -113,6 +138,52 @@ export function CustomerPage() {
           <p className="mt-1 text-lg font-bold text-stone-100">{formatDate(stats.lastPurchase)}</p>
         </div>
       </div>
+
+      {contact && (
+        <section className="mb-6 grid gap-4 rounded-lg border border-stone-800 p-4 text-sm sm:grid-cols-2">
+          <div className="space-y-1">
+            <h2 className="mb-1 font-medium text-stone-200">Contato</h2>
+            {contact.phones.length === 0 && contact.emails.length === 0 && !contact.website && (
+              <p className="text-stone-500">Nenhum contato informado.</p>
+            )}
+            {contact.phones.map((p, i) => (
+              <p key={`p${i}`} className="break-words text-stone-300">
+                {p.label && <span className="text-stone-500">{p.label}: </span>}
+                {p.value}
+                {p.whatsapp && <span className="text-stone-500"> · WhatsApp</span>}
+              </p>
+            ))}
+            {contact.emails.map((e, i) => (
+              <p key={`e${i}`} className="break-words text-stone-300">
+                {e.label && <span className="text-stone-500">{e.label}: </span>}
+                <a href={`mailto:${e.value}`} className="hover:text-amber-500 hover:underline">
+                  {e.value}
+                </a>
+              </p>
+            ))}
+            {contact.website && (
+              <p className="break-words">
+                <a href={contact.website} target="_blank" rel="noreferrer" className="text-amber-500 hover:underline">
+                  {customer.website}
+                </a>
+              </p>
+            )}
+          </div>
+          <div className="space-y-1">
+            <h2 className="mb-1 font-medium text-stone-200">Documento e endereço</h2>
+            {contact.doc && <p className="text-stone-300">{contact.doc}</p>}
+            {contact.address.map((line) => (
+              <p key={line} className="break-words text-stone-300">
+                {line}
+              </p>
+            ))}
+            {!contact.doc && contact.address.length === 0 && <p className="text-stone-500">Nenhum endereço informado.</p>}
+          </div>
+          {customer.notes && (
+            <p className="whitespace-pre-line text-stone-400 sm:col-span-2">{customer.notes}</p>
+          )}
+        </section>
+      )}
 
       <section className="space-y-3 rounded-lg border border-stone-800 p-4">
         <h2 className="font-medium text-stone-200">Histórico de compras</h2>
@@ -156,7 +227,9 @@ export function CustomerPage() {
         )}
       </section>
 
-      {editing && <CustomerFormDialog customer={customer} onSave={handleSave} onClose={() => setEditing(false)} />}
+      {editing && (
+        <SupplierFormDialog role="customer" supplier={customer} onSave={handleSave} onClose={() => setEditing(false)} />
+      )}
       {receiptSaleId && <ReceiptDialog saleId={receiptSaleId} onClose={() => setReceiptSaleId(null)} />}
     </div>
   )

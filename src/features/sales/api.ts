@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase'
-import type { StoreCustomer, StorePaymentMethod, StoreSale } from '../../types/db'
+import type { StoreCustomer, StorePaymentMethod, StoreSale, StoreSupplier } from '../../types/db'
+import { supplierToCustomer } from '../customers/api'
 
 export interface SaleItemInput {
   product_id: string
@@ -31,7 +32,7 @@ export interface SaleWithCustomer extends StoreSale {
 export async function fetchSales(): Promise<SaleWithCustomer[]> {
   const { data, error } = await supabase
     .from('store_sales')
-    .select('*, customer:store_customers(name), documents:store_documents(id, title, number)')
+    .select('*, customer:suppliers!store_sales_customer_id_fkey(name), documents:store_documents(id, title, number)')
     .order('sale_date', { ascending: false })
   if (error) throw error
   return data as unknown as SaleWithCustomer[]
@@ -80,16 +81,17 @@ export interface SaleReceipt extends StoreSale {
 export async function fetchSaleReceipt(saleId: string): Promise<SaleReceipt> {
   const { data, error } = await supabase
     .from('store_sales')
-    .select('*, customer:store_customers(*), items:store_sale_items(quantity, unit_price, product:store_products(name))')
+    .select('*, customer:suppliers!store_sales_customer_id_fkey(*), items:store_sale_items(quantity, unit_price, product:store_products(name))')
     .eq('id', saleId)
     .single()
   if (error) throw error
   const raw = data as unknown as StoreSale & {
-    customer: StoreCustomer | null
+    customer: StoreSupplier | null
     items: { quantity: number; unit_price: number; product: { name: string } | null }[]
   }
   return {
     ...raw,
+    customer: raw.customer ? supplierToCustomer(raw.customer) : null,
     items: raw.items.map((it) => ({
       product_name: it.product?.name ?? 'Produto removido',
       quantity: it.quantity,

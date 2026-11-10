@@ -58,7 +58,7 @@ interface SaleItemWithSale {
 async function fetchSaleItemsForProduct(productId: string): Promise<SaleItemWithSale[]> {
   const { data, error } = await supabase
     .from('store_sale_items')
-    .select('id, quantity, unit_price, sale:store_sales(id, sale_date, customer:store_customers(name), documents:store_documents(id, title, number))')
+    .select('id, quantity, unit_price, sale:store_sales(id, sale_date, customer:suppliers!store_sales_customer_id_fkey(name), documents:store_documents(id, title, number))')
     .eq('product_id', productId)
   if (error) throw new Error(`Falha ao carregar vendas do produto: ${error.message}`)
   return data as unknown as SaleItemWithSale[]

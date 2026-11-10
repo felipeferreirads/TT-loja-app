@@ -9,7 +9,12 @@ export type StoreSupplierInput = Pick<StoreSupplier, 'name'> &
   Partial<Omit<StoreSupplier, 'id' | 'owner_id' | 'created_at' | 'updated_at' | 'name'>>
 
 export async function fetchSuppliers(): Promise<StoreSupplier[]> {
-  const { data, error } = await supabase.from('suppliers').select('*').eq('in_store', true).order('name')
+  const { data, error } = await supabase
+    .from('suppliers')
+    .select('*')
+    .eq('in_store', true)
+    .eq('is_supplier', true)
+    .order('name')
   if (error) throw error
   return data
 }
@@ -26,7 +31,8 @@ export async function createSupplier(input: StoreSupplierInput): Promise<StoreSu
     .ilike('name', input.name.trim().replace(/[\\%_]/g, '\\$&'))
     .maybeSingle()
   if (existing) {
-    const fill: Record<string, unknown> = { in_store: true }
+    // `is_supplier: true` — o cadastro pode existir só como cliente (0193).
+    const fill: Record<string, unknown> = { in_store: true, is_supplier: true }
     for (const [k, v] of Object.entries(input)) {
       const current = (existing as Record<string, unknown>)[k]
       // Lista vazia (extra_phones, social_links...) conta como "não preenchido".
@@ -50,10 +56,16 @@ export async function updateSupplier(id: string, input: Partial<StoreSupplierInp
   return data
 }
 
-/** Some da loja. Se o catálogo também usa o fornecedor, só desliga `in_store`. */
+/**
+ * Some da loja. Se o catálogo também usa o fornecedor, só desliga `in_store`.
+ * Se ele também é cliente (0193), só perde o papel de fornecedor. Só um
+ * cadastro sem nenhum outro uso é apagado de verdade.
+ */
 export async function deleteSupplier(supplier: StoreSupplier): Promise<void> {
   const { error } = supplier.in_collection
     ? await supabase.from('suppliers').update({ in_store: false }).eq('id', supplier.id)
-    : await supabase.from('suppliers').delete().eq('id', supplier.id)
+    : supplier.is_customer
+      ? await supabase.from('suppliers').update({ is_supplier: false }).eq('id', supplier.id)
+      : await supabase.from('suppliers').delete().eq('id', supplier.id)
   if (error) throw error
 }

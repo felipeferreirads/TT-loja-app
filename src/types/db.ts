@@ -448,6 +448,11 @@ export interface StoreSupplier {
   notes: string | null
   in_collection: boolean
   in_store: boolean
+  /** Papéis (0193 do catálogo): vende para o dono / compra do dono. Os dois falsos = contato. */
+  is_supplier: boolean
+  is_customer: boolean
+  /** Lixeira (0180 do catálogo / 0027): hoje só clientes puros usam a coluna na loja. */
+  deleted_at: string | null
   created_at: string
   updated_at: string
 }

@@ -10,6 +10,8 @@ export interface HintOption {
   label: string
   /** Explicação do termo, mostrada num ícone de informação ao lado da opção. */
   hint?: string
+  /** Opção filha: aparece recuada sob a anterior (ex.: Concreção septariana sob Concreção). */
+  indent?: boolean
 }
 
 interface Props {
@@ -73,7 +75,7 @@ export function HintSelect({ value, options, onChange, placeholder = '—', disa
               —
             </button>
             {options.map((o) => (
-              <div key={o.value} className="flex items-center gap-1">
+              <div key={o.value} className={`flex items-center gap-1 ${o.indent ? 'ml-4' : ''}`}>
                 <button
                   type="button"
                   role="option"

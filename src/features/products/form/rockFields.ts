@@ -35,6 +35,8 @@ export const ROCK_SUBTYPES: Record<string, RockOption[]> = {
     o('biochemical', 'Bioquímica', 'Sedimentar formada pela ação ou pelos restos de organismos, como alguns calcários.'),
     o('organic', 'Orgânica', 'Sedimentar formada pelo acúmulo de matéria orgânica, como o carvão.'),
     o('evaporitic', 'Evaporítica', 'Sedimentar formada pela evaporação da água, como o sal-gema e o gesso.'),
+    o('concretion', 'Concreção', 'Sedimentar formada pela precipitação de minerais ao redor de um núcleo, em massas arredondadas ou irregulares dentro de outra rocha, como nódulos de siderita ou calcita.'),
+    o('septarian_concretion', 'Concreção septariana', 'Concreção com fraturas internas em forma de septos (rachaduras poligonais) preenchidas por calcita ou outro mineral.'),
   ],
   metamorphic: [
     o('regional', 'Regional', 'Metamórfica formada em grandes áreas por calor e pressão, geralmente com foliação.'),

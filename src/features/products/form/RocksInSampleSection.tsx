@@ -96,7 +96,7 @@ function Shell({ label, wide, children }: { label: string; wide?: boolean; child
 }
 
 function Select({ label, value, options, onChange, disabled }: { label: string; value: string; options: RockOption[]; onChange: (v: string) => void; disabled?: boolean }) {
-  return <HintSelect value={value} options={options} onChange={onChange} disabled={disabled} ariaLabel={label} />
+  return <HintSelect value={value} options={options.map((x) => ({ ...x, indent: x.value === 'septarian_concretion' }))} onChange={onChange} disabled={disabled} ariaLabel={label} />
 }
 
 function RockFields({ row, onPatch }: { row: RockRowDraft; onPatch: (patch: Partial<RockRowDraft>) => void }) {
@@ -107,14 +107,8 @@ function RockFields({ row, onPatch }: { row: RockRowDraft; onPatch: (patch: Part
   return (
     <div className="grid grid-cols-1 gap-3 border-t border-stone-800 p-3 sm:grid-cols-2">
       <Shell label="Nome da rocha">
-        <div className="relative">
+        <div>
           <SuggestInput value={row.name} onChange={(v) => onPatch({ name: v })} fetchSuggestions={nameSuggestions} placeholder="Ex.: Granito" minChars={1} />
-          <span className="absolute inset-y-0 right-2 flex items-center">
-            <InfoTooltip
-              text='Nome comum da rocha, como granito, basalto, arenito ou mármore. Se a identificação for incerta, use um termo geral, como "rocha vulcânica".'
-              iconClassName="h-3.5 w-3.5"
-            />
-          </span>
         </div>
       </Shell>
       <Shell label="Papel na amostra">

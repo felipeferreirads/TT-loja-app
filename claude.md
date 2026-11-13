@@ -85,6 +85,20 @@ comentário no topo do arquivo diz isso** ("Copiado do catálogo pessoal",
 pessoal já usa) — necessária pros hooks de país/subdivisão com cache. Não
 existia no scaffold inicial do loja-app.
 
+**Lista de produtos = cache compartilhado** (11/11/2026, auditoria LJ1 em
+`../docs/AUDITORIA-CHAMADAS.md`): ler a lista SEMPRE por `useProducts()` /
+`useCoverUrls()` (componente) ou `getProducts()` (ação de botão), de
+`features/products/queries.ts` — nunca `fetchProducts()` direto num
+`useEffect`, que relia a lista inteira (com etiquetas, minerais e rochas) a
+cada tela. Toda função que grava em `store_products` ou nas tabelas embutidas
+(`store_product_qr_aliases`, `_minerals`, `_rocks`) ou muda estoque (RPCs de
+venda/entrada) chama `markProductsChanged()` de
+`features/products/productsCache.ts` na própria camada de dados
+(`{ covers: true }` quando mexe em foto/vídeo). Ela marca o cache como
+desatualizado na hora e relê as telas abertas uma vez só, 600 ms depois da
+última gravação (laços como dividir lote viram uma releitura). O
+`QueryClient` mora em `lib/queryClient.ts` para isso funcionar fora do React.
+
 ## 3. Estrutura do app
 
 ```
@@ -290,6 +304,7 @@ repo pai. Sem deploy, a busca só devolve lista vazia (não quebra a tela).
 | Campo novo de espécime que a importação da coleção deveria trazer | `features/products/importFromCollection.ts` — ver §7; se não houver coluna equivalente em `store_products`, vira linha no apêndice de notas (`buildAppendix`), nunca se perde em silêncio |
 | Prefixo/regra nova de geração de SKU | `store_sku_prefixes`, migration + `skuPrefixes.ts` (`resolvePrefix`/`suggestSku`) + `SkuPrefixesSection.tsx` (Empresa) — ver §3 |
 | Campo novo do sistema de lotes (sufixo, herança na divisão) | `lots.ts` (+ `.test.ts`, lógica pura) + `LotItemsSection.tsx`/`SplitLotDialog.tsx` — ver §9 |
+| Gravação nova que muda produto, estoque ou foto | Chamar `markProductsChanged()` (`products/productsCache.ts`) no fim da função de dados — ver §2, "Lista de produtos = cache compartilhado" |
 | Campo novo de entrada de estoque | `store_stock_entries`, migration + `StoreStockEntry` (`types/db.ts`) + `stockHistory.ts`/`ProductStockHistorySection.tsx` — ver §9 |
 
 ## 7. Importar da Coleção pessoal → Produtos

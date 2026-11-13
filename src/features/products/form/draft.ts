@@ -1,5 +1,6 @@
 import type { StoreProduct, StoreProductInput } from '../../../types/db'
 import { IMPACTITE_HIDDEN_DRAFT_FIELDS, isImpactite } from './rockFields'
+import { onlyDigits } from '../fiscal'
 
 /** Todos os campos do formulário viram string; a conversão pro tipo real
  *  acontece só em `toInput`. */
@@ -20,11 +21,13 @@ const TEXT_FIELDS = [
   'jwl_material', 'jwl_stone', 'jwl_size', 'jwl_clasp', 'jwl_finish', 'jwl_adjustable',
   'ecommerce_slug', 'ecommerce_description', 'ecommerce_category_path', 'ecommerce_google_category',
   'ecommerce_tags', 'ecommerce_seo_title', 'ecommerce_seo_description',
+  'fiscal_type', 'ncm', 'cest',
 ] as const
 
 export const NUMERIC_FIELDS = new Set([
   'cost_price', 'sale_price', 'stock_quantity', 'min_stock', 'weight_g', 'weight_ct',
   'ecommerce_package_height_cm', 'ecommerce_package_width_cm', 'ecommerce_package_length_cm',
+  'tax_origin',
 ])
 
 /** Campos booleanos do draft: viajam como string 'true'/'false' até `toInput`. */
@@ -55,6 +58,9 @@ export function toInput(d: Draft): StoreProductInput {
   }
   // Impactito (não é meteorito): campos de classificação de meteorito não se aplicam — sem valor "fantasma".
   if (isImpactite(d.met_category)) for (const key of IMPACTITE_HIDDEN_DRAFT_FIELDS) out[key] = null
+  // NCM e CEST: gravados só com dígitos (a máscara é só de exibição). Tamanho validado antes, em `validateFiscalDraft`.
+  out.ncm = onlyDigits(d.ncm ?? '') || null
+  out.cest = onlyDigits(d.cest ?? '') || null
   out.name = d.name.trim()
   out.sale_price = Number(d.sale_price) || 0
   out.stock_quantity = Number(d.stock_quantity) || 0

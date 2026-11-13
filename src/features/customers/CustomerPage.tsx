@@ -104,8 +104,8 @@ export function CustomerPage() {
         <div className="min-w-0">
           <h1 className="text-xl font-bold break-words text-stone-100">{customer.name}</h1>
           <p className="mt-1 text-sm break-words text-stone-500">
-            {customer.kind === 'company' ? 'Pessoa jurídica' : 'Pessoa física'}
-            {customer.legal_name && ` · ${customer.legal_name}`}
+            {customer.kind === 'company' ? 'Pessoa jurídica' : customer.kind === 'person' ? 'Pessoa física' : ''}
+            {customer.legal_name && `${customer.kind ? ' · ' : ''}${customer.legal_name}`}
             {customer.is_supplier && ' · Também é fornecedor'}
             {customer.in_collection && ' · Compartilhado com a Coleção'}
           </p>

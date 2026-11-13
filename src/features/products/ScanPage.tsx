@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
 import type { StoreProduct } from '../../types/db'
 import {
   ArrowLeftIcon,
@@ -11,7 +10,7 @@ import {
   SpecimenIcon,
   StackIcon,
 } from '../../components/icons'
-import { fetchCoverUrls, fetchProducts } from './api'
+import { useCoverUrls, useProducts } from './queries'
 import { isUuidLike, normalizeScannedValue, resolveScannedValue } from './qr'
 import { barcodeDetectorCtor, openCameraStream, SCAN_INTERVAL_MS, setPreferredCameraId } from '../../lib/qrCamera'
 
@@ -49,8 +48,8 @@ function readStoredCollected(): string[] {
 
 export function ScanPage() {
   const navigate = useNavigate()
-  const { data: products } = useQuery({ queryKey: ['products'], queryFn: fetchProducts })
-  const { data: coverUrls } = useQuery({ queryKey: ['product-cover-urls'], queryFn: fetchCoverUrls })
+  const { data: products } = useProducts()
+  const { data: coverUrls } = useCoverUrls()
   const productsRef = useRef<StoreProduct[]>([])
   productsRef.current = products ?? []
 

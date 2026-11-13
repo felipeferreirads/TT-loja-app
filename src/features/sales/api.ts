@@ -1,6 +1,7 @@
 import { supabase } from '../../lib/supabase'
 import type { StoreCustomer, StorePaymentMethod, StoreSale, StoreSupplier } from '../../types/db'
 import { supplierToCustomer } from '../customers/api'
+import { markProductsChanged } from '../products/productsCache'
 
 export interface SaleItemInput {
   product_id: string
@@ -53,6 +54,7 @@ export async function createSale(input: CreateSaleInput): Promise<StoreSale> {
     p_paid: input.paid ?? true,
   })
   if (error) throw error
+  markProductsChanged() // a venda baixa o estoque dos produtos
   return data
 }
 

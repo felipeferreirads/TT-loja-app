@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ITEM_KIND_LABELS, type StoreProduct } from '../../types/db'
-import { fetchProducts } from '../products/api'
+import { useProducts } from '../products/queries'
+
+const EMPTY_PRODUCTS: StoreProduct[] = []
 import { CloseIcon, SearchIcon } from '../../components/icons'
 
 /** Modal de seleção de produtos para vincular a um documento. */
@@ -13,16 +15,12 @@ export function PickProductsDialog({
   onCancel: () => void
   onConfirm: (ids: string[]) => void
 }) {
-  const [products, setProducts] = useState<StoreProduct[]>([])
+  // Cache compartilhado (products/queries.ts): abrir o seletor não relê a lista.
+  const productsQuery = useProducts()
+  const products = productsQuery.data ?? EMPTY_PRODUCTS
+  const error = productsQuery.error ? (productsQuery.error instanceof Error ? productsQuery.error.message : String(productsQuery.error)) : null
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<string[]>([])
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    fetchProducts()
-      .then(setProducts)
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
-  }, [])
 
   const visible = useMemo(() => {
     const exclude = new Set(excludeIds)

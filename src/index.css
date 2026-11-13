@@ -1,30 +1,92 @@
 @import 'tailwindcss';
 @import './themes.css';
 
-/* Classes utilitárias compartilhadas do app (mesmo padrão visual do Tesouros da Terra) */
+/* Mesmo arquivo-base do catálogo pessoal (`src/index.css` de lá), enxugado do
+   que só existe lá (sliders de zoom, entrada animada de card). */
 
-.input {
-  @apply min-h-11 w-full rounded-lg border border-stone-700 bg-stone-800 px-3 py-2 text-sm text-stone-100 outline-none focus:border-amber-600;
+/* Grip nativo de resize do textarea conflitava com scroll perto dele. Tira o
+   grip e faz a altura acompanhar o texto (field-sizing: content). Fora de
+   @layer de propósito: sempre vence o que estiver nas classes. */
+textarea {
+  resize: none;
+  field-sizing: content;
 }
 
-.btn-primary {
-  @apply inline-flex min-h-11 items-center justify-center rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-500 disabled:opacity-50;
+/* Classes utilitárias compartilhadas do app (mesmo padrão visual do Tesouros da Terra).
+   Em `@layer components` para que utilities aplicadas junto (ex.: `input pl-9`)
+   vençam o empate de especificidade, como no catálogo pessoal. */
+@layer components {
+  .input {
+    @apply min-h-11 w-full rounded-lg border border-stone-700 bg-stone-800 px-3 py-2 text-sm text-stone-100 outline-none focus:border-amber-600;
+  }
+
+  .btn-primary {
+    @apply inline-flex min-h-11 items-center justify-center rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-500 disabled:opacity-50;
+  }
+
+  .btn-secondary {
+    @apply inline-flex min-h-11 items-center justify-center rounded-lg bg-stone-800 px-4 py-2 text-sm font-medium text-stone-200 transition hover:bg-stone-700 disabled:opacity-50;
+  }
+
+  .btn-danger {
+    @apply inline-flex min-h-11 items-center justify-center rounded-lg bg-red-900/60 px-4 py-2 text-sm font-medium text-red-200 transition hover:bg-red-800;
+  }
+
+  /* Botão só de ícone com alvo de toque mínimo de 44px. */
+  .tap-icon {
+    @apply inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-stone-400 transition hover:bg-stone-800 hover:text-stone-100;
+  }
+
+  .section-title {
+    @apply text-xs font-semibold tracking-wide text-stone-400 uppercase;
+  }
+
+  .link {
+    @apply text-amber-500 hover:underline;
+  }
+
+  .thumb-btn {
+    @apply rounded bg-black/70 px-1.5 py-0.5 text-xs text-white hover:bg-black;
+  }
 }
 
-.btn-secondary {
-  @apply inline-flex min-h-11 items-center justify-center rounded-lg bg-stone-800 px-4 py-2 text-sm font-medium text-stone-200 transition hover:bg-stone-700 disabled:opacity-50;
+body {
+  background-color: var(--color-stone-950);
+  color: var(--color-stone-100);
 }
 
-.btn-danger {
-  @apply inline-flex min-h-11 items-center justify-center rounded-lg bg-red-900/60 px-4 py-2 text-sm font-medium text-red-200 transition hover:bg-red-800;
+/* Célula de coluna congelada da lista (modo planilha): fundo OPACO que
+   acompanha a linha (inclusive o hover), para as colunas roladas passarem por
+   baixo. `:where` mantém a especificidade baixa: o destaque âmbar de célula
+   selecionada é uma utility e precisa ganhar. */
+td:where(.frozen-cell),
+th:where(.frozen-cell) {
+  background-color: inherit;
 }
 
-.tap-icon {
-  @apply inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-stone-400 transition hover:bg-stone-800 hover:text-stone-100;
+/* Barra de rolagem escura e discreta em todas as áreas roláveis. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-stone-600) transparent;
 }
-
-.section-title {
-  @apply text-xs font-semibold tracking-wide text-stone-400 uppercase;
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: var(--color-stone-600);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-stone-500);
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 .no-scrollbar {
@@ -40,10 +102,6 @@
 }
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom);
-}
-
-body {
-  @apply bg-stone-950 text-stone-100;
 }
 
 /* Recibo imprimível (ReceiptDialog) — esconde o resto do app (sidebar,

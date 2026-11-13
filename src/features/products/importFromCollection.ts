@@ -2,6 +2,7 @@ import { supabase } from '../../lib/supabase'
 import type { SizeClass, StoreItemKind, StoreProductInput } from '../../types/db'
 import { rocksSectionApplies } from './form/rockFields'
 import { createProduct, addProductMineral, addProductRock, addFossilSpecies, linkQrAlias } from './api'
+import { markProductsChanged } from './productsCache'
 import { addYoutubeVideo } from './youtubeVideos'
 import { fetchSkuPrefixes, suggestSku } from './skuPrefixes'
 
@@ -527,6 +528,10 @@ function mapToProductInput(s: CatalogSpecimenFull, priv: CatalogSpecimenPrivate 
     origin_country: s.origin_country,
     origin_state: s.origin_state,
     origin: s.origin_short || s.origin,
+    // Origem fiscal ≠ origem geológica: só sugere o código 0 (nacional) quando
+    // o item é do Brasil. Fora do Brasil depende de como foi adquirido
+    // (1 importação direta, 2 mercado interno) — fica em branco pro dono escolher.
+    tax_origin: s.origin_country === 'BR' ? 0 : null,
     weight_g: s.weight_g,
     dimensions: s.dimensions,
     size_class: s.size_class,
@@ -688,6 +693,7 @@ async function copySpecimenMedia(productId: string, specimenId: string): Promise
   }))
   const { error } = await supabase.from('store_product_media').insert(rows)
   if (error) throw new Error(`Falha ao referenciar mídia do catálogo pessoal: ${error.message}`)
+  markProductsChanged({ covers: true })
 }
 
 async function copyYoutubeVideos(productId: string, specimenId: string): Promise<void> {

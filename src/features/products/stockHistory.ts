@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase'
 import type { StoreStockEntry } from '../../types/db'
+import { markProductsChanged } from './productsCache'
 
 export interface StockEntryWithRefs extends StoreStockEntry {
   supplier: { name: string } | null
@@ -37,6 +38,7 @@ export async function createStockEntry(input: CreateStockEntryInput): Promise<St
     p_notes: input.notes,
   })
   if (error) throw new Error(`Falha ao registrar entrada: ${error.message}`)
+  markProductsChanged() // a entrada soma em stock_quantity
   return data
 }
 

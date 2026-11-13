@@ -7,7 +7,7 @@ export function AppLogo({ size = 'md' }: { size?: 'md' | 'lg' }) {
     <img
       src="/logo.svg"
       alt="Tesouros da Terra"
-      className={`app-logo-themed ${size === 'lg' ? 'mx-auto h-32' : 'h-9 sm:h-11'}`}
+      className={`app-logo-themed ${size === 'lg' ? 'mx-auto h-32' : 'h-9 sm:h-14'}`}
     />
   )
 }

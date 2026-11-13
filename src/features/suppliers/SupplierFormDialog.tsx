@@ -27,7 +27,8 @@ type TextField = (typeof FIELDS)[number]
 export function SupplierFormDialog({ supplier, onSave, onClose, role = 'supplier' }: Props) {
   const isCustomer = role === 'customer'
   const [name, setName] = useState(supplier?.name ?? '')
-  const [kind, setKind] = useState<StoreSupplier['kind']>(supplier?.kind ?? (isCustomer ? 'person' : 'company'))
+  // '' = não informado. Cadastro existente sem tipo continua vazio; só o novo nasce com o padrão do papel.
+  const [kind, setKind] = useState<NonNullable<StoreSupplier['kind']> | ''>(supplier ? (supplier.kind ?? '') : isCustomer ? 'person' : 'company')
   const [country, setCountry] = useState(supplier?.address_country ?? 'BR')
   const [phones, setPhones] = useState<PhoneEntry[]>(() => phoneEntriesFromRow(supplier))
   const [emails, setEmails] = useState<EmailEntry[]>(() => emailEntriesFromRow(supplier))
@@ -53,8 +54,10 @@ export function SupplierFormDialog({ supplier, onSave, onClose, role = 'supplier
       await onSave({
         ...clean,
         name: name.trim(),
-        kind,
-        tax_id_type: clean.tax_id ? (isBR ? (kind === 'person' ? 'cpf' : 'cnpj') : 'foreign') : null,
+        kind: kind || null,
+        tax_id_type: clean.tax_id
+          ? isBR ? (kind === 'person' || (!kind && clean.tax_id.replace(/\D/g, '').length <= 11) ? 'cpf' : 'cnpj') : 'foreign'
+          : null,
         // Site sem protocolo ("site.com") é salvo com "https://".
         website: normalizeWebUrl(clean.website ?? '') || null,
         // O primeiro telefone/e-mail vai para as colunas principais, o resto para as listas extras.
@@ -69,7 +72,9 @@ export function SupplierFormDialog({ supplier, onSave, onClose, role = 'supplier
     }
   }
 
-  const docLabel = isBR ? (kind === 'person' ? 'CPF' : 'CNPJ') : 'Documento fiscal (Tax ID)'
+  const docLabel = isBR ? (kind === 'person' ? 'CPF' : kind === 'company' ? 'CNPJ' : 'CPF / CNPJ') : 'Documento fiscal (Tax ID)'
+  const maskTaxId = (v: string) =>
+    kind === 'person' ? maskCpfInput(v) : kind === 'company' ? maskCnpjInput(v) : v.replace(/\D/g, '').length > 11 ? maskCnpjInput(v) : maskCpfInput(v)
 
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
@@ -97,13 +102,14 @@ export function SupplierFormDialog({ supplier, onSave, onClose, role = 'supplier
           </label>
           <label className="block">
             <span className="text-sm text-stone-300">Tipo</span>
-            <select value={kind} onChange={(e) => setKind(e.target.value as StoreSupplier['kind'])} className="input mt-1">
+            <select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} className="input mt-1">
+              <option value="">Não informado</option>
               <option value="company">Pessoa jurídica</option>
               <option value="person">Pessoa física</option>
             </select>
           </label>
           <label className="block">
-            <span className="text-sm text-stone-300">{kind === 'person' ? 'Nome completo' : 'Razão social'}</span>
+            <span className="text-sm text-stone-300">{kind === 'person' ? 'Nome completo' : kind === 'company' ? 'Razão social' : 'Razão social / Nome completo'}</span>
             <input {...field('legal_name')} />
           </label>
           <label className="block">
@@ -113,7 +119,7 @@ export function SupplierFormDialog({ supplier, onSave, onClose, role = 'supplier
               onChange={(e) =>
                 setText((t) => ({
                   ...t,
-                  tax_id: isBR ? (kind === 'person' ? maskCpfInput : maskCnpjInput)(e.target.value) : e.target.value,
+                  tax_id: isBR ? maskTaxId(e.target.value) : e.target.value,
                 }))
               }
             />

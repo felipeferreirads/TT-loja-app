@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase'
 import { uploadMedia, removeMedia, buildMediaPath, mediaSignedUrls } from '../../lib/r2Storage'
+import { markProductsChanged } from './productsCache'
 import type {
   StoreMediaBucket,
   StoreProduct,
@@ -65,6 +66,7 @@ export async function fetchProductChildren(parentId: string): Promise<StoreProdu
 export async function createProduct(input: StoreProductInput & { id?: string }): Promise<StoreProduct> {
   const { data, error } = await supabase.from('store_products').insert(input).select().single()
   if (error) throw error
+  markProductsChanged()
   return data
 }
 
@@ -74,6 +76,7 @@ export async function createProduct(input: StoreProductInput & { id?: string }):
 export async function updateProduct(id: string, input: Partial<StoreProductInput>): Promise<StoreProduct> {
   const { data, error } = await supabase.from('store_products').update(input).eq('id', id).select().single()
   if (error) throw error
+  markProductsChanged()
   return data
 }
 
@@ -84,6 +87,7 @@ export async function updateProduct(id: string, input: Partial<StoreProductInput
 export async function deleteProduct(id: string): Promise<void> {
   const { error } = await supabase.from('store_products').update({ deleted_at: new Date().toISOString() }).eq('id', id)
   if (error) throw error
+  markProductsChanged()
 }
 
 /** Apagar vários de uma vez (soft delete — mesma lixeira de 15 dias do `deleteProduct`). */
@@ -91,6 +95,7 @@ export async function deleteProducts(ids: string[]): Promise<void> {
   if (ids.length === 0) return
   const { error } = await supabase.from('store_products').update({ deleted_at: new Date().toISOString() }).in('id', ids)
   if (error) throw error
+  markProductsChanged()
 }
 
 /** Desfaz `deleteProducts`: tira vários produtos da lixeira de uma vez. */
@@ -98,6 +103,7 @@ export async function restoreProducts(ids: string[]): Promise<void> {
   if (ids.length === 0) return
   const { error } = await supabase.from('store_products').update({ deleted_at: null }).in('id', ids)
   if (error) throw error
+  markProductsChanged()
 }
 
 /** Mesmo PATCH pra vários produtos (ex.: publicar/despublicar no e-commerce). */
@@ -105,16 +111,19 @@ export async function updateProducts(ids: string[], input: Partial<StoreProductI
   if (ids.length === 0) return
   const { error } = await supabase.from('store_products').update(input).in('id', ids)
   if (error) throw error
+  markProductsChanged()
 }
 
 export async function restoreProduct(id: string): Promise<void> {
   const { error } = await supabase.from('store_products').update({ deleted_at: null }).eq('id', id)
   if (error) throw error
+  markProductsChanged()
 }
 
 export async function permanentlyDeleteProduct(id: string): Promise<void> {
   const { error } = await supabase.from('store_products').delete().eq('id', id)
   if (error) throw error
+  markProductsChanged({ covers: true })
 }
 
 export async function fetchDeletedProducts(): Promise<StoreProduct[]> {
@@ -249,6 +258,7 @@ export async function uploadProductMedia(productId: string, file: File): Promise
     await removeMedia('store', [path]).catch(() => {})
     throw error
   }
+  markProductsChanged({ covers: true })
   return data
 }
 
@@ -259,6 +269,7 @@ export async function uploadProductMedia(productId: string, file: File): Promise
 export async function deleteProductMedia(media: StoreProductMedia): Promise<void> {
   const { error } = await supabase.from('store_product_media').delete().eq('id', media.id)
   if (error) throw error
+  markProductsChanged({ covers: true })
   if (media.bucket === 'store') await removeMedia('store', [media.storage_path]).catch(() => {})
 }
 
@@ -276,6 +287,7 @@ export async function linkQrAlias(productId: string, aliasId: string): Promise<S
     .select('id, product_id, owner_id, created_at')
     .single()
   if (error) throw new Error(`Falha ao vincular etiqueta QR: ${error.message}`)
+  markProductsChanged()
   return data
 }
 
@@ -283,12 +295,14 @@ export async function linkQrAlias(productId: string, aliasId: string): Promise<S
 export async function deleteQrAlias(aliasId: string): Promise<void> {
   const { error } = await supabase.from('store_product_qr_aliases').delete().eq('id', aliasId)
   if (error) throw new Error(`Falha ao remover etiqueta QR: ${error.message}`)
+  markProductsChanged()
 }
 
 /** Reatribui um alias JÁ IMPRESSO a outro produto — a etiqueta física colada não muda, só o item para o qual ela aponta. */
 export async function repointQrAlias(aliasId: string, productId: string): Promise<void> {
   const { error } = await supabase.from('store_product_qr_aliases').update({ product_id: productId }).eq('id', aliasId)
   if (error) throw new Error(`Falha ao reatribuir etiqueta QR: ${error.message}`)
+  markProductsChanged()
 }
 
 // ─── Taxonomia de fóssil multi-espécie ──────────────────────────────────────
@@ -351,18 +365,21 @@ export async function addProductMineral(
     .select()
     .single()
   if (error) throw new Error(`Falha ao adicionar mineral: ${error.message}`)
+  markProductsChanged()
   return data
 }
 
 export async function updateProductMineral(id: string, input: StoreProductMineralInput): Promise<StoreProductMineral> {
   const { data, error } = await supabase.from('store_product_minerals').update(input).eq('id', id).select().single()
   if (error) throw new Error(`Falha ao salvar mineral: ${error.message}`)
+  markProductsChanged()
   return data
 }
 
 export async function removeProductMineral(id: string): Promise<void> {
   const { error } = await supabase.from('store_product_minerals').delete().eq('id', id)
   if (error) throw new Error(`Falha ao remover mineral: ${error.message}`)
+  markProductsChanged()
 }
 
 // ─── Rochas da amostra (0032) ───────────────────────────────────────────────
@@ -374,16 +391,19 @@ export async function addProductRock(productId: string, input: StoreProductRockI
     .select()
     .single()
   if (error) throw new Error(`Falha ao adicionar rocha: ${error.message}`)
+  markProductsChanged()
   return data
 }
 
 export async function updateProductRock(id: string, input: StoreProductRockInput, sortOrder: number): Promise<StoreProductRock> {
   const { data, error } = await supabase.from('store_product_rocks').update({ ...input, sort_order: sortOrder }).eq('id', id).select().single()
   if (error) throw new Error(`Falha ao salvar rocha: ${error.message}`)
+  markProductsChanged()
   return data
 }
 
 export async function removeProductRock(id: string): Promise<void> {
   const { error } = await supabase.from('store_product_rocks').delete().eq('id', id)
   if (error) throw new Error(`Falha ao remover rocha: ${error.message}`)
+  markProductsChanged()
 }

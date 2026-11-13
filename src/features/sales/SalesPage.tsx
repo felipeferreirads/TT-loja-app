@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { StoreCustomer, StorePaymentMethod, StoreProduct } from '../../types/db'
-import { fetchProducts } from '../products/api'
+import { useProducts } from '../products/queries'
 import { resolveScannedValue } from '../products/qr'
 import { fetchCustomers, createCustomer } from '../customers/api'
 import type { StoreSupplierInput } from '../suppliers/api'
@@ -47,11 +47,16 @@ interface SalesLocationState {
 
 const todayIso = () => new Date().toISOString().slice(0, 10)
 
+/** Referência estável enquanto o cache carrega (dependência de `useEffect`). */
+const EMPTY_PRODUCTS: StoreProduct[] = []
+
 export function SalesPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const toast = useToast()
-  const [products, setProducts] = useState<StoreProduct[]>([])
+  // Lista de produtos pelo cache compartilhado (products/queries.ts); a venda
+  // invalida o cache sozinha (`createSale`), o estoque se atualiza depois.
+  const products = useProducts().data ?? EMPTY_PRODUCTS
   const [customers, setCustomers] = useState<StoreCustomer[]>([])
   const [sales, setSales] = useState<SaleWithCustomer[]>([])
   const [loading, setLoading] = useState(true)
@@ -79,9 +84,8 @@ export function SalesPage() {
 
   const load = () => {
     setLoading(true)
-    Promise.all([fetchProducts(), fetchCustomers(), fetchSales()])
-      .then(([p, c, s]) => {
-        setProducts(p)
+    Promise.all([fetchCustomers(), fetchSales()])
+      .then(([c, s]) => {
         setCustomers(c)
         setSales(s)
       })

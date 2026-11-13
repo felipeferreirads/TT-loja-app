@@ -1,15 +1,10 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider } from '@tanstack/react-query'
 import { App } from './App'
 import { registerAppServiceWorker } from './pwa/register'
+import { queryClient } from './lib/queryClient'
 import './index.css'
-
-// Catálogos de referência (minerais, subdivisões) e geocode são dados
-// compartilhados e praticamente imutáveis dentro de uma sessão — cache longo.
-const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 5 * 60_000, refetchOnWindowFocus: false } },
-})
 
 registerAppServiceWorker()
 

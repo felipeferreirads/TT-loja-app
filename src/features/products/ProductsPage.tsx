@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ITEM_KIND_LABELS, type StoreItemKind, type StoreProduct } from '../../types/db'
-import { fetchProducts, deleteProduct, deleteProducts, restoreProducts, updateProducts, fetchCoverUrls } from './api'
+import { deleteProduct, deleteProducts, restoreProducts, updateProducts } from './api'
+import { useCoverUrls, useProducts } from './queries'
 import { ProductCard } from './ProductCard'
 import { formatMoney, stripAccents } from '../../lib/format'
 import { useConfirm } from '../../components/DialogProvider'
@@ -71,11 +72,18 @@ const PRODUCT_SORT_OPTIONS: { value: ProductSortField; label: string }[] = [
   { value: 'created_at', label: 'Data de criação' },
 ]
 
+// Referências estáveis enquanto o cache carrega — evitam recalcular os `useMemo` a cada render.
+const EMPTY_PRODUCTS: StoreProduct[] = []
+const EMPTY_COVERS: Record<string, string> = {}
+
 export function ProductsPage() {
-  const [products, setProducts] = useState<StoreProduct[]>([])
-  const [coverUrls, setCoverUrls] = useState<Record<string, string>>({})
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  // Cache compartilhado (products/queries.ts): voltar a esta tela não relê a
+  // lista nem reassina as capas; gravações invalidam o cache na camada de dados.
+  const productsQuery = useProducts()
+  const products = productsQuery.data ?? EMPTY_PRODUCTS
+  const coverUrls = useCoverUrls().data ?? EMPTY_COVERS
+  const loading = productsQuery.isPending
+  const error = productsQuery.error ? (productsQuery.error instanceof Error ? productsQuery.error.message : String(productsQuery.error)) : null
   const [view, setView] = useState<ViewMode>(loadView)
   const [importing, setImporting] = useState(false)
   const [pricing, setPricing] = useState(false)
@@ -105,17 +113,6 @@ export function ProductsPage() {
   const confirm = useConfirm()
   const toast = useToast()
   const navigate = useNavigate()
-
-  const load = () => {
-    setLoading(true)
-    fetchProducts()
-      .then(setProducts)
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setLoading(false))
-    fetchCoverUrls().then(setCoverUrls).catch(() => {})
-  }
-
-  useEffect(load, [])
 
   const setParam = (key: string, value: string | null) => {
     const next = new URLSearchParams(params)
@@ -152,7 +149,6 @@ export function ProductsPage() {
     if (!(await confirm(`Mover "${product.name}" para a lixeira? Pode ser restaurado por 15 dias.`))) return
     await deleteProduct(product.id)
     toast.success(`"${product.name}" movido para a lixeira.`)
-    load()
   }
 
   // Item filtrado/apagado some da lista -> sai da seleção (contagem honesta).
@@ -177,7 +173,6 @@ export function ProductsPage() {
             try {
               await restoreProducts(ids)
               toast.success(`${n} ${n === 1 ? 'produto restaurado' : 'produtos restaurados'}.`)
-              load()
             } catch (err) {
               toast.error(err instanceof Error ? err.message : 'Falha ao reverter.')
             }
@@ -185,7 +180,6 @@ export function ProductsPage() {
         },
       })
       sel.cancel()
-      load()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Falha ao apagar.')
     }
@@ -196,7 +190,6 @@ export function ProductsPage() {
     try {
       await updateProducts(selectedProducts.map((p) => p.id), { ecommerce_published: publish })
       toast.success(publish ? 'Publicado na loja online.' : 'Removido da loja online.')
-      load()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Falha ao atualizar.')
     }
@@ -477,7 +470,6 @@ export function ProductsPage() {
             setPricing(false)
             toast.success('Preços atualizados.')
             sel.cancel()
-            load()
           }}
         />
       )}
@@ -485,10 +477,7 @@ export function ProductsPage() {
       {importing && (
         <ImportFromCollectionDialog
           onCancel={() => setImporting(false)}
-          onDone={() => {
-            setImporting(false)
-            load()
-          }}
+          onDone={() => setImporting(false)}
         />
       )}
     </div>

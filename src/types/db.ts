@@ -9,6 +9,8 @@ export type StoreCashEntryKind = 'in' | 'out'
 // 0018_gem_as_mineral_property.sql).
 /** Classe de tamanho (0031), da menor para a maior. */
 export type SizeClass = 'micromount' | 'thumbnail' | 'miniature' | 'cabinet' | 'large_cabinet' | 'museum' | 'large'
+/** Tipo fiscal do produto (0035): produção própria ou revenda. */
+export type StoreFiscalType = 'own_production' | 'resale'
 export type StoreItemKind = 'mineral' | 'fossil' | 'meteorite' | 'jewelry' | 'other'
 export type StoreCustomerDocType = 'cpf' | 'cnpj'
 export type StoreMediaKind = 'image' | 'video'
@@ -165,6 +167,15 @@ export interface StoreProduct {
   ecommerce_package_length_cm: number | null
   ecommerce_free_shipping: boolean
   ecommerce_published: boolean
+
+  // Dados fiscais (0035) — espelham a seção "Nota fiscal" da Nuvemshop.
+  /** Origem da mercadoria, 0 a 8 (tabela A do ICMS). */
+  tax_origin: number | null
+  fiscal_type: StoreFiscalType | null
+  /** 8 dígitos, sem máscara. */
+  ncm: string | null
+  /** 7 dígitos, sem máscara. */
+  cest: string | null
 
   created_at: string
   updated_at: string
@@ -420,7 +431,8 @@ export interface StoreSupplier {
   id: string
   owner_id: string
   name: string
-  kind: 'person' | 'company'
+  /** Vazio (null) = pessoa física/jurídica não informada (0197 do catálogo). */
+  kind: 'person' | 'company' | null
   legal_name: string | null
   tax_id: string | null
   tax_id_type: 'cnpj' | 'cpf' | 'foreign' | null

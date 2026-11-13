@@ -2,39 +2,44 @@ import type { StoreProduct } from '../../../types/db'
 import { buildRow, toCsv } from './csv'
 import { slugify, csvNumber } from './shared'
 
-// Colunas da planilha de carga em massa da Nuvemshop, na ordem exigida —
-// ver docs em atendimento.nuvemshop.com.br (link no pedido original).
+// Colunas da planilha de carga em massa da Nuvemshop, na ordem e com os
+// nomes EXATOS do modelo atual exportado pela própria loja (conferido em
+// 13/11/2026 contra um `produtos.csv` baixado da Nuvemshop): separador `;`,
+// nomes com unidade ("Peso (kg)", "Altura (cm)") e a coluna final
+// "Visibilidade". O modelo NÃO tem colunas fiscais (NCM, origem, tipo,
+// CEST) — esses dados vivem só no app e são preenchidos na loja à mão.
 const HEADERS = [
   'Identificador URL',
   'Nome',
   'Categorias',
-  'Nome da Variação 1',
-  'Valor da Variação 1',
-  'Nome da Variação 2',
-  'Valor da Variação 2',
-  'Nome da Variação 3',
-  'Valor da Variação 3',
+  'Nome da variação 1',
+  'Valor da variação 1',
+  'Nome da variação 2',
+  'Valor da variação 2',
+  'Nome da variação 3',
+  'Valor da variação 3',
   'Preço',
-  'Preço Promocional',
-  'Peso',
-  'Altura',
-  'Largura',
-  'Comprimento',
+  'Preço promocional',
+  'Peso (kg)',
+  'Altura (cm)',
+  'Largura (cm)',
+  'Comprimento (cm)',
   'Estoque',
   'SKU',
-  'Código de Barras',
-  'Exibir na Loja',
-  'Frete Grátis',
+  'Código de barras',
+  'Exibir na loja',
+  'Frete gratis',
   'Descrição',
   'Tags',
   'Título para SEO',
   'Descrição para SEO',
   'Marca',
   'Produto Físico',
-  'MPN',
+  'MPN (Cód. Exclusivo Modelo Fabricante)',
   'Sexo',
-  'Faixa Etária',
+  'Faixa etária',
   'Custo',
+  'Visibilidade',
 ]
 
 /**
@@ -50,14 +55,14 @@ export function buildNuvemshopCsv(products: StoreProduct[], brand: string): stri
       Nome: p.name,
       Categorias: p.ecommerce_category_path ?? '',
       Preço: csvNumber(p.sale_price),
-      Peso: p.weight_g != null ? (p.weight_g / 1000).toFixed(3) : '',
-      Altura: csvNumber(p.ecommerce_package_height_cm, 1),
-      Largura: csvNumber(p.ecommerce_package_width_cm, 1),
-      Comprimento: csvNumber(p.ecommerce_package_length_cm, 1),
+      'Peso (kg)': p.weight_g != null ? (p.weight_g / 1000).toFixed(3) : '',
+      'Altura (cm)': csvNumber(p.ecommerce_package_height_cm, 1),
+      'Largura (cm)': csvNumber(p.ecommerce_package_width_cm, 1),
+      'Comprimento (cm)': csvNumber(p.ecommerce_package_length_cm, 1),
       Estoque: String(p.stock_quantity),
       SKU: p.sku ?? '',
-      'Exibir na Loja': p.ecommerce_published ? 'SIM' : 'NÃO',
-      'Frete Grátis': p.ecommerce_free_shipping ? 'SIM' : 'NÃO',
+      'Exibir na loja': p.ecommerce_published ? 'SIM' : 'NÃO',
+      'Frete gratis': p.ecommerce_free_shipping ? 'SIM' : 'NÃO',
       Descrição: p.ecommerce_description ?? '',
       Tags: p.ecommerce_tags ?? '',
       'Título para SEO': p.ecommerce_seo_title ?? '',
@@ -65,7 +70,8 @@ export function buildNuvemshopCsv(products: StoreProduct[], brand: string): stri
       Marca: brand,
       'Produto Físico': 'SIM',
       Custo: csvNumber(p.cost_price),
+      Visibilidade: p.ecommerce_published ? 'Visível' : 'Oculto',
     }),
   )
-  return toCsv(HEADERS, rows)
+  return toCsv(HEADERS, rows, ';')
 }

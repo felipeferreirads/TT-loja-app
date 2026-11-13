@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { useConfirm } from '../../../components/DialogProvider'
 import { CloseIcon, LinkIcon, QrCodeIcon, TrashIcon } from '../../../components/icons'
 import type { StoreProduct } from '../../../types/db'
-import { deleteQrAlias, fetchProducts, linkQrAlias, repointQrAlias } from '../api'
+import { deleteQrAlias, linkQrAlias, repointQrAlias } from '../api'
+import { useProducts } from '../queries'
 import { isUuidLike, normalizeScannedValue, resolveScannedValue } from '../qr'
 import { barcodeDetectorCtor, openCameraStream, SCAN_INTERVAL_MS, setPreferredCameraId } from '../../../lib/qrCamera'
 import { Section } from './Field'
@@ -23,7 +23,7 @@ type Feedback = { kind: 'info' | 'success' | 'error'; text: string }
 
 export function QrLinkSection({ product, onChanged }: { product: StoreProduct; onChanged: () => void }) {
   const confirm = useConfirm()
-  const { data: allProducts } = useQuery({ queryKey: ['products'], queryFn: fetchProducts })
+  const { data: allProducts } = useProducts()
   const [scanning, setScanning] = useState(false)
   const [busy, setBusy] = useState(false)
   const [feedback, setFeedback] = useState<Feedback | null>(null)

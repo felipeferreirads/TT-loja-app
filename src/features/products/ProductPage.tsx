@@ -34,6 +34,8 @@ import { RocksInSampleSection } from './form/RocksInSampleSection'
 import { isBlankRockRow, rockRowToDraft, rockRowToInput, rocksSectionApplies, type RockRowDraft } from './form/rockFields'
 import { FossilTaxonomySection, fossilSpeciesToDraft, fossilSpeciesToInput, type FossilSpeciesDraft } from './form/FossilTaxonomySection'
 import { EcommerceSection } from './form/EcommerceSection'
+import { FiscalSection } from './form/FiscalSection'
+import { validateFiscalDraft } from './fiscal'
 import { PendingMedia } from './form/PendingMedia'
 import { LinkedDocuments } from './form/LinkedDocuments'
 import { CertificatesSection } from './form/CertificatesSection'
@@ -241,6 +243,8 @@ export function ProductPage() {
     setBusy(true)
     setError(null)
     try {
+      const fiscalError = validateFiscalDraft(draft)
+      if (fiscalError) throw new Error(fiscalError)
       const input = toInput(draft)
       if (isNew) {
         // Id gerado no cliente para que fotos/vídeos escolhidos antes de
@@ -355,6 +359,8 @@ export function ProductPage() {
           {!isNew && id && <LinkedDocuments productId={id} />}
 
           <EcommerceSection draft={draft} set={set} />
+
+          <FiscalSection draft={draft} set={set} />
 
           <Section title="Notas" icon={<NotesIcon />}>
             <textarea

@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import type { StoreProduct } from '../../types/db'
-import { fetchProductChildren, fetchProducts, updateProduct } from './api'
+import { fetchProductChildren, updateProduct } from './api'
+import { getProducts, useProducts } from './queries'
+
+const EMPTY_PRODUCTS: StoreProduct[] = []
 import { formatMoney } from '../../lib/format'
 import { sortLotItems, summarizeLot } from './lots'
 import { useConfirm } from '../../components/DialogProvider'
@@ -39,7 +42,7 @@ export function LotItemsSection({ lot }: { lot: StoreProduct }) {
     // Só produtos que ainda não pertencem a NENHUM lote podem ser vinculados
     // — mover uma peça de um lote pra outro é decisão que merece abrir a
     // ficha dela, não um clique aqui.
-    const all = await fetchProducts().catch(() => [])
+    const all = await getProducts().catch(() => [])
     setExcludeIds([lot.id, ...all.filter((p) => p.parent_id).map((p) => p.id)])
     setDialog('link')
   }
@@ -148,7 +151,8 @@ type CameraState = 'idle' | 'starting' | 'running' | 'denied' | 'unsupported' | 
  */
 function ReservedLabelDialog({ lot, onClose }: { lot: StoreProduct; onClose: () => void }) {
   const navigate = useNavigate()
-  const [allProducts, setAllProducts] = useState<StoreProduct[]>([])
+  // Cache compartilhado (products/queries.ts): resolver a etiqueta lida é local.
+  const allProducts = useProducts().data ?? EMPTY_PRODUCTS
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const [camera, setCamera] = useState<CameraState>('idle')
@@ -160,12 +164,6 @@ function ReservedLabelDialog({ lot, onClose }: { lot: StoreProduct; onClose: () 
 
   const productsRef = useRef<StoreProduct[]>([])
   productsRef.current = allProducts
-
-  useEffect(() => {
-    fetchProducts()
-      .then(setAllProducts)
-      .catch(() => setAllProducts([]))
-  }, [])
 
   const stopCamera = () => {
     streamRef.current?.getTracks().forEach((track) => track.stop())

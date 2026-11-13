@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { StoreProduct, StoreRecurringExpense } from '../../types/db'
-import { fetchProducts } from '../products/api'
+import { useProducts } from '../products/queries'
 import { fetchSales, type SaleWithCustomer } from '../sales/api'
 import { fetchLaunchedRecurringIdsThisMonth, fetchRecurringExpenses, launchRecurringExpense } from '../cash/api'
 import { PAYMENT_LABELS } from '../sales/SalesPage'
@@ -16,9 +16,13 @@ import { CashIcon, ChartIcon, ClockIcon, PackageIcon, WarningIcon } from '../../
  *  já existentes (`fetchSales`/`fetchProducts`/`fetchRecurringExpenses`) —
  *  mesmo padrão "carrega tudo e agrega em memória" do `StatsPage.tsx`, sem
  *  nenhuma query nova. */
+/** Referência estável enquanto o cache carrega (dependência de `useMemo`). */
+const EMPTY_PRODUCTS: StoreProduct[] = []
+
 export function DashboardPage() {
   const [sales, setSales] = useState<SaleWithCustomer[]>([])
-  const [products, setProducts] = useState<StoreProduct[]>([])
+  // Lista de produtos pelo cache compartilhado (products/queries.ts).
+  const products = useProducts().data ?? EMPTY_PRODUCTS
   const [recurring, setRecurring] = useState<StoreRecurringExpense[]>([])
   const [launchedIds, setLaunchedIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
@@ -27,10 +31,9 @@ export function DashboardPage() {
 
   const load = () => {
     setLoading(true)
-    Promise.all([fetchSales(), fetchProducts(), fetchRecurringExpenses(), fetchLaunchedRecurringIdsThisMonth()])
-      .then(([s, p, r, launched]) => {
+    Promise.all([fetchSales(), fetchRecurringExpenses(), fetchLaunchedRecurringIdsThisMonth()])
+      .then(([s, r, launched]) => {
         setSales(s)
-        setProducts(p)
         setRecurring(r)
         setLaunchedIds(launched)
       })

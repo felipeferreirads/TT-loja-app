@@ -1,7 +1,7 @@
 const BOM = '﻿'
 
-function escapeCsvField(value: string): string {
-  if (/[",\n\r]/.test(value)) return `"${value.replace(/"/g, '""')}"`
+function escapeCsvField(value: string, delimiter: string): string {
+  if (value.includes(delimiter) || /["\n\r]/.test(value)) return `"${value.replace(/"/g, '""')}"`
   return value
 }
 
@@ -11,8 +11,9 @@ export function buildRow(headers: string[], values: Record<string, string>): str
   return headers.map((h) => values[h] ?? '')
 }
 
-export function toCsv(headers: string[], rows: string[][]): string {
-  return [headers, ...rows].map((row) => row.map(escapeCsvField).join(',')).join('\r\n')
+/** `delimiter` padrão é vírgula (Shopify); a planilha da Nuvemshop usa ponto e vírgula. */
+export function toCsv(headers: string[], rows: string[][], delimiter = ','): string {
+  return [headers, ...rows].map((row) => row.map((v) => escapeCsvField(v, delimiter)).join(delimiter)).join('\r\n')
 }
 
 /** BOM UTF-8 na frente do conteúdo — evita acentuação quebrada ao abrir a planilha no Excel. */

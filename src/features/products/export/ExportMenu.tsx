@@ -5,28 +5,34 @@ import { fetchMediaForExport } from '../api'
 import { buildNuvemshopCsv } from './nuvemshop'
 import { buildShopifyCsv } from './shopify'
 import { downloadCsv } from './csv'
-import { ExportIcon, ChevronDownIcon } from '../../../components/icons'
+import { ExportIcon } from '../../../components/icons'
+import { ActionMenu, type ActionMenuItem } from '../../../components/ActionMenu'
+import { useToast } from '../../../components/ToastProvider'
 
 /**
- * Botão de exportar CSV pra Nuvemshop/Shopify — reaproveitado na lista de
- * Produtos (lote, respeitando o filtro atual da tela) e na ficha de um
- * produto (`products` com um item só). Marca é buscada de `store_company`
- * na hora do clique, não fica em cache — evita ficar velha se o dono mudar
- * o nome da empresa entre uma exportação e outra.
+ * Menu "Exportar" (CSV Nuvemshop/Shopify) — reaproveitado na lista de
+ * Produtos (respeita o filtro atual da tela) e na ficha de um produto. Botão
+ * quadrado só com ícone (h-9), mesmo padrão dos botões de ação do catálogo
+ * pessoal. Marca é buscada de `store_company` na hora do clique.
  */
-export function ExportMenu({ products, filename }: { products: StoreProduct[]; filename: string }) {
-  const [open, setOpen] = useState(false)
+export function ExportMenu({
+  products,
+  filename,
+  extraItems = [],
+}: {
+  products: StoreProduct[]
+  filename: string
+  /** Itens extras no topo do menu (ex.: planilha das colunas visíveis). */
+  extraItems?: ActionMenuItem[]
+}) {
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const toast = useToast()
 
   const handleExport = async (platform: 'nuvemshop' | 'shopify') => {
-    setOpen(false)
     setBusy(true)
-    setError(null)
     try {
       const company = await fetchCompany().catch(() => null)
       const brand = company?.trade_name || company?.legal_name || ''
-
       if (platform === 'nuvemshop') {
         downloadCsv(`${filename}-nuvemshop.csv`, buildNuvemshopCsv(products, brand))
       } else {
@@ -34,7 +40,7 @@ export function ExportMenu({ products, filename }: { products: StoreProduct[]; f
         downloadCsv(`${filename}-shopify.csv`, buildShopifyCsv(products, brand, mediaByProduct))
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      toast.error(err instanceof Error ? err.message : String(err))
     } finally {
       setBusy(false)
     }
@@ -43,41 +49,16 @@ export function ExportMenu({ products, filename }: { products: StoreProduct[]; f
   if (products.length === 0) return null
 
   return (
-    <div className="relative inline-block">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        disabled={busy}
-        className="btn-secondary"
-      >
-        <ExportIcon className="mr-1" />
-        {busy ? 'Exportando…' : 'Exportar'}
-        <ChevronDownIcon className="ml-1 h-4 w-4" />
-      </button>
-
-      {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 z-20 mt-1 w-56 overflow-hidden rounded-lg border border-stone-800 bg-stone-900 shadow-lg">
-            <button
-              type="button"
-              onClick={() => void handleExport('nuvemshop')}
-              className="block w-full px-4 py-3 text-left text-sm text-stone-200 hover:bg-stone-800"
-            >
-              CSV Nuvemshop
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleExport('shopify')}
-              className="block w-full px-4 py-3 text-left text-sm text-stone-200 hover:bg-stone-800"
-            >
-              CSV Shopify
-            </button>
-          </div>
-        </>
-      )}
-
-      {error && <p className="absolute right-0 z-20 mt-1 w-64 text-xs text-red-400">{error}</p>}
-    </div>
+    <ActionMenu
+      label={busy ? 'Exportando' : 'Exportar'}
+      buttonClassName="btn-secondary inline-flex h-9 min-h-9 w-9 items-center justify-center px-0 py-0"
+      items={[
+        ...extraItems,
+        { label: 'CSV para Nuvemshop', icon: <ExportIcon />, onClick: () => void handleExport('nuvemshop'), disabled: busy },
+        { label: 'CSV para Shopify', icon: <ExportIcon />, onClick: () => void handleExport('shopify'), disabled: busy },
+      ]}
+    >
+      <ExportIcon />
+    </ActionMenu>
   )
 }

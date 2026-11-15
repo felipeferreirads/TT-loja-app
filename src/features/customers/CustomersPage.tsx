@@ -78,9 +78,8 @@ export function CustomersPage() {
         <div>
           <h1 className="text-xl font-bold text-stone-100">Clientes</h1>
         </div>
-        <button type="button" onClick={() => setEditing('new')} className="btn-primary inline-flex items-center gap-1.5">
-          <PlusIcon className="h-4 w-4" />
-          Novo cliente
+        <button type="button" onClick={() => setEditing('new')} className="btn-primary h-9 min-h-9 w-9 shrink-0 px-0 py-0" title="Novo cliente" aria-label="Novo cliente">
+          <PlusIcon />
         </button>
       </header>
 

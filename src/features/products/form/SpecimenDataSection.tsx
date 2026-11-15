@@ -25,6 +25,8 @@ import { ToggleSwitch } from '../../../components/ToggleSwitch'
 import { InfoTooltip } from '../../../components/InfoTooltip'
 import { IMPACTITE_HIDDEN_DRAFT_FIELDS, META_PARENT_BODY_HINT, MET_PARENT_BODIES, isImpactite } from './rockFields'
 import { Field, Labeled, Section } from './Field'
+import { CrystalFeaturesInput } from './CrystalFeaturesInput'
+import { summarizeLocality } from '../../../lib/format'
 import type { Draft } from './draft'
 
 /** Toggles Sim/vazio do bloco "Espécime" de meteorito (mesma ordem do catálogo pessoal). */
@@ -73,6 +75,9 @@ export function SpecimenDataSection({
 
   const uvColors = splitProps(draft.uv_color)
   const setUvColors = (next: string[]) => set('uv_color')(next.join(', '))
+
+  const phosphorescenceColors = splitProps(draft.phosphorescence_color)
+  const setPhosphorescenceColors = (next: string[]) => set('phosphorescence_color')(next.join(', '))
 
   const iridescenceColors = splitProps(draft.iridescence_color)
   const setIridescenceColors = (next: string[]) => set('iridescence_color')(next.join(', '))
@@ -128,6 +133,20 @@ export function SpecimenDataSection({
             </Labeled>
           )}
 
+          {/* Mesmo padrão, condicional a "Fosforescência" (0036). */}
+          {specialProps.includes('Fosforescência') && (
+            <Labeled label="Cor da fosforescência">
+              <div className="mt-1">
+                <ColorSwatchMultiSelect
+                  values={phosphorescenceColors}
+                  onChange={setPhosphorescenceColors}
+                  options={FLUORESCENCE_COLOR_OPTIONS}
+                  swatches={COLOR_SWATCH}
+                />
+              </div>
+            </Labeled>
+          )}
+
           {/* Mesmo padrão, condicional a "Iridescência". */}
           {specialProps.includes('Iridescência') && (
             <Labeled label="Cor da iridescência">
@@ -155,7 +174,20 @@ export function SpecimenDataSection({
               </div>
             </Labeled>
           )}
+
+          <Labeled label="Características cristalográficas">
+            <div className="mt-1">
+              <CrystalFeaturesInput value={draft.crystal_features} onChange={set('crystal_features')} />
+            </div>
+          </Labeled>
         </>
+      )}
+
+      {kind === 'fossil' && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="Restauração" value={draft.fossil_restoration} onChange={set('fossil_restoration')} placeholder="Ex.: sem restauração, 10% restaurado" />
+          <Field label="Rocha hospedeira / Matriz" value={draft.fossil_host_rock} onChange={set('fossil_host_rock')} />
+        </div>
       )}
 
       {kind === 'meteorite' && (
@@ -367,6 +399,12 @@ export function SpecimenDataSection({
       </Labeled>
 
       <Field label="Localidade" value={draft.origin} onChange={set('origin')} />
+      <Field
+        label="Localidade resumida"
+        value={draft.origin_short}
+        onChange={set('origin_short')}
+        placeholder={summarizeLocality(draft.origin) || 'Gerada a partir da localidade'}
+      />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Labeled label="País de origem">
@@ -469,15 +507,20 @@ export function SpecimenDataSection({
               <Field label="Nome do corte" value={draft.cut_name} onChange={set('cut_name')} />
             </>
           )}
-          {/* Tratamento vale pra qualquer mineral, não só lapidado (ex.: opala bruta já tratada com fumaça/irradiação). */}
-          <Labeled label="Tratamento">
-            <textarea
-              value={draft.gem_treatment}
-              onChange={(e) => set('gem_treatment')(e.target.value)}
-              className="input mt-1 min-h-16"
-            />
-          </Labeled>
         </div>
+      )}
+
+      {/* Tratamento do exemplar (0036) — vale para todos os tipos, como no catálogo
+          pessoal (ex.: opala tratada com fumaça, fóssil com consolidante). */}
+      {kind !== 'jewelry' && (
+        <Labeled label="Tratamento">
+          <textarea
+            value={draft.treatment}
+            onChange={(e) => set('treatment')(e.target.value)}
+            placeholder="Ex.: sem tratamento, resina, aquecimento"
+            className="input mt-1 min-h-16"
+          />
+        </Labeled>
       )}
 
       <Labeled label="Cor">

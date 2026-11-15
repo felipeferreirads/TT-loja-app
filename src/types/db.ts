@@ -177,6 +177,23 @@ export interface StoreProduct {
   /** 7 dígitos, sem máscara. */
   cest: string | null
 
+  // Paridade com o item da coleção (0036) — mesmos nomes/semântica do catálogo pessoal.
+  /** Localidade resumida (override manual de `origin`, como `specimens.origin_short`). */
+  origin_short: string | null
+  /** Características cristalográficas — multi-valor separado por vírgula (vocabulário em `form/crystalFeatures.ts`). */
+  crystal_features: string | null
+  /** Tratamento do exemplar, para todos os tipos (substitui `gem_treatment` na UI). */
+  treatment: string | null
+  /** Cor da fosforescência — condicional a "Fosforescência" em Propriedades especiais. */
+  phosphorescence_color: string | null
+  fossil_restoration: string | null
+  /** Rocha hospedeira / matriz do fóssil. */
+  fossil_host_rock: string | null
+  /** Fornecedor cadastrado (`suppliers`), código dele e data de aquisição — direto no produto. */
+  supplier_id: string | null
+  supplier_code: string | null
+  acquisition_date: string | null
+
   created_at: string
   updated_at: string
   /** Lixeira (0027) — soft delete, 15 dias de retenção. Ver `features/trash/`. */
@@ -185,6 +202,26 @@ export interface StoreProduct {
 
 export type StoreProductInput = Partial<Omit<StoreProduct, 'id' | 'owner_id' | 'created_at' | 'updated_at'>> &
   Pick<StoreProduct, 'name'>
+
+/** Ex-dono do produto (0036) — espelho de `specimen_provenance` do catálogo pessoal (só o lado "antes do dono"). */
+export interface StoreProductProvenance {
+  id: string
+  owner_id: string
+  product_id: string
+  name: string
+  /** Cadastro vinculado em `suppliers` (opcional). */
+  party_id: string | null
+  /** Data em que este dono adquiriu a peça; com precisão `year`, só o ano vale. */
+  acquired_on: string | null
+  acquired_precision: 'year' | 'month' | 'day' | null
+  notes: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export type StoreProductProvenanceInput = Pick<StoreProductProvenance, 'name'> &
+  Partial<Pick<StoreProductProvenance, 'party_id' | 'acquired_on' | 'acquired_precision' | 'notes' | 'sort_order'>>
 
 /** Bucket físico do R2 onde o arquivo desta linha vive — ver migration 0017.
  *  'store' = bucket próprio da loja (upload feito aqui). 'media' = bucket do

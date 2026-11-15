@@ -37,9 +37,8 @@ export function DocumentsPage() {
     <div>
       <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold text-stone-100">Documentos</h1>
-        <Link to="/documentos/novo" className="btn-primary inline-flex items-center gap-1.5">
-          <PlusIcon className="h-4 w-4" />
-          Novo documento
+        <Link to="/documentos/novo" className="btn-primary h-9 min-h-9 w-9 shrink-0 px-0 py-0" title="Novo documento" aria-label="Novo documento">
+          <PlusIcon />
         </Link>
       </header>
 

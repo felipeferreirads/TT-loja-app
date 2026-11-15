@@ -80,6 +80,11 @@ comentário no topo do arquivo diz isso** ("Copiado do catálogo pessoal",
 | `src/features/products/sizeClass.ts` | `src/features/specimens/sizeClass.ts` | Copiado 09/11/2026 (migration `0031_size_class.sql`, aplicada em 09/11/2026). Só PT, sem camada de unidades (mm/cm). Classe manual (`size_class`) prevalece sobre a calculada de `dimensions`; Micromount só manual. Campo no formulário (`SpecimenDataSection.tsx`) e trazido por `importFromCollection.ts` |
 | `src/features/products/form/rockFields.ts` + `RocksInSampleSection.tsx` | `src/features/specimens/rockFields.ts` + `RockListInput.tsx` | Copiado 09/11/2026 (migration `0032_rocks_and_parent_body.sql`: `store_product_rocks` + `store_products.met_parent_body`). Só PT; vocabulário e chaves em inglês IDÊNTICOS ao catálogo (a importação copia sem conversão); cada opção tem ⓘ (`components/HintSelect.tsx`, `InfoTooltip.tsx`, `usePortalDropdown.ts`, copiados). Sem copiar-de-outra-rocha, sem sugestões da coleção (só nomes comuns). Impactito = categoria `'Impactito'` em `met_category` (esconde grupo/tipo/choque/crosta/côndrulos/matriz/olivina/ataque ácido, `IMPACTITE_HIDDEN_DRAFT_FIELDS`, nulos no `toInput`); seção de rochas só aparece em mineral/fóssil/outro e meteorito Impactito. Importar da Coleção traz rochas e corpo de origem |
 | `src/components/ColorSwatchSelect.tsx` + `features/products/colorOptions.ts` | `src/components/ColorSwatchSelect.tsx` + `COLOR_OPTIONS`/`COLOR_SWATCH` (`formFields.ts`) | Sem `COLOR_LABEL_KEYS`/tradução — usa direto o texto em PT como valor e como rótulo |
+| `src/components/ListToolbar.tsx`, `SortPill.tsx`, `FilterChip.tsx`, `ActionMenu.tsx`, `ExpandablePillSelect.tsx`, `ErrorBoundary.tsx` + `lib/useLocalToggle.ts`/`useLocalNumber.ts`/`usePersistedSort.ts` | Homônimos do catálogo | Copiados 13/11/2026 no alinhamento visual com o app principal (barra de lista com painel de Filtros, botões de ação quadrados `h-9 w-9`, sidebar redimensionável). `ListToolbar` ganhou a prop `trailing` (controles extras à direita); textos fixos em PT |
+| `src/features/products/crystalFeatures.ts` + `form/CrystalFeaturesInput.tsx` | `src/features/specimens/crystalFeatures.ts` | Copiado 13/11/2026 (0036). Mesmos valores gravados (PT) — a importação da coleção copia sem conversão. Títulos de grupo e dicas viraram `CRYSTAL_GROUP_LABELS`/`CRYSTAL_FEATURE_HINTS` (sem i18n) |
+| `src/features/products/list/*` (modo lista/planilha) | `SpecimenBrowseView.tsx` + `SpecimenRow.tsx` + `gridFill.ts` + `FindReplaceDialog.tsx` | Reescrito para `store_products` (13/11/2026): `columns.ts` = catálogo de colunas (grupo, largura, texto, valor cru, edição); `ProductSheet.tsx` = tabela com colunas reordenáveis/redimensionáveis/congeláveis, ordenação por coluna e modo planilha (seleção, edição na célula, Ctrl+C/V/D/R/Z/Y, alça de preenchimento, Localizar e substituir). `fill.ts` é cópia literal de `gridFill.ts`. Sem virtualização (a loja tem centenas de itens, não milhares) |
+| `src/features/products/social/SocialCardDialog.tsx` | `src/features/specimens/social/*` | Desenhado direto em canvas (sem react-pdf/pdfjs) e com o PREÇO no rodapé. Foto via `fetch` → `createImageBitmap`; sem CORS no armazenamento, sai sem foto (aviso) |
+| `src/lib/qrSvg.ts` + `features/products/labels/LabelsDialog.tsx` | `datasheet/qr.ts` (mesma lib `qrcode-generator`) | Etiquetas de preço com QR (id do produto) em folha A4 impressa pelo navegador (`#labels-print-area` num portal + regra `@media print` em `index.css`). Sem PDF próprio |
 
 **Dependência nova**: `@tanstack/react-query` foi adicionada (o catálogo
 pessoal já usa) — necessária pros hooks de país/subdivisão com cache. Não
@@ -125,6 +130,13 @@ src/
                           certificates.ts + form/CertificatesSection.tsx
                           (certificados de autenticidade, ver §2),
                           export/ (CSV Nuvemshop/Shopify),
+                          list/ (modo lista/planilha: columns.ts, ProductSheet,
+                          ColumnPicker, FindReplaceDialog, productFilters.ts —
+                          filtros na query string), labels/ (etiquetas de preço
+                          com QR), social/ (cartão para redes sociais),
+                          form/AcquisitionSection.tsx (fornecedor, código,
+                          data de aquisição e ex-donos — 0036),
+                          form/CopyFromProductDialog.tsx (copiar de outro produto),
                           importFromCollection.ts (Importar da Coleção, ver
                           §7), skuPrefixes.ts (geração automática de SKU),
                           lots.ts + LotItemsSection.tsx + SplitLotDialog.tsx
@@ -305,6 +317,7 @@ repo pai. Sem deploy, a busca só devolve lista vazia (não quebra a tela).
 | Prefixo/regra nova de geração de SKU | `store_sku_prefixes`, migration + `skuPrefixes.ts` (`resolvePrefix`/`suggestSku`) + `SkuPrefixesSection.tsx` (Empresa) — ver §3 |
 | Campo novo do sistema de lotes (sufixo, herança na divisão) | `lots.ts` (+ `.test.ts`, lógica pura) + `LotItemsSection.tsx`/`SplitLotDialog.tsx` — ver §9 |
 | Gravação nova que muda produto, estoque ou foto | Chamar `markProductsChanged()` (`products/productsCache.ts`) no fim da função de dados — ver §2, "Lista de produtos = cache compartilhado" |
+| Campo novo de produto que deve aparecer no modo lista/planilha | Coluna em `features/products/list/columns.ts` (`LIST_COLUMNS`, com `edit` quando for campo simples editável); filtro novo em `list/productFilters.ts` + seção no `ProductsPage.tsx` |
 | Campo novo de entrada de estoque | `store_stock_entries`, migration + `StoreStockEntry` (`types/db.ts`) + `stockHistory.ts`/`ProductStockHistorySection.tsx` — ver §9 |
 
 ## 7. Importar da Coleção pessoal → Produtos

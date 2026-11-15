@@ -17,7 +17,11 @@ import {
   addProductRock,
   updateProductRock,
   removeProductRock,
+  fetchProvenance,
+  saveProvenance,
 } from './api'
+import { AcquisitionSection, provenanceToDraft, provenanceToInput, type ProvenanceRowDraft } from './form/AcquisitionSection'
+import type { StoreProductProvenance } from '../../types/db'
 import { fetchSkuPrefixes, suggestSku } from './skuPrefixes'
 import { LotItemsSection } from './LotItemsSection'
 import { nextLotSuffix } from './lots'
@@ -42,7 +46,12 @@ import { CertificatesSection } from './form/CertificatesSection'
 import { QrLinkSection } from './form/QrLinkSection'
 import { Section } from './form/Field'
 import { toDraft, toInput, type Draft } from './form/draft'
-import { ArrowLeftIcon, NotesIcon } from '../../components/icons'
+import { ArrowLeftIcon, CardIcon, CopyIcon, LabelIcon, NotesIcon } from '../../components/icons'
+import { ActionMenu } from '../../components/ActionMenu'
+import { CopyFromProductDialog } from './form/CopyFromProductDialog'
+import { LabelsDialog } from './labels/LabelsDialog'
+import { SocialCardDialog } from './social/SocialCardDialog'
+import { useCoverUrls } from './queries'
 import { ExportMenu } from './export/ExportMenu'
 import { addYoutubeVideo } from './youtubeVideos'
 import { isUuidLike } from './qr'
@@ -72,6 +81,12 @@ export function ProductPage() {
   const [originalMinerals, setOriginalMinerals] = useState<StoreProductMineral[]>([])
   const [rocks, setRocks] = useState<RockRowDraft[]>([])
   const [originalRocks, setOriginalRocks] = useState<StoreProductRock[]>([])
+  const [copyOpen, setCopyOpen] = useState(false)
+  const [labelsOpen, setLabelsOpen] = useState(false)
+  const [socialOpen, setSocialOpen] = useState(false)
+  const coverUrls = useCoverUrls().data ?? {}
+  const [provenance, setProvenance] = useState<ProvenanceRowDraft[]>([])
+  const [originalProvenance, setOriginalProvenance] = useState<StoreProductProvenance[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Guardado à parte do draft (que só tem strings) pra alimentar o
@@ -125,7 +140,18 @@ export function ProductPage() {
         setFossilSpecies(rows.map(fossilSpeciesToDraft))
       })
       .catch(() => {})
+    loadProvenance(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isNew])
+
+  function loadProvenance(productId: string) {
+    fetchProvenance(productId)
+      .then((rows) => {
+        setOriginalProvenance(rows)
+        setProvenance(rows.map(provenanceToDraft))
+      })
+      .catch(() => {})
+  }
 
   useEffect(() => {
     fetchSkuPrefixes().then(setSkuPrefixes).catch(() => {})
@@ -239,6 +265,13 @@ export function ProductPage() {
     }
   }
 
+  /** Ex-donos (0036): linhas sem nome são descartadas; a ordem da lista vira `sort_order`. */
+  const saveProvenanceRows = async (productId: string) => {
+    const rows = provenance.map(provenanceToInput).filter((r): r is NonNullable<typeof r> => r !== null)
+    if (rows.length === 0 && originalProvenance.length === 0) return
+    await saveProvenance(productId, rows, originalProvenance)
+  }
+
   const handleSave = async () => {
     setBusy(true)
     setError(null)
@@ -259,6 +292,7 @@ export function ProductPage() {
         await saveFossilSpecies(newId)
         await saveMinerals(newId)
         await saveRocks(newId)
+        await saveProvenanceRows(newId)
         setSavedProduct(created)
         navigate(`/produtos/${newId}`, { replace: true })
       } else if (id) {
@@ -266,6 +300,8 @@ export function ProductPage() {
         await saveFossilSpecies(id)
         await saveMinerals(id)
         await saveRocks(id)
+        await saveProvenanceRows(id)
+        loadProvenance(id)
         // Recarrega as rochas salvas: linhas novas ganham id e não podem ser reinseridas no próximo salvar.
         fetchProduct(id)
           .then((p) => {
@@ -293,10 +329,31 @@ export function ProductPage() {
           <h1 className="text-xl font-bold break-words text-stone-100">{isNew ? 'Novo produto' : draft.name || 'Produto'}</h1>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setCopyOpen(true)}
+            className="btn-secondary h-9 min-h-9 w-9 px-0 py-0"
+            title="Copiar de outro produto"
+            aria-label="Copiar de outro produto"
+          >
+            <CopyIcon />
+          </button>
+          {savedProduct && (
+            <ActionMenu
+              label="Etiqueta e cartão"
+              buttonClassName="btn-secondary inline-flex h-9 min-h-9 w-9 items-center justify-center px-0 py-0"
+              items={[
+                { label: 'Etiqueta de preço', icon: <LabelIcon />, onClick: () => setLabelsOpen(true) },
+                { label: 'Cartão para redes sociais', icon: <CardIcon />, onClick: () => setSocialOpen(true) },
+              ]}
+            >
+              <LabelIcon />
+            </ActionMenu>
+          )}
           {savedProduct && (
             <ExportMenu products={[savedProduct]} filename={savedProduct.ecommerce_slug || savedProduct.sku || savedProduct.id} />
           )}
-          <button type="button" onClick={() => void handleSave()} disabled={busy} className="btn-primary">
+          <button type="button" onClick={() => void handleSave()} disabled={busy} className="btn-primary h-9 min-h-9 py-0">
             {busy ? 'Salvando…' : 'Salvar'}
           </button>
         </div>
@@ -356,6 +413,8 @@ export function ProductPage() {
         <div className="space-y-4">
           {!isNew && id && <ProductStockHistorySection productId={id} onStockChanged={refreshStock} />}
 
+          <AcquisitionSection draft={draft} set={set} provenance={provenance} onProvenanceChange={setProvenance} />
+
           {!isNew && id && <LinkedDocuments productId={id} />}
 
           <EcommerceSection draft={draft} set={set} />
@@ -378,6 +437,25 @@ export function ProductPage() {
           {rocksSectionApplies(kind, draft.met_category) && <RocksInSampleSection rocks={rocks} onChange={setRocks} />}
         </div>
       </div>
+
+      {copyOpen && (
+        <CopyFromProductDialog
+          currentId={isNew ? null : (id ?? null)}
+          onClose={() => setCopyOpen(false)}
+          onApply={(result) => {
+            setMany(result.values)
+            if (result.minerals) setMinerals(result.minerals)
+            if (result.rocks) setRocks(result.rocks)
+            if (result.fossilSpecies) setFossilSpecies(result.fossilSpecies)
+            setCopyOpen(false)
+            toast.success('Campos copiados. Revise e salve o produto.')
+          }}
+        />
+      )}
+      {labelsOpen && savedProduct && <LabelsDialog products={[savedProduct]} onClose={() => setLabelsOpen(false)} />}
+      {socialOpen && savedProduct && (
+        <SocialCardDialog product={savedProduct} coverUrl={coverUrls[savedProduct.id]} onClose={() => setSocialOpen(false)} />
+      )}
     </div>
   )
 }

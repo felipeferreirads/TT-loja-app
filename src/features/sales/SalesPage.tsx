@@ -213,9 +213,8 @@ export function SalesPage() {
     <div>
       <header className="mb-4 flex flex-wrap items-center justify-between gap-2 sm:mb-6">
         <h1 className="text-xl font-bold text-stone-100">Vendas</h1>
-        <button type="button" onClick={() => setSaleDialogOpen(true)} className="btn-primary inline-flex items-center gap-1.5">
-          <PlusIcon className="h-4 w-4" />
-          Nova venda
+        <button type="button" onClick={() => setSaleDialogOpen(true)} className="btn-primary h-9 min-h-9 w-9 shrink-0 px-0 py-0" title="Nova venda" aria-label="Nova venda">
+          <PlusIcon />
         </button>
       </header>
 

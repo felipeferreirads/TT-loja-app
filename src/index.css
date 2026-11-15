@@ -111,3 +111,15 @@ th:where(.frozen-cell) {
     display: none !important;
   }
 }
+
+/* Etiquetas de preço (LabelsDialog): imprime só a folha, que vive num portal
+   direto no <body>. A regra do recibo acima já esconde o resto do app. */
+@media print {
+  body:has(> #labels-print-area) > *:not(#labels-print-area) {
+    display: none !important;
+  }
+  /* Especificidade maior que a do recibo acima, que esconderia o portal. */
+  body:has(> #labels-print-area) > #labels-print-area {
+    display: flex !important;
+  }
+}

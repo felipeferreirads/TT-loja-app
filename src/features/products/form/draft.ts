@@ -22,6 +22,9 @@ const TEXT_FIELDS = [
   'ecommerce_slug', 'ecommerce_description', 'ecommerce_category_path', 'ecommerce_google_category',
   'ecommerce_tags', 'ecommerce_seo_title', 'ecommerce_seo_description',
   'fiscal_type', 'ncm', 'cest',
+  // 0036 — paridade com o item da coleção.
+  'origin_short', 'crystal_features', 'treatment', 'phosphorescence_color',
+  'fossil_restoration', 'fossil_host_rock', 'supplier_id', 'supplier_code', 'acquisition_date',
 ] as const
 
 export const NUMERIC_FIELDS = new Set([

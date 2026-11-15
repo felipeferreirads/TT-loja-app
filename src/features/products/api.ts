@@ -13,6 +13,8 @@ import type {
   StoreProductMineralInput,
   StoreProductRock,
   StoreProductRockInput,
+  StoreProductProvenance,
+  StoreProductProvenanceInput,
 } from '../../types/db'
 
 // Etiquetas QR "alias" (ver `qr.ts`) e Minerais da amostra (0015) embutidos no
@@ -406,4 +408,37 @@ export async function removeProductRock(id: string): Promise<void> {
   const { error } = await supabase.from('store_product_rocks').delete().eq('id', id)
   if (error) throw new Error(`Falha ao remover rocha: ${error.message}`)
   markProductsChanged()
+}
+
+// ─── Procedência (ex-donos, 0036) ───────────────────────────────────────────
+
+export async function fetchProvenance(productId: string): Promise<StoreProductProvenance[]> {
+  const { data, error } = await supabase
+    .from('store_product_provenance')
+    .select('*')
+    .eq('product_id', productId)
+    .order('sort_order')
+  if (error) throw new Error(`Falha ao carregar a procedência: ${error.message}`)
+  return data
+}
+
+/** Regrava a lista inteira de ex-donos na ordem recebida (diff por id: remove, atualiza e cria). */
+export async function saveProvenance(
+  productId: string,
+  rows: (StoreProductProvenanceInput & { id?: string })[],
+  original: StoreProductProvenance[],
+): Promise<void> {
+  const keep = new Set(rows.filter((r) => r.id).map((r) => r.id))
+  const removed = original.filter((o) => !keep.has(o.id)).map((o) => o.id)
+  if (removed.length > 0) {
+    const { error } = await supabase.from('store_product_provenance').delete().in('id', removed)
+    if (error) throw new Error(`Falha ao remover ex-dono: ${error.message}`)
+  }
+  for (const [i, { id, ...input }] of rows.entries()) {
+    const payload = { ...input, sort_order: i }
+    const { error } = id
+      ? await supabase.from('store_product_provenance').update(payload).eq('id', id)
+      : await supabase.from('store_product_provenance').insert({ ...payload, product_id: productId })
+    if (error) throw new Error(`Falha ao salvar ex-dono: ${error.message}`)
+  }
 }

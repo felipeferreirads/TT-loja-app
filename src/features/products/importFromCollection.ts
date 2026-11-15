@@ -51,6 +51,8 @@ interface CatalogMineralDetails {
   gem_cut_style: string | null
   cut_name: string | null
   gem_treatment: string | null
+  crystal_features?: string | null
+  phosphorescence_color?: string | null
   color: string | null
   color_secondary: string | null
   uv_color: string | null
@@ -61,6 +63,7 @@ interface CatalogMineralDetails {
 interface CatalogFossilDetails {
   display_name: string | null
   restoration: string | null
+  host_rock?: string | null
   period_era: string | null
   age: string | null
 }
@@ -165,6 +168,8 @@ interface CatalogSpecimenFull {
   origin_state: string | null
   origin: string | null
   origin_short: string | null
+  /** Tratamento do exemplar (0194 do catálogo), comum aos três tipos. */
+  treatment?: string | null
   formation: string | null
   weight_g: number | null
   weight_ct: number | null
@@ -185,6 +190,9 @@ interface CatalogSpecimenPrivate {
   price_gross_brl: number | null
   previous_owner: string | null
   purchase_notes: string | null
+  supplier_id?: string | null
+  supplier_code?: string | null
+  acquisition_date?: string | null
 }
 
 export interface ImportableSpecimen {
@@ -320,7 +328,7 @@ function catalogDisplayName(s: {
   return s.meteorite_details?.name || '(sem nome)'
 }
 
-const FULL_SELECT = `id, code_global, parent_id, type, origin_country, origin_state, origin, origin_short,
+const FULL_SELECT = `id, code_global, parent_id, type, origin_country, origin_state, origin, origin_short, treatment,
   formation, weight_g, weight_ct, dimensions, size_class, quantity, notes,
   mineral_details(*),
   fossil_details(*),
@@ -338,7 +346,7 @@ async function fetchCatalogSpecimen(id: string): Promise<CatalogSpecimenFull> {
 async function fetchCatalogPrivate(id: string): Promise<CatalogSpecimenPrivate | null> {
   const { data, error } = await supabase
     .from('specimen_private')
-    .select('price_brl, price_gross_brl, previous_owner, purchase_notes')
+    .select('price_brl, price_gross_brl, previous_owner, purchase_notes, supplier_id, supplier_code, acquisition_date')
     .eq('specimen_id', id)
     .maybeSingle()
   if (error) return null // Dado privado é um extra (custo/procedência) — a importação não pode falhar por causa dele.
@@ -390,7 +398,6 @@ function mapToProductInput(s: CatalogSpecimenFull, priv: CatalogSpecimenPrivate 
   let gemShape: string | null = null
   let gemCutStyle: string | null = null
   let cutName: string | null = null
-  let gemTreatment: string | null = null
   let weightCt: number | null = null
   const extra: [string, string | number | boolean | null | undefined][] = []
 
@@ -451,14 +458,12 @@ function mapToProductInput(s: CatalogSpecimenFull, priv: CatalogSpecimenPrivate 
       gemShape = md.gem_shape || null
       gemCutStyle = md.gem_cut_style || null
       cutName = md.cut_name || null
-      gemTreatment = md.gem_treatment || null
       weightCt = s.weight_ct
     }
   } else if (s.type === 'fossil') {
     kind = 'fossil'
     name = s.fossil_details?.display_name || s.fossil_species.map((f) => f.name).filter(Boolean).join(' + ') || '(sem espécie)'
     speciesOrType = s.fossil_species[0]?.name ?? null
-    extra.push(['Restauração', s.fossil_details?.restoration])
     // Integridade/dimensões são por espécie no catálogo pessoal, mas
     // `store_product_fossil_species` não tem campo próprio pra isso — cada
     // uma vira uma linha no apêndice do produto em vez de se perder.
@@ -507,7 +512,6 @@ function mapToProductInput(s: CatalogSpecimenFull, priv: CatalogSpecimenPrivate 
   }
 
   if (s.parent_id) extra.push(['Lote', 'peça filha de um lote no catálogo pessoal'])
-  if (priv?.previous_owner) extra.push(['Proprietário anterior', priv.previous_owner])
   if (priv?.purchase_notes) extra.push(['Notas de compra', priv.purchase_notes])
 
   const costPrice = priv?.price_brl ?? priv?.price_gross_brl ?? null
@@ -527,7 +531,8 @@ function mapToProductInput(s: CatalogSpecimenFull, priv: CatalogSpecimenPrivate 
 
     origin_country: s.origin_country,
     origin_state: s.origin_state,
-    origin: s.origin_short || s.origin,
+    origin: s.origin,
+    origin_short: s.origin_short,
     // Origem fiscal ≠ origem geológica: só sugere o código 0 (nacional) quando
     // o item é do Brasil. Fora do Brasil depende de como foi adquirido
     // (1 importação direta, 2 mercado interno) — fica em branco pro dono escolher.
@@ -548,7 +553,15 @@ function mapToProductInput(s: CatalogSpecimenFull, priv: CatalogSpecimenPrivate 
     gem_shape: gemShape,
     gem_cut_style: gemCutStyle,
     cut_name: cutName,
-    gem_treatment: gemTreatment,
+    // Tratamento: coluna geral de specimens (0194); `gem_treatment` antigo só como fallback.
+    treatment: s.treatment || s.mineral_details?.gem_treatment || null,
+    crystal_features: s.type === 'mineral' ? (s.mineral_details?.crystal_features ?? null) : null,
+    phosphorescence_color: s.type === 'mineral' ? (s.mineral_details?.phosphorescence_color ?? null) : null,
+    fossil_restoration: s.type === 'fossil' ? (s.fossil_details?.restoration ?? null) : null,
+    fossil_host_rock: s.type === 'fossil' ? (s.fossil_details?.host_rock ?? null) : null,
+    supplier_id: priv?.supplier_id ?? null,
+    supplier_code: priv?.supplier_code ?? null,
+    acquisition_date: priv?.acquisition_date ?? null,
     weight_ct: weightCt,
 
     met_class: metClass,
@@ -755,5 +768,34 @@ export async function importSpecimenToStore(specimenId: string): Promise<void> {
   await copySpecimenMedia(specimen.id, specimen.id)
   await copyYoutubeVideos(specimen.id, specimen.id)
   await copyQrAliases(specimen.id, specimen.id)
+  await copyProvenance(specimen.id, priv)
+  if (priv?.supplier_id) await ensureSupplierInStore(priv.supplier_id)
   await markSpecimenSold(specimen.id)
+}
+
+/**
+ * Procedência (0036): ex-donos de `specimen_provenance` (só o lado "before",
+ * 0195/0196 do catálogo) viram `store_product_provenance` na mesma ordem. Sem
+ * nenhuma linha estruturada, o texto antigo `previous_owner` vira um ex-dono.
+ */
+async function copyProvenance(productId: string, priv: CatalogSpecimenPrivate | null): Promise<void> {
+  const { data, error } = await supabase
+    .from('specimen_provenance')
+    .select('name, party_id, acquired_on, acquired_precision, notes, sort_order')
+    .eq('specimen_id', productId)
+    .eq('direction', 'before')
+    .order('sort_order')
+  if (error) throw new Error(`Falha ao ler a procedência do espécime: ${error.message}`)
+  const rows = (data ?? []).map((r, i) => ({ ...r, product_id: productId, sort_order: i }))
+  if (rows.length === 0 && priv?.previous_owner?.trim()) {
+    rows.push({ name: priv.previous_owner.trim(), party_id: null, acquired_on: null, acquired_precision: null, notes: null, sort_order: 0, product_id: productId })
+  }
+  if (rows.length === 0) return
+  const { error: insertError } = await supabase.from('store_product_provenance').insert(rows)
+  if (insertError) throw new Error(`Falha ao copiar a procedência: ${insertError.message}`)
+}
+
+/** O fornecedor do item passa a valer na loja também — senão o seletor do produto (só `in_store`) não o mostraria. */
+async function ensureSupplierInStore(supplierId: string): Promise<void> {
+  await supabase.from('suppliers').update({ in_store: true, is_supplier: true }).eq('id', supplierId).eq('in_store', false)
 }

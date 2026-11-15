@@ -97,3 +97,127 @@ export function countryOptions(): { code: string; name: string }[] {
     .map((code) => ({ code, name: countryName(code) }))
     .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
 }
+
+// ─── Localidade resumida — copiado de src/lib/format.ts do catálogo pessoal ───
+// "Área de mineração de Oumjrane") ficam de fora de propósito — são o nome
+// do lugar, não um nível administrativo, então não descartamos a palavra
+// "Mina"/"Área de mineração de" isoladamente (só esta última tem "de" preso
+// ao termo, por isso entra como frase inteira). Lista curada à mão conforme
+// aparecem casos novos (pt/en/es) — decisão editorial, não exaustiva.
+// pt/es (prefixo antes do nome: "Distrito de X", "Provincia de X") — as duas
+// línguas compartilham quase todo o vocabulário administrativo, então a
+// mesma entrada cobre as duas (com/sem acento).
+const LOCALITY_ADMIN_PREFIXES_PT_ES = [
+  'área de mineração',
+  'área de minería',
+  'cidade',
+  'ciudad',
+  'estado',
+  'distrito',
+  'município',
+  'municipio',
+  'comuna',
+  'condado',
+  'departamento',
+  'província',
+  'provincia',
+  'região',
+  'regiao',
+  'círculo',
+  'circulo',
+  // As variantes "autônoma" vêm ANTES de "prefeitura"/"prefectura": a regex é
+  // uma alternação, vence a primeira que casa — senão sobraria "Autônoma de X".
+  'prefeitura autônoma',
+  'prefeitura autonoma',
+  'prefectura autónoma',
+  'prefectura autonoma',
+  'prefeitura',
+  'prefectura',
+  'regência',
+  'regencia',
+  'concelho',
+  'cantón',
+  'canton',
+  'comarca',
+  'gobernación',
+  'gobernacion',
+]
+
+// en — mesmo padrão de prefixo ("District of X", "Mining District, X"), mas
+// também aparece como SUFIXO em nomenclatura de origem britânica/americana
+// ("Storey County", "St. James Parish") — ver LOCALITY_ADMIN_SUFFIXES_EN.
+const LOCALITY_ADMIN_PREFIXES_EN = [
+  'mining district',
+  'mining area',
+  'mining field',
+  'district',
+  'municipality',
+  'county',
+  'department',
+  'province',
+  'region',
+  'circle',
+  'prefecture',
+  'governorate',
+  'oblast',
+  'canton',
+  'parish',
+  'borough',
+  'township',
+  'shire',
+]
+
+const LOCALITY_ADMIN_PREFIXES = [...LOCALITY_ADMIN_PREFIXES_PT_ES, ...LOCALITY_ADMIN_PREFIXES_EN]
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+const LOCALITY_PREFIX_RE = new RegExp(
+  `^(?:${LOCALITY_ADMIN_PREFIXES.map(escapeRe).join('|')})\\s+(?:de |do |da |of |del |de la )?`,
+  'i',
+)
+
+// Nomenclatura EN onde o tipo administrativo vem DEPOIS do nome próprio
+// ("Storey County", "St. James Parish", "Cook County") — ao contrário do
+// padrão prefixo de pt/es. Só tentado quando o prefixo acima não bateu
+// (ver stripAdminUnit), pra não competir com "County of X".
+const LOCALITY_ADMIN_SUFFIXES_EN = ['county', 'parish', 'township', 'borough', 'shire', 'canton', 'prefecture']
+
+const LOCALITY_SUFFIX_RE = new RegExp(`\\s+(?:${LOCALITY_ADMIN_SUFFIXES_EN.map(escapeRe).join('|')})$`, 'i')
+
+/** Remove o tipo de unidade administrativa de UM trecho — prefixo (pt/es/en) primeiro, senão sufixo (padrão EN "X County"). */
+function stripAdminUnit(part: string): string {
+  const prefixStripped = part.replace(LOCALITY_PREFIX_RE, '')
+  if (prefixStripped !== part) return prefixStripped
+  return part.replace(LOCALITY_SUFFIX_RE, '')
+}
+
+/**
+ * Localidade resumida: remove o "tipo de unidade administrativa" de cada
+ * trecho separado por vírgula de `origin`, mantendo o nome próprio.
+ * "Mahajanga, Distrito de Mahajanga I, Região de Boeny, Madagascar" →
+ * "Mahajanga, Mahajanga I, Boeny, Madagascar". Funciona também em inglês
+ * ("Storey County, Nevada" → "Storey, Nevada") e espanhol ("Provincia de
+ * Tinghir" → "Tinghir"). Heurística por lista de termos conhecidos
+ * (LOCALITY_ADMIN_PREFIXES/_SUFFIXES_EN) — não entende toda a variedade
+ * administrativa do mundo, só o que já apareceu no acervo; ajustar a lista
+ * conforme surgirem casos novos. Cada trecho é normalizado (trim) e
+ * rejuntado com ", " — não preserva espaçamento irregular do texto original.
+ */
+export function summarizeLocality(origin: string | null | undefined): string {
+  const trimmed = origin?.trim()
+  if (!trimmed) return ''
+  return trimmed
+    .split(',')
+    .map((part) => stripAdminUnit(part.trim()))
+    .join(', ')
+}
+
+/** Localidade resumida efetiva: override manual (`origin_short`) se preenchido, senão a heurística automática a partir de `origin`. */
+export function effectiveOriginShort(
+  origin: string | null | undefined,
+  originShort: string | null | undefined,
+): string {
+  const override = originShort?.trim()
+  if (override) return override
+  return summarizeLocality(origin)
+}

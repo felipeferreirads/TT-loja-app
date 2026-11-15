@@ -25,6 +25,19 @@ function base(props: IconProps): IconProps {
   }
 }
 
+/** Ordenar (barras decrescentes + seta para baixo). */
+export function SortIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M3 6h11" />
+      <path d="M3 12h7" />
+      <path d="M3 18h4" />
+      <path d="M17 5v14" />
+      <path d="m14 16 3 3 3-3" />
+    </svg>
+  )
+}
+
 /** Exportar / compartilhar (seta saindo de uma caixa). */
 export function ExportIcon(props: IconProps) {
   return (
@@ -32,6 +45,18 @@ export function ExportIcon(props: IconProps) {
       <path d="M12 15V3" />
       <path d="m8 7 4-4 4 4" />
       <path d="M4 13v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6" />
+    </svg>
+  )
+}
+
+/** Compartilhar em redes (três nós ligados). */
+export function ShareIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4" />
     </svg>
   )
 }
@@ -112,11 +137,30 @@ export function ChevronDownIcon(props: IconProps) {
   )
 }
 
+/** Seta pra cima (mover item para cima em listas ordenáveis). */
+export function ChevronUpIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="m18 15-6-6-6 6" />
+    </svg>
+  )
+}
+
 /** Seta pra esquerda (paginação/carrossel — ex.: foto anterior na pré-visualização de espécime). */
 export function ChevronLeftIcon(props: IconProps) {
   return (
     <svg {...base(props)}>
       <path d="m15 18-6-6 6-6" />
+    </svg>
+  )
+}
+
+/** Cotovelo "filha de" — marca subcategoria/subitem indentado sob a mãe (distinto do chevron, que expande/recolhe). */
+export function SubcategoryIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M7 5v7a3 3 0 0 0 3 3h8" />
+      <path d="m14 11 4 4-4 4" />
     </svg>
   )
 }
@@ -161,12 +205,17 @@ export function SplitIcon(props: IconProps) {
   )
 }
 
-/** Colunas congeladas (tabela com a borda esquerda reforçada, indicando a coluna fixa). */
+/**
+ * Colunas congeladas — cadeado sobre uma coluna, distinto do `LockIcon`
+ * (usado ao lado, no mesmo toolbar, para "filtros privados") pra não colidir
+ * visualmente as duas ações.
+ */
 export function FreezeColumnsIcon(props: IconProps) {
   return (
     <svg {...base(props)}>
-      <rect x="3" y="5" width="18" height="14" rx="1.5" />
-      <path d="M9 5v14" strokeWidth={2.5} />
+      <path d="M4 3v18" />
+      <rect x="9" y="11" width="11" height="9" rx="2" />
+      <path d="M12 11V8a3 3 0 0 1 6 0v3" />
     </svg>
   )
 }
@@ -277,6 +326,31 @@ export function MoveToAlbumIcon(props: IconProps) {
   )
 }
 
+/** Mover o item para outra coleção: pilha de camadas com seta saindo. */
+export function MoveToCollectionIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="m12 3 8 4-8 4-8-4 8-4Z" />
+      <path d="m4 12 8 4 3-1.5" />
+      <path d="m4 16.5 8 4 3-1.5" />
+      <path d="M17 15h5" />
+      <path d="m19.5 12.5 2.5 2.5-2.5 2.5" />
+    </svg>
+  )
+}
+
+/** Transferir a mídia para outro item: seta entre dois quadros. */
+export function TransferToSpecimenIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="6" width="7" height="12" rx="1.5" />
+      <rect x="14" y="6" width="7" height="12" rx="1.5" />
+      <path d="M10.5 12h3" />
+      <path d="m12 10.2 1.8 1.8-1.8 1.8" />
+    </svg>
+  )
+}
+
 /**
  * Fotos secundárias (0078): seta para BAIXO entrando na base. Tirar do destaque
  * é "descer" a foto, não movê-la para outro lugar — por isso o eixo vertical,
@@ -356,6 +430,24 @@ export function CategoryIcon(props: IconProps) {
   return (
     <svg {...base({ strokeWidth: 0, fill: 'currentColor', ...props })}>
       <path d="M3.5 6.5A2.5 2.5 0 0 1 6 4h5.2a2.5 2.5 0 0 1 1.77.73l6.3 6.3a2.5 2.5 0 0 1 0 3.54l-5.2 5.2a2.5 2.5 0 0 1-3.54 0l-6.3-6.3A2.5 2.5 0 0 1 3.5 11.7Zm4.25 1.25a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z" />
+    </svg>
+  )
+}
+
+/**
+ * Etiqueta de categoria com "−" — tirar itens DA CATEGORIA (só desfaz o
+ * vínculo). De propósito diferente da lixeira, que é apagar o item.
+ */
+export function CategoryRemoveIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path
+        transform="scale(0.8)"
+        stroke="none"
+        fill="currentColor"
+        d="M3.5 6.5A2.5 2.5 0 0 1 6 4h5.2a2.5 2.5 0 0 1 1.77.73l6.3 6.3a2.5 2.5 0 0 1 0 3.54l-5.2 5.2a2.5 2.5 0 0 1-3.54 0l-6.3-6.3A2.5 2.5 0 0 1 3.5 11.7Zm4.25 1.25a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"
+      />
+      <path d="M15 19.5h7" strokeWidth={2.25} />
     </svg>
   )
 }
@@ -452,6 +544,19 @@ export function LockIcon(props: IconProps) {
       <rect x="5" y="10" width="14" height="11" rx="2" />
       <path d="M8 10V7a4 4 0 0 1 8 0v3" />
       <path d="M12 14v3" />
+    </svg>
+  )
+}
+
+/**
+ * Coroa amarela — marca de recurso premium. Cor FIXA (não herda currentColor),
+ * como os ícones coloridos do cabeçalho: o amarelo é o próprio sinal "premium".
+ */
+export function CrownIcon(props: IconProps) {
+  return (
+    <svg {...base({ fill: '#facc15', stroke: '#facc15', strokeWidth: 1.2, ...props })}>
+      <path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 10H5L3 8z" />
+      <path d="M5 21h14" fill="none" />
     </svg>
   )
 }
@@ -594,6 +699,15 @@ export function CheckIcon(props: IconProps) {
   )
 }
 
+/** Marcador de página (fila "quero ler" da Biblioteca). `filled` = na fila. */
+export function BookmarkIcon({ filled, ...props }: IconProps & { filled?: boolean }) {
+  return (
+    <svg {...base({ fill: filled ? 'currentColor' : 'none', ...props })}>
+      <path d="M6 4h12a1 1 0 0 1 1 1v15l-7-4-7 4V5a1 1 0 0 1 1-1Z" />
+    </svg>
+  )
+}
+
 /** Selo de verificação (escudo com check) — status "verificado manualmente". */
 export function VerifiedIcon(props: IconProps) {
   return (
@@ -614,12 +728,15 @@ export function CopyIcon(props: IconProps) {
   )
 }
 
-/** Leitura em lote — várias etiquetas empilhadas. */
+/** Leitura em lote — várias etiquetas empilhadas.
+ *  Desenho ocupa y 4.5–19.5 (centralizado na viewBox 24×24, como os outros
+ *  ícones do pool) — antes ocupava y 3–18, deslocado ~6% pra cima; ficava
+ *  visivelmente alto ao lado de texto (ex.: seletor de coleção). */
 export function StackIcon(props: IconProps) {
   return (
     <svg {...base(props)}>
-      <path d="m12 3 9 5-9 5-9-5 9-5Z" />
-      <path d="m3 13 9 5 9-5" />
+      <path d="m12 4.5 9 5-9 5-9-5 9-5Z" />
+      <path d="m3 14.5 9 5 9-5" />
     </svg>
   )
 }
@@ -629,6 +746,15 @@ export function ArrowLeftIcon(props: IconProps) {
   return (
     <svg {...base(props)}>
       <path d="m15 18-6-6 6-6" />
+    </svg>
+  )
+}
+
+/** Avançar / indicar "vem de". */
+export function ArrowRightIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="m9 18 6-6-6-6" />
     </svg>
   )
 }
@@ -653,16 +779,6 @@ export function SpecimenIcon(props: IconProps) {
   )
 }
 
-/** Joia (anel com gema). */
-export function JewelryIcon(props: IconProps) {
-  return (
-    <svg {...base(props)}>
-      <path d="M8 3h8l3 4-7 12L5 7l3-4Z" />
-      <path d="M8 3 5 7h14L16 3M5 7l7 4 7-4M12 11 9 7M12 11l3-4" />
-    </svg>
-  )
-}
-
 /** Grade de miniaturas (alternar visualização). */
 export function GridViewIcon(props: IconProps) {
   return (
@@ -671,6 +787,30 @@ export function GridViewIcon(props: IconProps) {
       <rect x="13.5" y="3.5" width="7" height="7" rx="1.5" />
       <rect x="3.5" y="13.5" width="7" height="7" rx="1.5" />
       <rect x="13.5" y="13.5" width="7" height="7" rx="1.5" />
+    </svg>
+  )
+}
+
+/** Linhas de cards de tamanhos crescentes — agrupar por classe de tamanho. */
+export function SizeRowsIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3.5" y="3.5" width="4" height="4" rx="1" />
+      <rect x="10" y="3.5" width="4" height="4" rx="1" />
+      <rect x="3.5" y="10.5" width="7" height="7" rx="1.5" />
+      <rect x="13.5" y="10.5" width="7" height="7" rx="1.5" />
+      <path d="M3.5 20.5h17" />
+    </svg>
+  )
+}
+
+/** Duas páginas empilhadas — editor de páginas do PDF (excluir/reordenar). */
+export function PagesIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M7.5 3.5h7l3 3v11a1.5 1.5 0 0 1-1.5 1.5h-8.5a1.5 1.5 0 0 1-1.5-1.5V5a1.5 1.5 0 0 1 1.5-1.5Z" />
+      <path d="M14 3.5V7h3.5" />
+      <path d="M4.5 7.5V19a1.5 1.5 0 0 0 1.5 1.5h9" />
     </svg>
   )
 }
@@ -784,6 +924,17 @@ export function PencilIcon(props: IconProps) {
   )
 }
 
+/** Pasta com seta — mover para outra seção/pasta. */
+export function FolderMoveIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <path d="M10 13h6" />
+      <path d="m13.5 10.5 2.5 2.5-2.5 2.5" />
+    </svg>
+  )
+}
+
 /** Quadrado com visto — entrar no modo de seleção múltipla. */
 export function SelectIcon(props: IconProps) {
   return (
@@ -812,6 +963,16 @@ export function GridDenseIcon(props: IconProps) {
 }
 
 /** Quadrado único — grade grande, um item por vez ocupando bem mais espaço. */
+/** Grade 4×4 (16 quadrados) — mais densa que `GridDenseIcon`, pra grade extra pequena. */
+export function GridTinyIcon(props: IconProps) {
+  const pos = [3.5, 8, 12.5, 17]
+  return (
+    <svg {...base(props)}>
+      {pos.flatMap((y) => pos.map((x) => <rect key={`${x}-${y}`} x={x} y={y} width="3.5" height="3.5" rx="0.8" />))}
+    </svg>
+  )
+}
+
 export function GridLargeIcon(props: IconProps) {
   return (
     <svg {...base(props)}>
@@ -862,6 +1023,123 @@ export function PackageIcon(props: IconProps) {
   )
 }
 
+/* ── Redes sociais (contato de fornecedor) — contorno no traço padrão,
+   currentColor, não o logo colorido oficial (ver YouTubeIcon pro caso da
+   ficha, que usa as cores da marca de propósito). ── */
+
+/** Instagram (câmera arredondada). */
+export function InstagramIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="0.75" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+/** Facebook ("f" num quadrado arredondado). */
+export function FacebookIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="3" width="18" height="18" rx="4" />
+      <path d="M15.5 8H14a2 2 0 0 0-2 2v11M9.5 13h5" />
+    </svg>
+  )
+}
+
+/** YouTube em contorno (retângulo arredondado + play). */
+export function YouTubeOutlineIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="2.5" y="5.5" width="19" height="13" rx="4" />
+      <path d="m10 9.5 4.5 2.5-4.5 2.5z" />
+    </svg>
+  )
+}
+
+/** TikTok (nota musical com gancho). */
+export function TikTokIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M13 3v11.5a3.5 3.5 0 1 1-3.5-3.5" />
+      <path d="M13 3c.4 2.6 2.2 4.4 5 4.8" />
+    </svg>
+  )
+}
+
+/** X (antigo Twitter). */
+export function XSocialIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 4l16 16M20 4 4 20" />
+    </svg>
+  )
+}
+
+/** LinkedIn ("in" num quadrado arredondado). */
+export function LinkedInIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="3" width="18" height="18" rx="3" />
+      <path d="M8 10.5V16M8 7.5v.01M12 16v-5.5M12 13a2.5 2.5 0 0 1 5 0v3" />
+    </svg>
+  )
+}
+
+/** Telegram (avião de papel). */
+export function TelegramIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M21 4 3 11l6.5 2.5L18 7l-6.5 7.5L17 20z" />
+    </svg>
+  )
+}
+
+/** WhatsApp (balão com telefone). */
+export function WhatsAppIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 20l1.3-3.8A8.5 8.5 0 1 1 8 19z" />
+      <path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1-1.2-1.8-.9-.8.8a4 4 0 0 1-2.1-2.1l.8-.8-.9-1.8z" />
+    </svg>
+  )
+}
+
+/** Caminhão de entrega — Fornecedores (mesmo desenho do loja-app). */
+export function TruckIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M2 7h11v10H2z" />
+      <path d="M13 10h4l4 3.5V17h-8z" />
+      <circle cx="6.5" cy="18" r="1.75" />
+      <circle cx="16.5" cy="18" r="1.75" />
+    </svg>
+  )
+}
+
+/** Prédio (empresa/PJ) — link do Painel PJ na navegação. */
+export function BuildingIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M5 21V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v17" />
+      <path d="M13 21v-9a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v9" />
+      <path d="M3 21h18" />
+      <path d="M8 7h0M8 11h0M8 15h0" />
+    </svg>
+  )
+}
+
+/** Pino de mapa (endereço/localização). */
+export function MapPinIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 21s7-6.1 7-11.5A7 7 0 0 0 5 9.5C5 14.9 12 21 12 21Z" />
+      <circle cx="12" cy="9.5" r="2.5" />
+    </svg>
+  )
+}
+
 /** Três barras de altura crescente — painel de Estatísticas. */
 export function ChartIcon(props: IconProps) {
   return (
@@ -878,41 +1156,6 @@ export function ClockIcon(props: IconProps) {
     <svg {...base(props)}>
       <circle cx="12" cy="12" r="9" />
       <path d="M12 7v5l3.5 2" />
-    </svg>
-  )
-}
-
-/** Caminhão de entrega — Fornecedores. */
-export function TruckIcon(props: IconProps) {
-  return (
-    <svg {...base(props)}>
-      <path d="M2 7h11v10H2z" />
-      <path d="M13 10h4l4 3.5V17h-8z" />
-      <circle cx="6.5" cy="18" r="1.75" />
-      <circle cx="16.5" cy="18" r="1.75" />
-    </svg>
-  )
-}
-
-/** Cédula com moeda no centro — Fluxo de caixa. */
-export function CashIcon(props: IconProps) {
-  return (
-    <svg {...base(props)}>
-      <rect x="2" y="6" width="20" height="12" rx="2" />
-      <circle cx="12" cy="12" r="3" />
-      <path d="M6 9v.01M18 15v.01" />
-    </svg>
-  )
-}
-
-/** Fachada de prédio (janelas em grade) — página Empresa. */
-export function BuildingIcon(props: IconProps) {
-  return (
-    <svg {...base(props)}>
-      <path d="M5 21V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v17" />
-      <path d="M13 21v-9a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v9" />
-      <path d="M3 21h18" />
-      <path d="M8 7h0M8 11h0M8 15h0" />
     </svg>
   )
 }
@@ -966,7 +1209,335 @@ export function PrivateModeColorIcon({ unlocked, ...props }: IconProps & { unloc
   )
 }
 
-/** Calculadora (precificação). */
+/** Conta/usuário (cabeça + ombros) — aba Conta das Configurações. */
+export function UserIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M5 20c0-3.5 3.13-6 7-6s7 2.5 7 6" />
+    </svg>
+  )
+}
+
+/** Balança de dois pratos — filtro de faixa de peso. */
+export function ScaleIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 3v18M8 21h8" />
+      <path d="M5 6h14" />
+      <path d="M5 6 2 12a3 3 0 0 0 6 0Z" />
+      <path d="M19 6l-3 6a3 3 0 0 0 6 0Z" />
+    </svg>
+  )
+}
+
+/** Paleta de pintor — filtro de cor. */
+export function PaletteIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 3a9 8.5 0 1 0 0 17c1.2 0 1.8-.7 1.8-1.6 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.6-1.6 1.7-1.6H16a4 3.7 0 0 0 4-3.7C20 6.1 16.4 3 12 3Z" />
+      <circle cx="7.5" cy="11" r="1" fill="currentColor" stroke="none" />
+      <circle cx="9.5" cy="7.5" r="1" fill="currentColor" stroke="none" />
+      <circle cx="14.5" cy="7" r="1" fill="currentColor" stroke="none" />
+      <circle cx="17" cy="10.5" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+/** Meteoro/cometa (rocha + rastro curvo) — filtro de meteorito. */
+export function MeteoriteIcon(props: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true" {...props}>
+      <path d="M16.3,15.7c0.2,0.2,0.5,0.3,0.7,0.3s0.5-0.1,0.7-0.3l11-11c0.4-0.4,0.4-1,0-1.4s-1-0.4-1.4,0l-11,11
+        C15.9,14.7,15.9,15.3,16.3,15.7z"/>
+      <path d="M6,21c0,2.8,2.2,5,5,5s5-2.2,5-5s-2.2-5-5-5S6,18.2,6,21z"/>
+      <path d="M29.7,14.3c-0.4-0.4-1-0.4-1.4,0L16,25.9c-2.7,2.7-7.2,2.7-9.9,0c-2.7-2.7-2.7-7.2,0-9.9L18.7,4.7c0.4-0.4,0.4-1,0.1-1.4
+        c-0.4-0.4-1-0.4-1.4-0.1L4.6,14.6c-3.5,3.5-3.5,9.2,0,12.7C6.4,29.1,8.7,30,11,30c2.3,0,4.6-0.9,6.3-2.6l12.3-11.7
+        C30.1,15.3,30.1,14.7,29.7,14.3z"/>
+    </svg>
+  )
+}
+
+/** Diagrama de lapidação (facetas concêntricas com raios) — Biblioteca, tipo "Diagrama de Lapidação". */
+export function FacetDiagramIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M6 3h12l4 6-10 13L2 9Z" />
+      <path d="M11 3 8 9l4 13 4-13-3-6" />
+      <path d="M2 9h20" />
+    </svg>
+  )
+}
+
+/** Concha de abalone/leque — filtro de fóssil/período. */
+export function FossilIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M19.1029736,9.2393558 L19.5072416,9.38676028 C20.8012617,9.85731306 21.4688139,11.287782 20.9982611,12.5818022
+        C20.8874215,12.8866113 20.7181722,13.1668648 20.5,13.4068542 L20.3362673,13.5869602 C18.7878409,15.2902293 16.9883338,16.7469929 15,17.9068542
+        L12.0503871,19.6274618 C12.0192509,19.6456246 11.9807491,19.6456246 11.9496129,19.6274618 L9,17.9068542
+        C7.01166619,16.7469929 5.21215913,15.2902293 3.66373272,13.5869602 L3.5,13.4068542
+        C2.57378354,12.3880161 2.64886822,10.8112379 3.66770633,9.88502142 C3.90769576,9.6668492 4.18794928,9.49759997 4.49275841,9.38676028
+        L4.89759122,9.23813236 M8.69408049,15.2487992 L5.4973666,10.9866764 C4.50325405,9.66119298 4.7718832,7.78078893 6.0973666,6.78667638
+        C6.35532363,6.59320861 6.64278389,6.44259295 6.9486833,6.34062648 L7.5,6.15685425 C7.88099972,6.02985434 8.26603169,5.91941964 8.65404401,5.82555014
+        L8.83624687,5.78266122 C8.50982528,6.38522784 8.41465234,7.10813745 8.61429512,7.80688716 L10.4532794,14.2438294
+        M13.5462927,14.2436904 L15.3857049,7.80688716 C15.585236,7.10852825 15.4902811,6.38603646 15.1643006,5.78367235
+        C15.6137746,5.88537675 16.0595813,6.01004801 16.5,6.15685425 L17.0513167,6.34062648 C18.6231467,6.8645698 19.4726266,8.56352972 18.9486833,10.1353597
+        C18.8467168,10.4412591 18.6961012,10.7287193 18.5026334,10.9866764 L15.3053581,15.2483041
+        M10.4532794,14.2438294 L8.61429512,7.80688716 C8.25810919,6.5602364 8.84034262,5.23668294 10,4.65685425
+        C11.2590292,4.02733964 12.7409708,4.02733964 14,4.65685425 C15.1596574,5.23668294 15.7418908,6.5602364 15.3857049,7.80688716 L13.5462927,14.2436904" />
+      <path d="M16.9997745,16.5937589 L17,18.5 C17,19.3284271 16.3284271,20 15.5,20 L8.5,20 C7.67157288,20 7,19.3284271 7,18.5
+        L6.99904865,16.5928936 C7.64151174,17.0652931 8.30936513,17.5039839 9,17.9068542 L11.9496129,19.6274618
+        C11.9807491,19.6456246 12.0192509,19.6456246 12.0503871,19.6274618 L15,17.9068542 C15.6902132,17.5042299 16.3576727,17.0658287 16.9997745,16.5937589 Z" />
+    </svg>
+  )
+}
+
+/** Cifrão dentro de um círculo — filtro/seção financeira. */
+export function CurrencyCircleIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 6.5v11" />
+      <path d="M15 9.3c0-1.4-1.4-2.3-3-2.3s-3 .9-3 2.2c0 3 6 1.4 6 4.4 0 1.4-1.4 2.4-3 2.4s-3-1-3-2.4" />
+    </svg>
+  )
+}
+
+/** Seta curva para a esquerda — desfazer (Photo Studio). */
+export function UndoIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M9 14 4 9l5-5" />
+      <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+    </svg>
+  )
+}
+
+/** Seta curva para a direita — refazer (Photo Studio). */
+export function RedoIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="m15 14 5-5-5-5" />
+      <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
+    </svg>
+  )
+}
+
+/** Girar 90° no sentido anti-horário (Photo Studio — geometria/endireitar). */
+export function RotateLeftIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M3 12a9 9 0 1 0 2.64-6.36L3 8" />
+      <path d="M3 3v5h5" />
+    </svg>
+  )
+}
+
+/** Girar 90° no sentido horário (Photo Studio — geometria/endireitar). */
+export function RotateRightIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M21 12a9 9 0 1 1-2.64-6.36L21 8" />
+      <path d="M21 3v5h-5" />
+    </svg>
+  )
+}
+
+/** Espelhar na horizontal — dois colchetes com eixo pontilhado vertical no meio. */
+export function FlipHorizontalIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3" />
+      <path d="M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3" />
+      <path d="M12 2v2M12 8v2M12 14v2M12 20v2" />
+    </svg>
+  )
+}
+
+/** Espelhar na vertical — dois colchetes com eixo pontilhado horizontal no meio. */
+export function FlipVerticalIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M3 8V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3" />
+      <path d="M3 16v3a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3" />
+      <path d="M2 12h2M8 12h2M14 12h2M20 12h2" />
+    </svg>
+  )
+}
+
+/** Régua/nível — endireitar por linha de referência (Photo Studio). */
+export function StraightenIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="2" y="9" width="20" height="6" rx="1" />
+      <path d="M6 9v3M10 9v3M14 9v3M18 9v3" />
+      <circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+/** Trapézio com cantos marcados — correção de perspectiva (Photo Studio). */
+export function PerspectiveIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 6h13l3 12H7L4 6Z" />
+      <circle cx="4" cy="6" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="17" cy="6" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="20" cy="18" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="7" cy="18" r="1.2" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+/** Retângulo inclinado dentro de uma moldura, com 4 pontos — corrigir a perspectiva marcando um item (Photo Studio). */
+export function ItemFixIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="2" y="3" width="20" height="18" rx="2" strokeDasharray="2 2.5" />
+      <path d="M8 8h8l1.5 8h-11L8 8Z" />
+      <circle cx="8" cy="8" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="16" cy="8" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="17.5" cy="16" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="6.5" cy="16" r="1.2" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+/** Setas para fora nos dois eixos — esticar a imagem (Photo Studio). */
+export function StretchIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4" />
+      <path d="M12 3v5M12 16v5" strokeDasharray="1.5 2" />
+    </svg>
+  )
+}
+
+/** Borracha — apagar sobra de fundo no retoque manual do recorte (Photo Studio). */
+export function EraseIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21" />
+      <path d="M22 21H7" />
+      <path d="m5 11 9 9" />
+    </svg>
+  )
+}
+
+/** Pincel de restaurar (círculo com +) — trazer de volta pedaço do objeto no retoque manual (Photo Studio). */
+export function RestoreBrushIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 9v6M9 12h6" />
+    </svg>
+  )
+}
+
+/** "B" de negrito — formatação de texto (notas, destaques, observações). */
+export function BoldIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M6 4h7a3.5 3.5 0 0 1 0 7H6z" />
+      <path d="M6 11h8a3.5 3.5 0 0 1 0 7H6z" />
+    </svg>
+  )
+}
+
+/** "I" de itálico — formatação de texto (notas, destaques, observações). */
+export function ItalicIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M11 4h6M7 20h6M13 4 9.5 20" />
+    </svg>
+  )
+}
+
+/** Ponto de interrogação num círculo — páginas de pergunta do Saiba Mais. */
+export function QuestionIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.5 9.5a2.5 2.5 0 1 1 3.4 2.3c-.6.3-.9.8-.9 1.4v.3" />
+      <path d="M12 17h.01" />
+    </svg>
+  )
+}
+
+/** Lâmpada — curiosidade / ideia (Saiba Mais). */
+export function LightbulbIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M9 18h6M10 21h4" />
+      <path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2V16h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z" />
+    </svg>
+  )
+}
+
+/** Rocha (bloco irregular com camadas) — páginas sobre rochas. */
+export function RockIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M3 17.5 5.5 9 10 5.5l5.5 1.5L20 11l1 6.5L15 20H7z" />
+      <path d="M5 13.5c3 .8 5.5-.5 8-.2s4.5 1.4 7.6.7" />
+      <path d="M10 5.5 9 10.5" />
+    </svg>
+  )
+}
+
+/** Vulcão — vulcanismo / rochas ígneas (Saiba Mais). */
+export function VolcanoIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M2 20h20l-6.5-10h-7z" />
+      <path d="M8.5 10 10 8h4l1.5 2" />
+      <path d="M12 6V3M9 4.5 8 3M15 4.5 16 3" />
+    </svg>
+  )
+}
+
+/** "H" de título — barra de formatação do editor markdown. */
+export function HeadingIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M6 5v14M16 5v14M6 12h10" />
+      <path d="M19 19v-6l-1.5 1" />
+    </svg>
+  )
+}
+
+/** Lista com marcadores — barra de formatação do editor markdown. */
+export function ListBulletIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M9 6h11M9 12h11M9 18h11" />
+      <path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01" strokeWidth={2.5} />
+    </svg>
+  )
+}
+
+/** Aspas — citação/destaque na barra do editor markdown. */
+export function QuoteIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M5 4v16" />
+      <path d="M9 8h10M9 12h10M9 16h6" />
+    </svg>
+  )
+}
+
+/** Cerquilha — citação de página (#slug) do Saiba Mais. */
+export function HashIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M5 9h14M4 15h14M10 3 8 21M16 3l-2 18" />
+    </svg>
+  )
+}
+
+// ─── Ícones só da loja (não existem no catálogo pessoal) ───
+
 export function CalculatorIcon(props: IconProps) {
   return (
     <svg {...base(props)}>
@@ -984,18 +1555,35 @@ export function CalculatorIcon(props: IconProps) {
   )
 }
 
-/** Triângulo de exclamação — estoque baixo, conta vencida, erro. */
-export function WarningIcon(props: IconProps) {
+export function CashIcon(props: IconProps) {
   return (
     <svg {...base(props)}>
-      <path d="M12 3.5 2.5 20h19L12 3.5Z" />
-      <path d="M12 10v4" />
-      <path d="M12 17.5h.01" />
+      <rect x="2" y="6" width="20" height="12" rx="2" />
+      <circle cx="12" cy="12" r="3" />
+      <path d="M6 9v.01M18 15v.01" />
     </svg>
   )
 }
 
-/** Pessoa — cliente. */
+export function HomeIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 11 12 4l8 7" />
+      <path d="M6 9.5V20h12V9.5" />
+      <path d="M10 20v-6h4v6" />
+    </svg>
+  )
+}
+
+export function JewelryIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M8 3h8l3 4-7 12L5 7l3-4Z" />
+      <path d="M8 3 5 7h14L16 3M5 7l7 4 7-4M12 11 9 7M12 11l3-4" />
+    </svg>
+  )
+}
+
 export function PersonIcon(props: IconProps) {
   return (
     <svg {...base(props)}>
@@ -1005,13 +1593,12 @@ export function PersonIcon(props: IconProps) {
   )
 }
 
-/** Casa — início/dashboard. */
-export function HomeIcon(props: IconProps) {
+export function WarningIcon(props: IconProps) {
   return (
     <svg {...base(props)}>
-      <path d="M4 11 12 4l8 7" />
-      <path d="M6 9.5V20h12V9.5" />
-      <path d="M10 20v-6h4v6" />
+      <path d="M12 3.5 2.5 20h19L12 3.5Z" />
+      <path d="M12 10v4" />
+      <path d="M12 17.5h.01" />
     </svg>
   )
 }

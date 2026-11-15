@@ -44,6 +44,9 @@ const FIELDS = [
   'series',
   'access_key',
   'total_amount',
+  'goods_amount',
+  'freight_amount',
+  'fees_amount',
   'notes',
   'sale_id',
 ] as const
@@ -58,12 +61,29 @@ function toDraft(d: StoreDocument | null): Draft {
   return draft
 }
 
+const AMOUNT_FIELDS = new Set<string>(['total_amount', 'goods_amount', 'freight_amount', 'fees_amount'])
+const AMOUNT_PARTS = ['goods_amount', 'freight_amount', 'fees_amount'] as const
+
+const parseAmount = (s: string) => {
+  const v = s.trim()
+  return v === '' ? null : Number(v.replace(',', '.'))
+}
+
+/** Soma de produtos + frete + impostos/taxas (0037); nulo quando nenhuma parte foi informada. */
+function amountPartsTotal(d: Draft): number | null {
+  const parts = AMOUNT_PARTS.map((f) => parseAmount(d[f])).filter((v): v is number => v != null && Number.isFinite(v))
+  return parts.length === 0 ? null : Math.round(parts.reduce((a, b) => a + b, 0) * 100) / 100
+}
+
 function toInput(d: Draft): StoreDocumentInput {
   const out: Record<string, unknown> = { kind: d.kind as StoreDocumentKind }
   for (const f of FIELDS) {
     const value = d[f].trim()
-    out[f] = value === '' ? null : f === 'total_amount' ? Number(value) : value
+    out[f] = value === '' ? null : AMOUNT_FIELDS.has(f) ? parseAmount(value) : value
   }
+  // Com alguma parte informada, o total é sempre a soma; sem partes, vale o digitado.
+  const partsTotal = amountPartsTotal(d)
+  if (partsTotal != null) out.total_amount = partsTotal
   out.title = d.title.trim() || 'Documento sem título'
   return out as StoreDocumentInput
 }
@@ -148,6 +168,7 @@ export function DocumentPage() {
   if (!draft) return <p className="text-sm text-stone-400">Carregando…</p>
 
   const set = (key: string) => (v: string) => setDraft({ ...draft, [key]: v })
+  const partsTotal = amountPartsTotal(draft)
 
   const pickSupplier = (supplierId: string) => {
     const supplier = suppliers.find((s) => s.id === supplierId)
@@ -233,7 +254,7 @@ export function DocumentPage() {
           </Link>
           <h1 className="text-xl font-bold break-words text-stone-100">{isNew ? 'Novo documento' : draft.title || 'Documento'}</h1>
         </div>
-        <button type="button" onClick={() => void handleSave()} disabled={busy} className="btn-primary shrink-0">
+        <button type="button" onClick={() => void handleSave()} disabled={busy} className="btn-primary h-9 min-h-9 shrink-0 py-0">
           {busy ? 'Salvando…' : 'Salvar'}
         </button>
       </header>
@@ -256,10 +277,23 @@ export function DocumentPage() {
           </label>
 
           <Field label="Título" value={draft.title} onChange={set('title')} />
+          <Field label="Data" value={draft.doc_date} onChange={set('doc_date')} type="date" />
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Data" value={draft.doc_date} onChange={set('doc_date')} type="date" />
-            <Field label="Valor total" value={draft.total_amount} onChange={set('total_amount')} type="number" />
+            <Field label="Valor dos produtos" value={draft.goods_amount} onChange={set('goods_amount')} type="number" />
+            <Field label="Frete" value={draft.freight_amount} onChange={set('freight_amount')} type="number" />
+            <Field label="Impostos e taxas" value={draft.fees_amount} onChange={set('fees_amount')} type="number" />
+            {partsTotal != null ? (
+              <div>
+                <span className="text-sm text-stone-300">Valor total</span>
+                <p className="mt-1 flex h-9 items-center text-sm font-semibold text-amber-400">{formatMoney(partsTotal)}</p>
+              </div>
+            ) : (
+              <Field label="Valor total" value={draft.total_amount} onChange={set('total_amount')} type="number" />
+            )}
           </div>
+          <p className="text-xs text-stone-500">
+            O valor total é a soma dos produtos, do frete e dos impostos e taxas. Sem esses valores, é possível informar só o total.
+          </p>
           <label className="block">
             <span className="flex items-center justify-between text-sm text-stone-300">
               Fornecedor

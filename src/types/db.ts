@@ -347,7 +347,12 @@ export interface StoreDocument {
   number: string | null
   series: string | null
   access_key: string | null
+  /** Soma de produtos + frete + impostos/taxas quando alguma parte existe (0037); senão, valor digitado à mão. */
   total_amount: number | null
+  goods_amount: number | null
+  freight_amount: number | null
+  /** Impostos e taxas. */
+  fees_amount: number | null
   notes: string | null
   /** Venda vinculada (0024) — nota fiscal de SAÍDA. `supplier_id` acima é pra
    *  nota de compra; os dois campos são independentes, um documento normalmente

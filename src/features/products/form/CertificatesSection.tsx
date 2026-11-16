@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAlert, useConfirm } from '../../../components/DialogProvider'
 import type { StoreProductCertificate } from '../../../types/db'
 import { useUserId } from '../../auth/AuthProvider'
-import { signedUrl } from '../../../lib/storage'
+import { FileViewer, type ViewerFile } from '../../../components/FileViewer'
 import { useFileDrop, DROP_ACTIVE_CLASS } from '../../../lib/useFileDrop'
 import {
   addCertificate,
@@ -234,6 +234,7 @@ function CertificateCard({
     notes: certificate.notes,
   })
   const [busy, setBusy] = useState(false)
+  const [viewing, setViewing] = useState<ViewerFile | null>(null)
   const txt = (s: string) => (s.trim() === '' ? null : s.trim())
 
   const handleBlur = async () => {
@@ -270,9 +271,9 @@ function CertificateCard({
     }
   }
 
-  const handleOpenFile = async (path: string) => {
-    const url = await signedUrl(path)
-    window.open(url, '_blank', 'noopener')
+  const handleOpenFile = (path: string) => {
+    const title = [certificate.lab, certificate.code].filter(Boolean).join(' · ') || 'Certificado'
+    setViewing({ path, title, filename: title })
   }
 
   const { isDragging, dropProps } = useFileDrop({
@@ -305,10 +306,10 @@ function CertificateCard({
 
       <div className="flex flex-wrap items-center gap-2">
         {certificate.pdf_path && (
-          <FileChip label="PDF" busy={busy} onOpen={() => void handleOpenFile(certificate.pdf_path!)} onRemove={() => handleRemoveFile('pdf')} />
+          <FileChip label="PDF" busy={busy} onOpen={() => handleOpenFile(certificate.pdf_path!)} onRemove={() => handleRemoveFile('pdf')} />
         )}
         {certificate.image_path && (
-          <FileChip label="Imagem" busy={busy} onOpen={() => void handleOpenFile(certificate.image_path!)} onRemove={() => handleRemoveFile('image')} />
+          <FileChip label="Imagem" busy={busy} onOpen={() => handleOpenFile(certificate.image_path!)} onRemove={() => handleRemoveFile('image')} />
         )}
         <label className="btn-secondary cursor-pointer">
           {busy ? 'Enviando…' : 'Anexar arquivo'}
@@ -328,6 +329,8 @@ function CertificateCard({
       <button type="button" onClick={onRemove} className="btn-danger text-xs">
         Apagar certificado
       </button>
+
+      {viewing && <FileViewer file={viewing} onClose={() => setViewing(null)} />}
     </div>
   )
 }

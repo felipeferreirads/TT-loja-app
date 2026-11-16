@@ -26,7 +26,7 @@ import { SupplierFormDialog } from '../suppliers/SupplierFormDialog'
 import { PickProductsDialog } from './PickProductsDialog'
 import { fetchSales, type SaleWithCustomer } from '../sales/api'
 import { formatMoney } from '../../lib/format'
-import { signedUrl } from '../../lib/storage'
+import { FileViewer, type ViewerFile } from '../../components/FileViewer'
 import { useFileDrop, DROP_ACTIVE_CLASS } from '../../lib/useFileDrop'
 import { useConfirm } from '../../components/DialogProvider'
 import { useToast } from '../../components/ToastProvider'
@@ -128,6 +128,7 @@ export function DocumentPage() {
   const [suppliers, setSuppliers] = useState<StoreSupplier[]>([])
   const [sales, setSales] = useState<SaleWithCustomer[]>([])
   const [newSupplierOpen, setNewSupplierOpen] = useState(false)
+  const [viewing, setViewing] = useState<ViewerFile | null>(null)
   const [picking, setPicking] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -220,9 +221,8 @@ export function DocumentPage() {
     void uploadFiles(chosen)
   }
 
-  const handleOpenFile = async (file: StoreDocumentFile) => {
-    const url = await signedUrl(file.storage_path)
-    window.open(url, '_blank', 'noopener')
+  const handleOpenFile = (file: StoreDocumentFile) => {
+    setViewing({ path: file.storage_path, title: file.caption || file.file_name, filename: file.file_name ?? file.caption })
   }
 
   const handleDeleteFile = async (file: StoreDocumentFile) => {
@@ -376,7 +376,7 @@ export function DocumentPage() {
                 <li key={f.id} className="flex items-center gap-2 py-2">
                   <button
                     type="button"
-                    onClick={() => void handleOpenFile(f)}
+                    onClick={() => handleOpenFile(f)}
                     className="min-w-0 flex-1 truncate text-left text-sm text-amber-500 hover:underline"
                   >
                     {f.file_name ?? f.storage_path.split('/').pop()}
@@ -439,6 +439,8 @@ export function DocumentPage() {
       {newSupplierOpen && (
         <SupplierFormDialog supplier={null} onSave={handleCreateSupplier} onClose={() => setNewSupplierOpen(false)} />
       )}
+
+      {viewing && <FileViewer file={viewing} onClose={() => setViewing(null)} />}
     </div>
   )
 }

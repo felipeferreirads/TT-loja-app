@@ -10,3 +10,6 @@ dist-ssr/
 .DS_Store
 Thumbs.db
 .impeccable/
+
+# Assets do pdfjs-dist gerados pelo postinstall (scripts/copy-pdfjs-wasm.mjs)
+public/pdfjs-wasm/

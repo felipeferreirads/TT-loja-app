@@ -8,7 +8,7 @@ import {
   deleteCompanyDocument,
   type StoreCompanyInput,
 } from './api'
-import { signedUrl } from '../../lib/storage'
+import { FileViewer, type ViewerFile } from '../../components/FileViewer'
 import { maskBrazilianPhoneInput, maskCnpjInput, maskCpfInput } from '../../lib/brMask'
 import { useFileDrop, DROP_ACTIVE_CLASS } from '../../lib/useFileDrop'
 import { useConfirm, usePrompt } from '../../components/DialogProvider'
@@ -162,6 +162,7 @@ export function CompanyPage() {
   const [savedForm, setSavedForm] = useState<StoreCompanyInput | null>(null)
   const [docs, setDocs] = useState<StoreCompanyDocument[]>([])
   const [busy, setBusy] = useState(false)
+  const [viewing, setViewing] = useState<ViewerFile | null>(null)
   const [saved, setSaved] = useState(false)
   const [copied, setCopied] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -263,12 +264,8 @@ export function CompanyPage() {
     if (files.length > 0) void uploadFiles(files)
   }
 
-  const handleOpen = async (doc: StoreCompanyDocument) => {
-    try {
-      window.open(await signedUrl(doc.storage_path), '_blank', 'noopener')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    }
+  const handleOpen = (doc: StoreCompanyDocument) => {
+    setViewing({ path: doc.storage_path, title: doc.title, filename: doc.title })
   }
 
   const handleDelete = async (doc: StoreCompanyDocument) => {
@@ -478,7 +475,7 @@ export function CompanyPage() {
               >
                 <button
                   type="button"
-                  onClick={() => void handleOpen(doc)}
+                  onClick={() => handleOpen(doc)}
                   className="flex min-w-0 items-center gap-2 text-stone-200 hover:underline"
                 >
                   <DocumentIcon className="h-4 w-4 shrink-0 text-stone-500" />
@@ -500,6 +497,8 @@ export function CompanyPage() {
 
         <SkuPrefixesSection />
       </div>
+
+      {viewing && <FileViewer file={viewing} onClose={() => setViewing(null)} />}
     </div>
   )
 }

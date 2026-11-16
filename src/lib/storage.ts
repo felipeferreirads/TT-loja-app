@@ -18,6 +18,13 @@ export async function signedUrl(path: string, expiresInSeconds = 3600): Promise<
   return data.signedUrl
 }
 
+/** URL assinada que força o download (Content-Disposition: attachment) com o nome dado. */
+export async function signedDownloadUrl(path: string, filename: string, expiresInSeconds = 3600): Promise<string> {
+  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, expiresInSeconds, { download: filename })
+  if (error) throw error
+  return data.signedUrl
+}
+
 /** Assina vários caminhos de uma vez — a grade de produtos precisa de dezenas
  *  de URLs por carregamento e uma chamada por arquivo seria desperdício. */
 export async function signedUrls(paths: string[], expiresInSeconds = 3600): Promise<Record<string, string>> {

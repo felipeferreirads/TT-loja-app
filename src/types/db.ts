@@ -493,6 +493,29 @@ export interface DocumentPayment {
   updated_at: string
 }
 
+/**
+ * Linha de produto da nota fiscal (0204) — quadro "Dados dos produtos" do
+ * DANFE. Substitui o item único `documents.item_*`. Preenchida à mão ou pelo XML.
+ */
+export interface DocumentItem {
+  id: string
+  owner_id: string
+  document_id: string
+  sort_order: number
+  /** Código do produto no fornecedor. */
+  product_code: string | null
+  description: string | null
+  ncm: string | null
+  cfop: string | null
+  /** Unidade comercial (KG, UN, G, CT...). */
+  unit: string | null
+  quantity: number | null
+  unit_price: number | null
+  total: number | null
+  created_at: string
+  updated_at: string
+}
+
 /** Vínculo N:N documento↔produto da loja (0038, espelho de `document_specimens`). */
 export interface DocumentStoreProduct {
   id: string

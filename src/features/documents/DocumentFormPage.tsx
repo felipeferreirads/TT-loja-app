@@ -38,6 +38,9 @@ import {
   fetchDocument,
   fetchDocumentFiles,
   fetchDocumentPayments,
+  fetchDocumentItems,
+  saveDocumentItems,
+  readDocumentXml,
   fetchProductsForDocument,
   filesOfPayment,
   legacyPaymentFields,
@@ -52,6 +55,8 @@ import {
   type DocumentInput,
 } from './api'
 import { PAYMENT_CURRENCIES, documentAmountsTotal, sumByCurrency } from './totals'
+import { DocumentItemsEditor, itemInputs, itemRowFilled, itemRowFrom, type ItemRow } from './DocumentItemsEditor'
+import { isNfeXml, nfeAmounts, parseNfeXml, type NfeData } from './nfeXml'
 
 /** Move o item `index` uma posição (antes/depois); devolve a mesma lista se não der. */
 function moveItem<T>(list: T[], index: number, delta: -1 | 1): T[] {
@@ -286,6 +291,9 @@ function DocumentForm() {
   const [pendingProductIds, setPendingProductIds] = useState<Set<string>>(new Set())
   const [picking, setPicking] = useState(false)
   const [payments, setPayments] = useState<PaymentRow[]>([])
+  // Linhas de produto da NF-e (0204) — gravadas no Salvar, como os comprovantes.
+  const [items, setItems] = useState<ItemRow[]>([])
+  const [xmlBusy, setXmlBusy] = useState(false)
   // Arquivos escolhidos para comprovantes AINDA NÃO gravados (chave = id da linha), enviados ao salvar.
   const [pendingPaymentFiles, setPendingPaymentFiles] = useState<Record<string, { file: File; caption: string }[]>>({})
   const [view, setView] = useState<'grid' | 'list'>('grid')
@@ -315,6 +323,14 @@ function DocumentForm() {
     queryFn: () => fetchDocumentPayments(id!),
     enabled: isEdit,
   })
+  const { data: savedItems } = useQuery({
+    queryKey: ['document-items', id],
+    queryFn: () => fetchDocumentItems(id!),
+    enabled: isEdit,
+  })
+  useEffect(() => {
+    if (savedItems) setItems(savedItems.map((i) => itemRowFrom(i)))
+  }, [savedItems])
   const { data: allProducts } = useProducts()
   const { data: coverUrls } = useCoverUrls()
   const { data: suppliers } = useQuery({ queryKey: ['suppliers'], queryFn: fetchSuppliers })
@@ -591,6 +607,84 @@ function DocumentForm() {
     }
   }
 
+  /**
+   * Preenche o documento com os dados da NF-e lida do XML: só campos VAZIOS
+   * (o que já foi digitado prevalece). As linhas de produto substituem as
+   * atuais depois de confirmar, se houver alguma preenchida.
+   */
+  const applyNfe = async (d: NfeData) => {
+    const patch: Partial<FormState> = { has_nfe: true }
+    let changed = !f.has_nfe
+    const fill = (key: 'nfe_number' | 'nfe_series' | 'nfe_key' | 'nfe_protocol' | 'issue_date' | 'document_date' | 'supplier_name' | 'supplier_tax_id' | 'recipient_tax_id' | 'general_notes', value: string | null) => {
+      if (value && !f[key].trim()) {
+        patch[key] = value
+        changed = true
+      }
+    }
+    const taxId = (v: string | null) => (v ? (v.length > 11 ? maskCnpjInput(v) : maskCpfCnpjInput(v)) : null)
+    fill('nfe_number', d.number)
+    fill('nfe_series', d.series)
+    fill('nfe_key', d.key)
+    fill('nfe_protocol', d.protocol)
+    fill('issue_date', d.issueDate)
+    fill('document_date', d.issueDate)
+    fill('supplier_name', d.issuerName)
+    fill('supplier_tax_id', taxId(d.issuerTaxId))
+    fill('recipient_tax_id', taxId(d.recipientTaxId))
+    fill('general_notes', d.additionalInfo)
+    if (!f.supplier_id && d.issuerTaxId) {
+      const match = (suppliers ?? []).find((s) => s.tax_id && s.tax_id.replace(/\D/g, '') === d.issuerTaxId)
+      if (match) patch.supplier_id = match.id
+    }
+    if (!f.goods_amount.trim() && !f.freight_amount.trim() && !f.fees_amount.trim()) {
+      const a = nfeAmounts(d)
+      if (a.goods != null || a.freight != null || a.fees != null) {
+        patch.goods_amount = a.goods?.toString() ?? ''
+        patch.freight_amount = a.freight?.toString() ?? ''
+        patch.fees_amount = a.fees?.toString() ?? ''
+        patch.amounts_currency = 'BRL'
+        changed = true
+      }
+    }
+    if (patch.supplier_id) changed = true
+    set(patch)
+    if (d.items.length > 0) {
+      const hasLines = items.some(itemRowFilled)
+      const count = d.items.length
+      if (!hasLines || (await confirm(count === 1 ? 'Substituir as linhas atuais pela linha do XML?' : `Substituir as linhas atuais pelas ${count} linhas do XML?`))) {
+        setItems(d.items.map((i) => itemRowFrom(i)))
+        changed = true
+      }
+    }
+    await alert(changed ? 'Dados do XML aplicados aos campos vazios.' : 'Os campos já estavam preenchidos. Nada foi alterado.')
+  }
+
+  /** XML escolhido no campo: guarda para enviar no Salvar e preenche o documento. */
+  const handleXmlSelected = async (file: File | null) => {
+    setXmlFile(file)
+    if (!file) return
+    try {
+      const text = await file.text()
+      if (!isNfeXml(text)) return
+      await applyNfe(parseNfeXml(text))
+    } catch (err) {
+      await alert(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  /** XML já salvo no documento: lê do armazenamento e preenche. */
+  const handleReadSavedXml = async () => {
+    if (!existing?.xml_url) return
+    setXmlBusy(true)
+    try {
+      await applyNfe(parseNfeXml(await readDocumentXml(existing.xml_url)))
+    } catch (err) {
+      await alert(err instanceof Error ? err.message : String(err))
+    } finally {
+      setXmlBusy(false)
+    }
+  }
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -657,6 +751,9 @@ function DocumentForm() {
       }
       // Comprovantes: só mexe na tabela com a seção ligada (desligar não apaga os registros).
       if (f.has_payment) await saveDocumentPayments(targetId!, paymentInputs)
+      // Linhas da nota: só com a seção NF-e ligada (desligar não apaga as linhas gravadas).
+      if (f.has_nfe) await saveDocumentItems(targetId!, itemInputs(items))
+      queryClient.invalidateQueries({ queryKey: ['document-items', targetId] })
       queryClient.invalidateQueries({ queryKey: ['document-payments', targetId] })
 
       // XML e arquivos sobem antes de sair da tela (até 3 em paralelo). O ano
@@ -838,6 +935,20 @@ function DocumentForm() {
 
       {f.has_nfe && (
         <Section title={'NF-e'} icon={<DocumentIcon />}>
+          <Field label={'Arquivo XML'}>
+            <input type="file" accept=".xml,text/xml,application/xml" onChange={(e) => void handleXmlSelected(e.target.files?.[0] ?? null)} className="input" />
+            <p className="mt-1 text-xs text-stone-500">{'Ao escolher o XML, os campos vazios do documento são preenchidos com os dados da nota.'}</p>
+            {existing?.xml_url && !xmlFile && (
+              <span className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                <a href={xmlUrl} target="_blank" rel="noreferrer" className="link text-xs">
+                  {'Ver XML atual'}
+                </a>
+                <button type="button" onClick={() => void handleReadSavedXml()} disabled={xmlBusy} className="link text-xs disabled:opacity-50">
+                  {'Preencher com os dados do XML salvo'}
+                </button>
+              </span>
+            )}
+          </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label={'Número'}>
               <input value={f.nfe_number} onChange={(e) => set({ nfe_number: e.target.value })} className="input" />
@@ -883,33 +994,30 @@ function DocumentForm() {
               />
             </Field>
           </div>
-          <Field label={'Descrição do item'}>
-            <input value={f.item_description} onChange={(e) => set({ item_description: e.target.value })} className="input" />
+          <DocumentItemsEditor rows={items} onChange={setItems} />
+          <Field label={'Valor atribuído à peça (R$)'}>
+            <input
+              inputMode="decimal"
+              value={f.item_allocated_value}
+              onChange={(e) => set({ item_allocated_value: e.target.value })}
+              className="input"
+            />
           </Field>
-          <div className="grid grid-cols-3 gap-3">
-            <Field label={'Quantidade'}>
-              <input inputMode="decimal" value={f.item_quantity} onChange={(e) => set({ item_quantity: e.target.value })} className="input" />
-            </Field>
-            <Field label={'Valor total da linha (R$)'}>
-              <input inputMode="decimal" value={f.item_line_total} onChange={(e) => set({ item_line_total: e.target.value })} className="input" />
-            </Field>
-            <Field label={'Valor atribuído à peça (R$)'}>
-              <input
-                inputMode="decimal"
-                value={f.item_allocated_value}
-                onChange={(e) => set({ item_allocated_value: e.target.value })}
-                className="input"
-              />
-            </Field>
-          </div>
-          <Field label={'Arquivo XML'}>
-            <input type="file" accept=".xml,text/xml" onChange={(e) => setXmlFile(e.target.files?.[0] ?? null)} className="input" />
-            {existing?.xml_url && !xmlFile && (
-              <a href={xmlUrl} target="_blank" rel="noreferrer" className="link mt-1 block text-xs">
-                {'Ver XML atual'}
-              </a>
-            )}
-          </Field>
+          <SectionFileGallery
+            section="nfe"
+            label={'PDF da nota fiscal (DANFE) ou imagem'}
+            isEdit={isEdit}
+            existingFiles={(documentFiles ?? []).filter((f2) => f2.section === 'nfe')}
+            onExistingMove={(i, delta) => handleMoveExisting('nfe', i, delta)}
+            onPendingMove={(i, delta) => handleMovePending('nfe', i, delta)}
+            pendingFiles={pendingFiles.nfe}
+            uploadingFiles={uploadingOf('nfe')}
+            onFilesSelected={(files) => handleFilesSelected(files, 'nfe')}
+            onPendingCaption={(i, c) => handlePendingCaption('nfe', i, c)}
+            onPendingRemove={(i) => handleRemovePendingFile('nfe', i)}
+            onExistingCaption={handleExistingCaption}
+            onExistingRemove={handleRemoveExistingFile}
+          />
         </Section>
       )}
 

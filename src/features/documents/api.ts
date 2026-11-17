@@ -15,6 +15,7 @@ import type {
   DocumentFile,
   DocumentFileKind,
   DocumentFileSection,
+  DocumentItem,
   DocumentPayment,
   DocumentSection,
   StoreProduct,
@@ -133,6 +134,13 @@ export async function uploadDocumentXml(ownerId: string, year: number, documentI
   await uploadFile(path, file, BUCKET)
   const { error } = await supabase.from('documents').update({ xml_url: path }).eq('id', documentId)
   if (error) throw new Error(`Falha ao registrar XML: ${error.message}`)
+}
+
+/** Texto do XML da NF-e já salvo no bucket "documents". */
+export async function readDocumentXml(path: string): Promise<string> {
+  const { data, error } = await supabase.storage.from(BUCKET).download(path)
+  if (error || !data) throw new Error(`Falha ao ler o XML: ${error?.message ?? ''}`)
+  return data.text()
 }
 
 /**
@@ -271,6 +279,44 @@ export function legacyPaymentFields(
     payment_date: first.payment_date,
     payment_amount: first.currency === 'BRL' ? first.amount : null,
     payment_method: first.method,
+  }
+}
+
+// ------------------------------------------------------------------
+// document_items (0204 do catálogo) — linhas de produto da nota fiscal.
+// ------------------------------------------------------------------
+
+export async function fetchDocumentItems(documentId: string): Promise<DocumentItem[]> {
+  const { data, error } = await supabase
+    .from('document_items')
+    .select('*')
+    .eq('document_id', documentId)
+    .order('sort_order')
+    .order('created_at')
+  if (error) throw new Error(`Falha ao carregar as linhas da nota: ${error.message}`)
+  return data
+}
+
+export type DocumentItemInput = Pick<
+  DocumentItem,
+  'id' | 'product_code' | 'description' | 'ncm' | 'cfop' | 'unit' | 'quantity' | 'unit_price' | 'total'
+>
+
+/** Grava a lista completa de linhas (posição = `sort_order`). */
+export async function saveDocumentItems(documentId: string, rows: DocumentItemInput[]): Promise<void> {
+  const { data: current, error: readError } = await supabase.from('document_items').select('id').eq('document_id', documentId)
+  if (readError) throw new Error(`Falha ao salvar as linhas da nota: ${readError.message}`)
+  const keep = new Set(rows.map((r) => r.id))
+  const removed = (current ?? []).map((r) => r.id as string).filter((id) => !keep.has(id))
+  if (removed.length > 0) {
+    const { error } = await supabase.from('document_items').delete().in('id', removed)
+    if (error) throw new Error(`Falha ao salvar as linhas da nota: ${error.message}`)
+  }
+  if (rows.length > 0) {
+    const { error } = await supabase
+      .from('document_items')
+      .upsert(rows.map((r, i) => ({ ...r, document_id: documentId, sort_order: i })), { onConflict: 'id' })
+    if (error) throw new Error(`Falha ao salvar as linhas da nota: ${error.message}`)
   }
 }
 

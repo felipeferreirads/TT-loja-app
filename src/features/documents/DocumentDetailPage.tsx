@@ -32,6 +32,7 @@ import {
   fetchDocument,
   fetchDocumentFiles,
   fetchDocumentPayments,
+  fetchDocumentItems,
   fetchProductsForDocument,
   filesOfPayment,
   linkProductsToDocument,
@@ -43,6 +44,7 @@ import { fetchSuppliers } from '../suppliers/api'
 import { fetchSales } from '../sales/api'
 import { PickProductsDialog } from './PickProductsDialog'
 import { useDocumentFileUrl } from './useDocumentFileUrl'
+import { DocumentItemsTable, itemsSum as nfeItemsTotal } from './DocumentItemsEditor'
 
 export function DocumentDetailPage() {
   return (
@@ -84,6 +86,11 @@ function DocumentDetail() {
     enabled: !!id,
   })
 
+  const { data: nfeItems } = useQuery({
+    queryKey: ['document-items', id],
+    queryFn: () => fetchDocumentItems(id!),
+    enabled: !!id,
+  })
   const { data: xmlUrl } = useDocumentFileUrl(d?.xml_url)
 
   const paymentTotals = useMemo(() => sumByCurrency(payments ?? []), [payments])
@@ -107,7 +114,7 @@ function DocumentDetail() {
     if (value != null && reference != null) checks.push({ label, value, reference, referenceLabel })
   }
   if (d.has_nfe && cur === 'BRL')
-    addCheck('Valor na nota fiscal', d.item_line_total, d.goods_amount, 'Valor dos produtos')
+    addCheck('Total das linhas da nota', nfeItemsTotal(nfeItems ?? []), d.goods_amount, 'Valor dos produtos')
   if (d.has_import && cur === 'USD')
     addCheck('Valor declarado na importação', d.goods_usd, d.goods_amount, 'Valor dos produtos')
   if (d.has_payment)
@@ -225,23 +232,19 @@ function DocumentDetail() {
               ['Protocolo de autorização', d.nfe_protocol],
               ['CNPJ do fornecedor', d.supplier_tax_id],
               ['CPF/CNPJ destinatário', d.recipient_tax_id],
-              ['Descrição do item', d.item_description],
-              ['Quantidade', d.item_quantity != null ? String(d.item_quantity) : null],
-              [
-                'Valor total da linha',
-                d.item_line_total != null ? money(d.item_line_total, 'BRL') : null,
-              ],
               [
                 'Valor atribuído à peça',
                 d.item_allocated_value != null ? money(d.item_allocated_value, 'BRL') : null,
               ],
             ]}
           />
+          <DocumentItemsTable items={nfeItems ?? []} money={(v) => money(v, 'BRL')} />
           {d.xml_url && (
             <a href={xmlUrl} target="_blank" rel="noreferrer" className="link mt-2 block text-sm">
               {'Ver XML atual'}
             </a>
           )}
+          <DocumentFileGrid files={(files ?? []).filter((f) => f.section === 'nfe')} />
         </section>
       )}
 

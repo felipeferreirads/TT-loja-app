@@ -1,58 +1,54 @@
-import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { DOCUMENT_KIND_LABELS, type StoreDocument } from '../../../types/db'
-import { fetchDocumentsForProduct, unlinkProductFromDocument } from '../../documents/api'
-import { DocumentIcon, UnlinkIcon } from '../../../components/icons'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { formatDate } from '../../../lib/format'
+import { documentDate, documentTitle, fetchDocumentsForProduct, unlinkProductFromDocument } from '../../documents/api'
+import { useConfirm } from '../../../components/DialogProvider'
+import { DocumentIcon, PlusIcon, UnlinkIcon } from '../../../components/icons'
 import { Section } from './Field'
 
 /**
- * Documentos que cobrem este produto (nota de compra, certificado…). O vínculo
- * é criado do lado do documento (`/documentos/:id`); aqui é só a visão inversa
- * e o desvincular — mesma divisão do `LinkedDocuments` do catálogo pessoal.
+ * Documentos que cobrem este produto (nota de compra, comprovantes…) — mesma
+ * divisão do `LinkedDocuments` do catálogo pessoal: o vínculo é feito na
+ * página do documento; aqui fica a visão inversa e o desvincular.
  */
 export function LinkedDocuments({ productId }: { productId: string }) {
-  const [documents, setDocuments] = useState<StoreDocument[]>([])
-
-  const load = () => {
-    fetchDocumentsForProduct(productId).then(setDocuments).catch(() => {})
-  }
-
-  useEffect(load, [productId])
+  const confirm = useConfirm()
+  const queryClient = useQueryClient()
+  const { data: documents = [] } = useQuery({
+    queryKey: ['product-documents', productId],
+    queryFn: () => fetchDocumentsForProduct(productId),
+  })
 
   const handleUnlink = async (documentId: string) => {
+    if (!(await confirm('Desvincular este documento do produto?', { danger: true }))) return
     await unlinkProductFromDocument(documentId, productId)
-    load()
+    queryClient.invalidateQueries({ queryKey: ['product-documents', productId] })
+    queryClient.invalidateQueries({ queryKey: ['document-products', documentId] })
   }
 
   return (
     <Section title="Documentos" icon={<DocumentIcon />}>
       {documents.length === 0 && (
-        <p className="text-sm text-stone-400">
-          Nenhum documento vinculado. O vínculo é feito na ficha do{' '}
-          <Link to="/documentos" className="text-amber-500 hover:underline">
-            documento
-          </Link>
-          .
-        </p>
+        <p className="text-sm text-stone-400">Nenhum documento vinculado. O vínculo é feito na página do documento.</p>
       )}
       <ul className="divide-y divide-stone-800">
         {documents.map((d) => (
           <li key={d.id} className="flex items-center gap-2 py-2">
             <Link to={`/documentos/${d.id}`} className="min-w-0 flex-1">
-              <span className="block truncate text-sm text-stone-100">{d.title}</span>
-              <span className="block truncate text-xs text-stone-500">{DOCUMENT_KIND_LABELS[d.kind]}</span>
+              <span className="block truncate text-sm text-stone-100">{d.supplier_name || documentTitle(d)}</span>
+              <span className="block truncate text-xs text-stone-500">
+                {documentTitle(d)} · {formatDate(documentDate(d))}
+              </span>
             </Link>
-            <button
-              type="button"
-              aria-label="Desvincular"
-              onClick={() => void handleUnlink(d.id)}
-              className="tap-icon"
-            >
+            <button type="button" aria-label="Desvincular" title="Desvincular" onClick={() => void handleUnlink(d.id)} className="tap-icon">
               <UnlinkIcon />
             </button>
           </li>
         ))}
       </ul>
+      <Link to={`/documentos/novo?product=${productId}`} className="link inline-flex items-center gap-1 text-sm">
+        <PlusIcon /> Novo documento
+      </Link>
     </Section>
   )
 }

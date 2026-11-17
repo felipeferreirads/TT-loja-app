@@ -364,53 +364,171 @@ export interface StoreSkuPrefix {
 
 export type StoreSkuPrefixInput = Partial<Omit<StoreSkuPrefix, 'id' | 'owner_id' | 'created_at' | 'updated_at'>>
 
-export type StoreDocumentKind = 'tax_invoice' | 'receipt' | 'import' | 'other'
+// ------------------------------------------------------------
+// Documentos — tabela COMPARTILHADA com o catálogo pessoal (`documents`,
+// `document_files`, `document_payments`, `document_holders`, `carriers`).
+// Tipos copiados de `src/types/db.ts` do catálogo; a loja lista só
+// `in_store = true` (0203 do catálogo + 0038 daqui). Ver claude.md §2.
+// ------------------------------------------------------------
 
-export const DOCUMENT_KIND_LABELS: Record<StoreDocumentKind, string> = {
-  tax_invoice: 'Nota fiscal',
-  receipt: 'Recibo',
-  import: 'Importação',
-  other: 'Outro',
-}
+/** Seção de documento (0158) — cada uma é independente/opcional, não um modo exclusivo. */
+export type DocumentSection = 'nfe' | 'import' | 'payment' | 'shipping'
+export type CustomsDeclarationType = 'DIR' | 'DI' | 'DSI' | 'DUIMP'
 
-export interface StoreDocument {
+/** Titular do documento (pool global reutilizável, tabela `document_holders`, snapshotado em documents.holder_*). */
+export interface DocumentHolder {
   id: string
   owner_id: string
-  kind: StoreDocumentKind
-  title: string
-  doc_date: string | null
-  supplier_id: string | null
-  supplier_name: string | null
-  number: string | null
-  series: string | null
-  access_key: string | null
-  /** Soma de produtos + frete + impostos/taxas quando alguma parte existe (0037); senão, valor digitado à mão. */
-  total_amount: number | null
-  goods_amount: number | null
-  freight_amount: number | null
-  /** Impostos e taxas. */
-  fees_amount: number | null
-  notes: string | null
-  /** Venda vinculada (0024) — nota fiscal de SAÍDA. `supplier_id` acima é pra
-   *  nota de compra; os dois campos são independentes, um documento normalmente
-   *  usa só um dos dois conforme o sentido (compra vs. venda). */
-  sale_id: string | null
+  name: string
+  tax_id: string | null
   created_at: string
   updated_at: string
 }
 
-export type StoreDocumentInput = Partial<Omit<StoreDocument, 'id' | 'owner_id' | 'created_at' | 'updated_at'>> &
-  Pick<StoreDocument, 'title'>
+export interface Document {
+  id: string
+  owner_id: string
+  year: number | null
+  holder_name: string | null
+  holder_tax_id: string | null
+  /** Snapshot do nome como consta na nota; o cadastro vivo é `supplier_id` (0151). */
+  supplier_name: string | null
+  supplier_id: string | null
+  supplier_storefront_id: string | null
+  issue_date: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
 
-export interface StoreDocumentFile {
+  // NF-e
+  nfe_number: string | null
+  nfe_series: string | null
+  nfe_key: string | null
+  nfe_protocol: string | null
+  supplier_tax_id: string | null
+  recipient_tax_id: string | null
+  item_description: string | null
+  item_quantity: number | null
+  item_line_total: number | null
+  item_allocated_value: number | null
+  xml_url: string | null
+
+  // Importação
+  invoice_number: string | null
+  awb: string | null
+  purchase_country: string | null
+  shipped_date: string | null
+  arrival_date: string | null
+  customs_type: CustomsDeclarationType | null
+  customs_number: string | null
+  carrier: string | null
+  declared_contents: string | null
+  shipment_weight_kg: number | null
+  /** Sempre em US$. */
+  goods_usd: number | null
+  /** Sempre em US$. */
+  freight_usd: number | null
+  /** Taxa de câmbio (BRL por US$) usada no cálculo do custo total. */
+  exchange_rate: number | null
+  taxes_brl: number | null
+  import_cost_brl: number | null
+
+  /** Data geral do documento (data da compra, 0176) — a mostrada na pílula da ficha do espécime. */
+  document_date: string | null
+
+  /** Valores reais da compra (0201), independentes das seções; o total é a soma, calculada no app (`documentAmountsTotal`). */
+  goods_amount: number | null
+  freight_amount: number | null
+  /** Impostos e taxas. */
+  fees_amount: number | null
+  /** Moeda única dos três valores acima (ISO 4217); 'BRL' por padrão. */
+  amounts_currency: string
+
+  // Seções independentes (0158, renomeadas na 0177) — fonte de verdade da UI, ver DocumentSection acima.
+  has_nfe: boolean
+  has_import: boolean
+  has_payment: boolean
+  has_shipping: boolean
+
+  // Comprovante de pagamento
+  payment_date: string | null
+  payment_amount: number | null
+  payment_method: string | null
+
+  // Comprovante de Envio interno (transporte doméstico, distinto do AWB internacional de Importação)
+  shipping_carrier: string | null
+  shipping_tracking: string | null
+  shipping_sent_date: string | null
+  shipping_delivered_date: string | null
+
+  /** Observações dos dados gerais (0203) — informações adicionais do documento. `notes` fica junto dos arquivos. */
+  general_notes: string | null
+
+  /** Tabela compartilhada com o App Loja (0203): o catálogo lista só `in_collection`, a loja só `in_store`. */
+  in_collection: boolean
+  in_store: boolean
+
+  /** Nota fiscal de SAÍDA: venda da loja (0038). Compra usa `supplier_id`. */
+  store_sale_id: string | null
+
+  /** Soft delete (tombstone) — null = vivo. Ver 0029. */
+  deleted_at: string | null
+}
+
+/**
+ * Comprovante de pagamento de um documento (0199) — vários por documento, cada
+ * um com moeda própria. As fotos/PDFs ficam na galeria da seção 'payment'.
+ */
+export interface DocumentPayment {
   id: string
   owner_id: string
   document_id: string
-  storage_path: string
-  file_name: string | null
-  caption: string | null
+  payment_date: string | null
+  amount: number | null
+  /** ISO 4217 em maiúsculas; 'BRL' por padrão. */
+  currency: string
+  method: string | null
   sort_order: number
   created_at: string
+  updated_at: string
+}
+
+/** Vínculo N:N documento↔produto da loja (0038, espelho de `document_specimens`). */
+export interface DocumentStoreProduct {
+  id: string
+  owner_id: string
+  document_id: string
+  product_id: string
+  created_at: string
+}
+
+export type DocumentFileKind = 'pdf' | 'image'
+/** 'general' = galeria comum (comportamento pré-0158); as demais filtram a mini-galeria de cada seção. */
+export type DocumentFileSection = 'general' | DocumentSection
+
+/** Um arquivo (PDF ou imagem) anexado ao documento, com legenda opcional. */
+export interface DocumentFile {
+  id: string
+  owner_id: string
+  document_id: string
+  kind: DocumentFileKind
+  storage_path: string
+  caption: string | null
+  sort_order: number
+  /** Seção a que pertence (0158) — default 'geral' pros arquivos anteriores à migration. */
+  section: DocumentFileSection
+  /** Comprovante (document_payments) dono do arquivo, só em section 'payment' (0200); nulo = sem comprovante definido. */
+  payment_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Carrier {
+  id: string
+  owner_id: string
+  name: string
+  created_at: string
+  updated_at: string
 }
 
 /** Certificado de autenticidade do produto (laudo de laboratório) — na ficha

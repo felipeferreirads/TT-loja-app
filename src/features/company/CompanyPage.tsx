@@ -141,15 +141,37 @@ function FieldGroup({
   )
 }
 
-function FieldGroupReadOnly({ title, fields, form }: { title: string; fields: Field[]; form: StoreCompanyInput }) {
+const hasValue = (v: unknown) => typeof v === 'string' ? v.trim() !== '' : v != null
+
+/** Modo de leitura: só os campos preenchidos; o grupo some se nenhum tiver valor. */
+function FieldGroupReadOnly({
+  title,
+  fields,
+  form,
+  extra = [],
+}: {
+  title: string
+  fields: Field[]
+  form: StoreCompanyInput
+  extra?: { label: string; value: string }[]
+}) {
+  const filled = fields.filter((f) => hasValue(form[f.key]))
+  const extras = extra.filter((e) => hasValue(e.value))
+  if (filled.length === 0 && extras.length === 0) return null
   return (
     <div>
       <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">{title}</h3>
       <dl className="grid grid-cols-2 gap-3">
-        {fields.map((f) => (
+        {filled.map((f) => (
           <div key={f.key} className={`${f.wide ? 'col-span-2' : ''} min-w-0`}>
             <dt className="text-sm text-stone-400">{f.label}</dt>
-            <dd className="mt-0.5 text-sm break-words text-stone-100">{(form[f.key] as string) || '—'}</dd>
+            <dd className="mt-0.5 text-sm break-words text-stone-100">{form[f.key] as string}</dd>
+          </div>
+        ))}
+        {extras.map((e) => (
+          <div key={e.label} className="min-w-0">
+            <dt className="text-sm text-stone-400">{e.label}</dt>
+            <dd className="mt-0.5 text-sm break-words text-stone-100">{e.value}</dd>
           </div>
         ))}
       </dl>
@@ -348,6 +370,12 @@ export function CompanyPage() {
               <FieldGroupReadOnly title="Identificação" fields={IDENTITY_FIELDS} form={form} />
               <FieldGroupReadOnly title="Contato" fields={CONTACT_FIELDS} form={form} />
               <FieldGroupReadOnly title="Endereço" fields={ADDRESS_FIELDS} form={form} />
+              {![...IDENTITY_FIELDS, ...CONTACT_FIELDS, ...ADDRESS_FIELDS].some((f) => hasValue(form[f.key])) &&
+                !hasValue(form.notes) && (
+                  <p className="rounded-lg border border-dashed border-stone-800 py-8 text-center text-sm text-stone-500">
+                    Nenhum dado cadastrado. Selecione "Editar" para preencher.
+                  </p>
+                )}
               {form.notes && form.notes.trim() && (
                 <div>
                   <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">Notas</h3>
@@ -425,22 +453,19 @@ export function CompanyPage() {
             </>
           ) : (
             <>
-              <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">Identificação</h3>
-                <dl className="grid grid-cols-2 gap-3">
-                  {PARTNER_IDENTITY_FIELDS.map((f) => (
-                    <div key={f.key} className={`${f.wide ? 'col-span-2' : ''} min-w-0`}>
-                      <dt className="text-sm text-stone-400">{f.label}</dt>
-                      <dd className="mt-0.5 text-sm break-words text-stone-100">{(form[f.key] as string) || '—'}</dd>
-                    </div>
-                  ))}
-                  <div className="min-w-0">
-                    <dt className="text-sm text-stone-400">Nascimento</dt>
-                    <dd className="mt-0.5 text-sm break-words text-stone-100">{formatDateBR(form.partner_birth_date) || '—'}</dd>
-                  </div>
-                </dl>
-              </div>
+              <FieldGroupReadOnly
+                title="Identificação"
+                fields={PARTNER_IDENTITY_FIELDS}
+                form={form}
+                extra={[{ label: 'Nascimento', value: formatDateBR(form.partner_birth_date) }]}
+              />
               <FieldGroupReadOnly title="Endereço" fields={PARTNER_ADDRESS_FIELDS} form={form} />
+              {![...PARTNER_IDENTITY_FIELDS, ...PARTNER_ADDRESS_FIELDS].some((f) => hasValue(form[f.key])) &&
+                !hasValue(form.partner_birth_date) && (
+                  <p className="rounded-lg border border-dashed border-stone-800 py-8 text-center text-sm text-stone-500">
+                    Nenhum dado cadastrado. Selecione "Editar" para preencher.
+                  </p>
+                )}
             </>
           )}
         </section>

@@ -1,20 +1,24 @@
 import { supabase } from '../../lib/supabase'
 import type { StoreStockEntry } from '../../types/db'
 import { markProductsChanged } from './productsCache'
+import { DOCUMENT_SUMMARY_SELECT, toDocumentRefs, type DocumentRef, type DocumentSummary } from '../documents/api'
 
 export interface StockEntryWithRefs extends StoreStockEntry {
   supplier: { name: string } | null
-  document: { id: string; title: string; number: string | null } | null
+  document: DocumentRef | null
 }
 
 export async function fetchStockEntries(productId: string): Promise<StockEntryWithRefs[]> {
   const { data, error } = await supabase
     .from('store_stock_entries')
-    .select('*, supplier:suppliers(name), document:store_documents(id, title, number)')
+    .select(`*, supplier:suppliers(name), document:documents(${DOCUMENT_SUMMARY_SELECT})`)
     .eq('product_id', productId)
     .order('entry_date', { ascending: false })
   if (error) throw new Error(`Falha ao carregar entradas de estoque: ${error.message}`)
-  return data as unknown as StockEntryWithRefs[]
+  return (data as unknown as (Omit<StockEntryWithRefs, 'document'> & { document: DocumentSummary | null })[]).map((e) => ({
+    ...e,
+    document: toDocumentRefs(e.document)[0] ?? null,
+  }))
 }
 
 export interface CreateStockEntryInput {
@@ -50,17 +54,17 @@ interface SaleItemWithSale {
     id: string
     sale_date: string
     customer: { name: string } | null
-    // Nota fiscal de saída vinculada à venda (0024) — join reverso pela FK
-    // store_documents.sale_id; array porque PostgREST não sabe de antemão
-    // que é no máximo uma (a UNIQUE fica a cargo do app, não do schema).
-    documents: { id: string; title: string; number: string | null }[]
+    // Nota fiscal de saída vinculada à venda — join reverso pela FK
+    // documents.store_sale_id (0038); array porque PostgREST não sabe de
+    // antemão que é no máximo uma.
+    documents: DocumentSummary[]
   } | null
 }
 
 async function fetchSaleItemsForProduct(productId: string): Promise<SaleItemWithSale[]> {
   const { data, error } = await supabase
     .from('store_sale_items')
-    .select('id, quantity, unit_price, sale:store_sales(id, sale_date, customer:suppliers!store_sales_customer_id_fkey(name), documents:store_documents(id, title, number))')
+    .select(`id, quantity, unit_price, sale:store_sales(id, sale_date, customer:suppliers!store_sales_customer_id_fkey(name), documents:documents(${DOCUMENT_SUMMARY_SELECT}))`)
     .eq('product_id', productId)
   if (error) throw new Error(`Falha ao carregar vendas do produto: ${error.message}`)
   return data as unknown as SaleItemWithSale[]
@@ -98,7 +102,7 @@ export async function fetchStockHistory(productId: string): Promise<StockHistory
     .filter((s) => s.sale)
     .map((s) => {
       const sale = s.sale!
-      const doc = sale.documents[0]
+      const doc = toDocumentRefs(sale.documents)[0]
       return {
         id: s.id,
         kind: 'out' as const,

@@ -1,5 +1,5 @@
-export function formatMoney(value: number | null | undefined): string {
-  return (value ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+export function formatMoney(value: number | null | undefined, currency = 'BRL'): string {
+  return (value ?? 0).toLocaleString('pt-BR', { style: 'currency', currency })
 }
 
 /** Data (sem hora) — aceita `YYYY-MM-DD` puro (coluna `date` do banco) tratando

@@ -2,6 +2,7 @@ import { supabase } from '../../lib/supabase'
 import type { StoreCustomer, StorePaymentMethod, StoreSale, StoreSupplier } from '../../types/db'
 import { supplierToCustomer } from '../customers/api'
 import { markProductsChanged } from '../products/productsCache'
+import { DOCUMENT_SUMMARY_SELECT, toDocumentRefs, type DocumentRef, type DocumentSummary } from '../documents/api'
 
 export interface SaleItemInput {
   product_id: string
@@ -25,18 +26,21 @@ export interface CreateSaleInput {
 
 export interface SaleWithCustomer extends StoreSale {
   customer: { name: string } | null
-  /** Nota fiscal de saída vinculada (0024) — array pelo join reverso via
-   *  `store_documents.sale_id`, mas na prática no máximo uma por venda. */
-  documents: { id: string; title: string; number: string | null }[]
+  /** Nota fiscal de saída vinculada — array pelo join reverso via
+   *  `documents.store_sale_id` (0038), na prática no máximo uma por venda. */
+  documents: DocumentRef[]
 }
 
 export async function fetchSales(): Promise<SaleWithCustomer[]> {
   const { data, error } = await supabase
     .from('store_sales')
-    .select('*, customer:suppliers!store_sales_customer_id_fkey(name), documents:store_documents(id, title, number)')
+    .select(`*, customer:suppliers!store_sales_customer_id_fkey(name), documents:documents(${DOCUMENT_SUMMARY_SELECT})`)
     .order('sale_date', { ascending: false })
   if (error) throw error
-  return data as unknown as SaleWithCustomer[]
+  return (data as unknown as (Omit<SaleWithCustomer, 'documents'> & { documents: DocumentSummary[] })[]).map((s) => ({
+    ...s,
+    documents: toDocumentRefs(s.documents),
+  }))
 }
 
 // Insere venda + itens + baixa de estoque numa única transação no banco

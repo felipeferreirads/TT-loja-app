@@ -7,20 +7,29 @@ import { supabase } from './supabase'
  */
 const BUCKET = 'store'
 
-export async function uploadFile(path: string, file: File): Promise<void> {
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: false })
+/** Bucket "documents" do catálogo pessoal — arquivos de Documentos (tabela
+ *  compartilhada `documents`, 0038). Mesma convenção `{owner_id}/...`. */
+export type StorageBucket = 'store' | 'documents'
+
+export async function uploadFile(path: string, file: File, bucket: StorageBucket = BUCKET): Promise<void> {
+  const { error } = await supabase.storage.from(bucket).upload(path, file, { upsert: false, contentType: file.type || undefined })
   if (error) throw error
 }
 
-export async function signedUrl(path: string, expiresInSeconds = 3600): Promise<string> {
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, expiresInSeconds)
+export async function signedUrl(path: string, expiresInSeconds = 3600, bucket: StorageBucket = BUCKET): Promise<string> {
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresInSeconds)
   if (error) throw error
   return data.signedUrl
 }
 
 /** URL assinada que força o download (Content-Disposition: attachment) com o nome dado. */
-export async function signedDownloadUrl(path: string, filename: string, expiresInSeconds = 3600): Promise<string> {
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, expiresInSeconds, { download: filename })
+export async function signedDownloadUrl(
+  path: string,
+  filename: string,
+  expiresInSeconds = 3600,
+  bucket: StorageBucket = BUCKET,
+): Promise<string> {
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresInSeconds, { download: filename })
   if (error) throw error
   return data.signedUrl
 }
@@ -38,8 +47,8 @@ export async function signedUrls(paths: string[], expiresInSeconds = 3600): Prom
   return out
 }
 
-export async function removeFile(path: string): Promise<void> {
-  const { error } = await supabase.storage.from(BUCKET).remove([path])
+export async function removeFile(path: string, bucket: StorageBucket = BUCKET): Promise<void> {
+  const { error } = await supabase.storage.from(bucket).remove([path])
   if (error) throw error
 }
 

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import type { StoreDocument, StoreSupplier } from '../../types/db'
+import type { Document, StoreSupplier } from '../../types/db'
 import { fetchStockHistory, createStockEntry, type StockHistoryEvent } from './stockHistory'
 import { fetchSuppliers } from '../suppliers/api'
-import { fetchDocuments } from '../documents/api'
+import { documentTitle, fetchDocuments } from '../documents/api'
 import { SearchSelect } from '../../components/SearchSelect'
 import { ClockIcon, CloseIcon, PlusIcon } from '../../components/icons'
 import { Section } from './form/Field'
@@ -77,7 +77,7 @@ export function ProductStockHistorySection({ productId, onStockChanged }: { prod
 
 function StockEntryDialog({ productId, onClose, onDone }: { productId: string; onClose: () => void; onDone: () => void }) {
   const [suppliers, setSuppliers] = useState<StoreSupplier[]>([])
-  const [documents, setDocuments] = useState<StoreDocument[]>([])
+  const [documents, setDocuments] = useState<Document[]>([])
   const [quantity, setQuantity] = useState('1')
   const [unitCost, setUnitCost] = useState('')
   const [supplierId, setSupplierId] = useState('')
@@ -156,7 +156,7 @@ function StockEntryDialog({ productId, onClose, onDone }: { productId: string; o
         <label className="block">
           <span className="mb-1 block text-xs text-stone-400">Nota fiscal / documento (opcional)</span>
           <SearchSelect
-            items={documents.map((d) => ({ id: d.id, label: d.title, sublabel: d.number ?? undefined }))}
+            items={documents.map((d) => ({ id: d.id, label: d.supplier_name || documentTitle(d), sublabel: documentTitle(d) }))}
             value={documentId}
             onChange={setDocumentId}
             placeholder="Digite para buscar um documento…"

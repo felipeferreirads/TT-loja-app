@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase'
 import type { StorePaymentMethod } from '../../types/db'
+import { DOCUMENT_SUMMARY_SELECT, toDocumentRefs, type DocumentRef, type DocumentSummary } from '../documents/api'
 
 export interface CustomerPurchaseItem {
   product_name: string
@@ -15,7 +16,7 @@ export interface CustomerPurchase {
   paid: boolean
   due_date: string | null
   items: CustomerPurchaseItem[]
-  document: { id: string; title: string; number: string | null } | null
+  document: DocumentRef | null
 }
 
 interface SaleRow {
@@ -26,7 +27,7 @@ interface SaleRow {
   paid: boolean
   due_date: string | null
   items: { quantity: number; unit_price: number; product: { name: string } | null }[]
-  documents: { id: string; title: string; number: string | null }[]
+  documents: DocumentSummary[]
 }
 
 /** Histórico de compras de UM cliente — mesmos joins de `fetchSaleReceipt`
@@ -38,7 +39,7 @@ export async function fetchCustomerPurchases(customerId: string): Promise<Custom
   const { data, error } = await supabase
     .from('store_sales')
     .select(
-      'id, sale_date, total, payment_method, paid, due_date, items:store_sale_items(quantity, unit_price, product:store_products(name)), documents:store_documents(id, title, number)',
+      `id, sale_date, total, payment_method, paid, due_date, items:store_sale_items(quantity, unit_price, product:store_products(name)), documents:documents(${DOCUMENT_SUMMARY_SELECT})`,
     )
     .eq('customer_id', customerId)
     .order('sale_date', { ascending: false })
@@ -55,6 +56,6 @@ export async function fetchCustomerPurchases(customerId: string): Promise<Custom
       quantity: it.quantity,
       unit_price: it.unit_price,
     })),
-    document: row.documents[0] ?? null,
+    document: toDocumentRefs(row.documents)[0] ?? null,
   }))
 }

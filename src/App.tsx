@@ -14,8 +14,9 @@ import { CustomerPage } from './features/customers/CustomerPage'
 import { SalesPage } from './features/sales/SalesPage'
 import { PricingPage } from './features/pricing/PricingPage'
 import { CompanyPage } from './features/company/CompanyPage'
-import { DocumentsPage } from './features/documents/DocumentsPage'
-import { DocumentPage } from './features/documents/DocumentPage'
+import { DocumentsListPage } from './features/documents/DocumentsListPage'
+import { DocumentDetailPage } from './features/documents/DocumentDetailPage'
+import { DocumentFormPage } from './features/documents/DocumentFormPage'
 import { SuppliersPage } from './features/suppliers/SuppliersPage'
 import { CashPage } from './features/cash/CashPage'
 import { StatsPage } from './features/stats/StatsPage'
@@ -39,8 +40,10 @@ export function App() {
                   <Route path="/clientes/:id" element={<CustomerPage />} />
                   <Route path="/vendas" element={<SalesPage />} />
                   <Route path="/fornecedores" element={<SuppliersPage />} />
-                  <Route path="/documentos" element={<DocumentsPage />} />
-                  <Route path="/documentos/:id" element={<DocumentPage />} />
+                  <Route path="/documentos" element={<DocumentsListPage />} />
+                  <Route path="/documentos/novo" element={<DocumentFormPage />} />
+                  <Route path="/documentos/:id" element={<DocumentDetailPage />} />
+                  <Route path="/documentos/:id/editar" element={<DocumentFormPage />} />
                   <Route path="/caixa" element={<CashPage />} />
                   <Route path="/estatisticas" element={<StatsPage />} />
                   <Route path="/precificacao" element={<PricingPage />} />

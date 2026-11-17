@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { getDocument, GlobalWorkerOptions, RenderingCancelledException, type PDFDocumentProxy } from 'pdfjs-dist'
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
-import { signedDownloadUrl, signedUrl } from '../lib/storage'
+import { signedDownloadUrl, signedUrl, type StorageBucket } from '../lib/storage'
 import { useAlert } from './DialogProvider'
 import { DownloadIcon } from './icons'
 
@@ -11,8 +11,10 @@ GlobalWorkerOptions.workerSrc = workerUrl
 const PDFJS_WASM_URL = `${import.meta.env.BASE_URL}pdfjs-wasm/`
 
 export interface ViewerFile {
-  /** Caminho no bucket "store". */
+  /** Caminho no bucket (padrão "store"). */
   path: string
+  /** "documents" para arquivos de Documentos (tabela compartilhada). */
+  bucket?: StorageBucket
   /** Título exibido na barra superior. */
   title?: string | null
   /** Nome sugerido ao baixar (a extensão do caminho é usada se faltar). */
@@ -43,7 +45,7 @@ export function FileViewer({ file, onClose }: { file: ViewerFile; onClose: () =>
 
   useEffect(() => {
     let cancelled = false
-    signedUrl(file.path).then(
+    signedUrl(file.path, 3600, file.bucket).then(
       (u) => !cancelled && setUrl(u),
       () => !cancelled && setError(true),
     )
@@ -61,7 +63,7 @@ export function FileViewer({ file, onClose }: { file: ViewerFile; onClose: () =>
   const download = async () => {
     try {
       const name = downloadName(file)
-      const href = await signedDownloadUrl(file.path, name)
+      const href = await signedDownloadUrl(file.path, name, 3600, file.bucket)
       const a = document.createElement('a')
       a.href = href
       a.download = name

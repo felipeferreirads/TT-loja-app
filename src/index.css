@@ -1,4 +1,9 @@
 @import 'tailwindcss';
+
+/* Só com mouse de verdade (ponteiro fino + hover) — mesmo do catálogo pessoal.
+   Botões revelados no hover usam `mouse:opacity-0 mouse:group-hover:opacity-100`:
+   em tablet e celular ficam sempre visíveis. Não usar `sm:` para isso. */
+@custom-variant mouse (@media (hover: hover) and (pointer: fine));
 @import './themes.css';
 
 /* Mesmo arquivo-base do catálogo pessoal (`src/index.css` de lá), enxugado do

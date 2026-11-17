@@ -71,7 +71,7 @@ comentário no topo do arquivo diz isso** ("Copiado do catálogo pessoal",
 | `src/features/products/form/*` | `src/features/specimens/SpecimenFormPage.tsx` + `formFields.ts` | Só as seções geológicas/taxonômicas (Identificação de espécie, Origem, Propriedades minerais, Taxonomia de fóssil, Meteorito). Categorias e código global **não foram portados** — não existem no domínio comercial. Sistema de lotes FOI portado à parte (ver linha abaixo e §9). Certificados de autenticidade FORAM portados (20/08/2026, `CertificatesSection.tsx`) — ver linha abaixo |
 | `src/features/products/certificates.ts` + `form/CertificatesSection.tsx` | `src/features/specimens/certificates.ts` + `SpecimenCertificates.tsx` | Copiado 20/08/2026 (movido de dentro de `store_documents` pra dentro da ficha do produto, igual o catálogo pessoal). Simplificado: sem gate de modo de edição (a ficha da loja é sempre editável, não tem "ficha somente-leitura" separada do formulário) e sem miniatura .webp de PDF/self-heal (poucos certificados esperados — decisão do dono, não replicar sem necessidade real). Arquivo fica no bucket "store" (Supabase Storage), pasta `certificates/{productId}/{certificateId}/…`, não R2 — mesma decisão de escopo pequeno |
 | `src/features/products/lots.ts` (+ `.test.ts`) | `src/features/specimens/lots.ts` | Lógica pura portada quase verbatim (20/08/2026) — só troca `is_sold` por `stock_quantity <= 0` (peça de lote na loja é um `store_products` completo com estoque próprio, não um campo `is_sold`). `LotItemsSection.tsx`/`SplitLotDialog.tsx` daqui são versões enxutas dos de lá (sem grid/seleção em massa/fluxo de foto em lote — ver §9) |
-| `src/features/documents/*` | `src/features/documents/*` | Modelo equivalente (`store_documents`/`store_document_files`/`store_document_products` em vez de `documents`/`document_files`/`document_specimens`), mas domínio próprio: vincula PRODUTOS, não espécimes. `StoreDocumentKind` NÃO tem `'certificado'` (removido 20/08/2026, migration `0025_product_certificates.sql`) — certificado vive só em `store_product_certificates`, na ficha do produto, nunca em Documentos |
+| `src/features/documents/*` | `src/features/documents/*` | **Tabela COMPARTILHADA** desde 17/11/2026 (catálogo `0203` + loja `0038`/`0039`): a loja usa `documents`/`document_files`/`document_payments`/`document_holders`/`carriers` do catálogo, lista só `in_store = true` e cria com `in_store`/`in_collection = false` (mesmo modelo de `suppliers`). Formulário (`DocumentFormPage`), ficha (`DocumentDetailPage`) e lista (`DocumentsListPage`) portados do catálogo, sem i18n/PIN/fila em segundo plano/exportar PDF. Vincula PRODUTOS (`document_store_products`); nota de venda = `documents.store_sale_id`. Excluir: documento também da Coleção só desliga `in_store`; senão exclui de vez com os arquivos (bucket `documents`). Certificado continua fora de Documentos (ficha do produto) |
 | `src/lib/qrCamera.ts`, `src/lib/youtube.ts` | idem | Cópia integral — zero dependências de domínio/i18n |
 | `src/features/products/qr.ts` | `src/features/specimens/datasheet/qr.ts` | Só a metade de LEITURA (`normalizeScannedValue`/`isUuidLike`/`resolveScannedValue`) — a loja não tem geração de folha de QR/código curto por tipo, então não existe a metade de escrita/geração |
 | `src/features/products/ScanPage.tsx` | `src/features/specimens/ScanPage.tsx` | Só o modo "abrir" (lê um código, navega pra ficha). O modo "lote" (acumular vários pra ação em massa) do catálogo pessoal ficou de fora — sem um fluxo de categorização em massa na loja que justifique o esforço; portar de lá se essa necessidade aparecer |
@@ -150,11 +150,12 @@ src/
                           desliga `in_store`. Ver docs/PLANO-FORNECEDORES.md do catálogo
     sales/                Vendas/PDV (venda + baixa de estoque via RPC
                           `create_store_sale`, transação atômica)
-    documents/             Documentos (nota fiscal/recibo/importação/outro —
-                          SEM certificado, que vive na ficha do produto, ver
-                          §2) com arquivos anexos, produtos vinculados e
-                          fornecedor (picker sobre `suppliers` (in_store), com
-                          "+cadastrar" — não é mais texto livre)
+    documents/             Documentos — tabela `documents` COMPARTILHADA com o
+                          catálogo (ver §2): seções NF-e/Importação/Pagamento/
+                          Envio, comprovantes, titular, transportadora,
+                          arquivos por seção, produtos vinculados, venda
+                          vinculada (`store_sale_id`). SEM certificado (ficha
+                          do produto)
     cash/                  Fluxo de caixa (`store_cash_entries`): lançamentos
                           manuais de entrada/saída + saldo
     stats/                  Estatísticas financeiras: ticket médio, produtos
@@ -400,8 +401,8 @@ tudo; é uma sequência de operações independentes, não uma RPC atômica como
 
 Migration 0017 (18/08/2026) — dono criou um bucket novo `store` no Cloudflare
 R2 e a loja passou a falar com R2 direto, deixando de usar Supabase Storage
-pra mídia de produto. Documentos/Empresa (`store_document_files`,
-`store_company_documents`) **continuam no Supabase Storage** (`lib/storage.ts`,
+pra mídia de produto. Documentos (bucket `documents` do catálogo, tabela compartilhada) e Empresa
+(`store_company_documents`, bucket `store`) **continuam no Supabase Storage** (`lib/storage.ts`,
 inalterado) — mesma fronteira que o catálogo pessoal já tem (`documents` é
 sempre Supabase Storage, dados financeiros + RLS nativa, nunca passa por R2).
 
@@ -466,8 +467,8 @@ do formulário continua editável pra correções manuais, mas não fica
 registrado em lugar nenhum. Vale pra QUALQUER produto, não só os
 comprados/vendidos com frequência.
 
-**Nota fiscal de venda** (`0024_document_sale_link.sql`) — `store_documents`
-ganhou `sale_id` opcional (sem enum novo: o mesmo `store_document_kind` de
+**Nota fiscal de venda** (`0024_document_sale_link.sql`; desde a 0038 é
+`documents.store_sale_id`, ver §2) — `store_documents` ganhou `sale_id` opcional (sem enum novo: o mesmo `store_document_kind` de
 sempre, tipicamente `'nota_fiscal'`, serve pros dois sentidos — `supplier_id`
 já existente é pra nota de COMPRA, `sale_id` é pra nota de SAÍDA, os dois
 campos são independentes). Vínculo feito em `DocumentPage.tsx` (campo "Venda

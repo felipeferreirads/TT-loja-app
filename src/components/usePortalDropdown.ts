@@ -74,7 +74,11 @@ export function usePortalDropdown(open: boolean, close: () => void, gap = 4): Po
     const top = openAbove
       ? Math.max(EDGE_MARGIN, rect.top - gap - menuHeight)
       : Math.min(rect.bottom + gap, Math.max(window.innerHeight - EDGE_MARGIN - menuHeight, EDGE_MARGIN))
-    return { top, left: rect.left, width: rect.width }
+    // O painel pode ser mais largo que o gatilho (cresce até o conteúdo, ver
+    // `minWidth` nos consumidores): empurra pra esquerda se passaria da borda.
+    const menuWidth = menuRef.current?.offsetWidth ?? 0
+    const left = Math.max(EDGE_MARGIN, Math.min(rect.left, window.innerWidth - EDGE_MARGIN - menuWidth))
+    return { top, left, width: rect.width }
   }
 
   // Reposiciona (coordenadas de viewport) ao abrir e durante o scroll — `true`

@@ -51,3 +51,9 @@ export function normalizeBrazilianPhone(raw: string): string {
   const splitAt = rest.length === 9 ? 5 : 4
   return `+55 (${ddd}) ${rest.slice(0, splitAt)}-${rest.slice(splitAt)}`
 }
+
+/** CPF ou CNPJ conforme a quantidade de dígitos (copiado de `brDocMask.ts` do catálogo). */
+export function maskCpfCnpjInput(raw: string): string {
+  const digits = raw.replace(/\D/g, '')
+  return digits.length > 11 ? maskCnpjInput(digits) : maskCpfInput(digits)
+}

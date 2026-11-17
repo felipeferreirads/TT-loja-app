@@ -6,6 +6,7 @@ import { formatMoney } from '../../lib/format'
 import type { DocumentItem } from '../../types/db'
 import type { DocumentItemInput } from './api'
 import type { NfeItem } from './nfeXml'
+import { TABLE_WRAP, TBODY_ROW, TD, TFOOT_ROW, TH, THEAD_ROW, UNIT_CHIP } from './documentTable'
 
 /** Linha da nota como o formulário a edita (texto nos campos numéricos). */
 export interface ItemRow {
@@ -31,6 +32,13 @@ export const newItemRow = (): ItemRow => ({
   unit_price: '',
   total: '',
 })
+
+/**
+ * Só os dígitos, cortados no tamanho máximo DEPOIS de limpar. Sem `maxLength`
+ * no campo: o navegador cortaria o texto colado antes da limpeza (ex.:
+ * "7103.10.00" virava "7103.10" → "710310").
+ */
+export const digitsOnly = (value: string, max: number) => value.replace(/\D/g, '').slice(0, max)
 
 const numStr = (n: number | null) => (n == null ? '' : n.toString())
 
@@ -124,8 +132,7 @@ export function DocumentItemsEditor({ rows, onChange }: { rows: ItemRow[]; onCha
                 <input
                   inputMode="numeric"
                   value={r.ncm}
-                  onChange={(e) => setRow(r.id, { ncm: e.target.value.replace(/\D/g, '') })}
-                  maxLength={8}
+                  onChange={(e) => setRow(r.id, { ncm: digitsOnly(e.target.value, 8) })}
                   className="input font-mono"
                 />
               </ItemField>
@@ -133,8 +140,7 @@ export function DocumentItemsEditor({ rows, onChange }: { rows: ItemRow[]; onCha
                 <input
                   inputMode="numeric"
                   value={r.cfop}
-                  onChange={(e) => setRow(r.id, { cfop: e.target.value.replace(/\D/g, '') })}
-                  maxLength={4}
+                  onChange={(e) => setRow(r.id, { cfop: digitsOnly(e.target.value, 4) })}
                   className="input font-mono"
                 />
               </ItemField>
@@ -146,8 +152,7 @@ export function DocumentItemsEditor({ rows, onChange }: { rows: ItemRow[]; onCha
               <ItemField label={'Unidade'}>
                 <input
                   value={r.unit}
-                  onChange={(e) => setRow(r.id, { unit: e.target.value.toUpperCase() })}
-                  maxLength={6}
+                  onChange={(e) => setRow(r.id, { unit: e.target.value.replace(/\s/g, '').toUpperCase().slice(0, 6) })}
                   placeholder="KG, UN, G…"
                   className="input"
                 />
@@ -196,50 +201,63 @@ function ItemField({ label, children }: { label: string; children: ReactNode }) 
   )
 }
 
-/** Tabela das linhas na página do documento (somente leitura). */
+/** Tabela das linhas na página do documento (somente leitura). Colunas sem nenhum dado são omitidas. */
 export function DocumentItemsTable({ items, money }: { items: DocumentItem[]; money: (value: number) => string }) {
   if (items.length === 0) return null
   const total = itemsSum(items)
   const qty = (n: number | null) => (n == null ? '—' : n.toLocaleString('pt-BR', { maximumFractionDigits: 4 }))
+  const showCode = items.some((i) => i.product_code)
+  // NCM e CFOP dividem uma coluna (um sobre o outro) para a tabela caber na página.
+  const showFiscal = items.some((i) => i.ncm || i.cfop)
+  // Colunas antes do total: descrição, unidade, quantidade, valor unitário e as opcionais.
+  const leadingCols = 4 + Number(showCode) + Number(showFiscal)
+  const mono = `${TD} font-mono text-xs text-stone-400`
   return (
-    <div className="mt-3">
-      <h3 className="mb-1 text-xs font-medium text-stone-400">{'Produtos da nota'}</h3>
-      <div className="overflow-x-auto rounded-lg bg-stone-900/60">
+    <div className="mt-4">
+      <h3 className="mb-2 text-xs font-medium text-stone-400">{'Produtos da nota'}</h3>
+      <div className={TABLE_WRAP}>
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-stone-800 text-left text-xs text-stone-500">
-              <th className="px-2 py-1.5 font-medium">{'Código'}</th>
-              <th className="px-2 py-1.5 font-medium">{'Descrição'}</th>
-              <th className="px-2 py-1.5 font-medium">{'NCM'}</th>
-              <th className="px-2 py-1.5 font-medium">{'CFOP'}</th>
-              <th className="px-2 py-1.5 font-medium">{'Unidade'}</th>
-              <th className="px-2 py-1.5 text-right font-medium">{'Quantidade'}</th>
-              <th className="px-2 py-1.5 text-right font-medium">{'Valor unitário'}</th>
-              <th className="px-2 py-1.5 text-right font-medium">{'Valor total'}</th>
+            <tr className={THEAD_ROW}>
+              {showCode && <th className={TH}>{'Código'}</th>}
+              <th className={TH}>{'Descrição'}</th>
+              {showFiscal && <th className={TH}>{'NCM'} / {'CFOP'}</th>}
+              <th className={TH}>{'Unidade'}</th>
+              <th className={`${TH} text-right`}>{'Quantidade'}</th>
+              <th className={`${TH} text-right`}>{'Valor unitário'}</th>
+              <th className={`${TH} text-right`}>{'Valor total'}</th>
             </tr>
           </thead>
           <tbody>
             {items.map((i) => (
-              <tr key={i.id} className="border-b border-stone-800 last:border-0">
-                <td className="px-2 py-1.5 font-mono text-xs text-stone-400">{i.product_code ?? '—'}</td>
-                <td className="px-2 py-1.5 text-stone-200">{i.description ?? '—'}</td>
-                <td className="px-2 py-1.5 font-mono text-xs text-stone-400">{i.ncm ?? '—'}</td>
-                <td className="px-2 py-1.5 font-mono text-xs text-stone-400">{i.cfop ?? '—'}</td>
-                <td className="px-2 py-1.5 text-stone-300">{i.unit ?? '—'}</td>
-                <td className="px-2 py-1.5 text-right text-stone-300 tabular-nums">{qty(i.quantity)}</td>
-                <td className="px-2 py-1.5 text-right text-stone-300 tabular-nums">{i.unit_price != null ? money(i.unit_price) : '—'}</td>
-                <td className="px-2 py-1.5 text-right text-stone-200 tabular-nums">{i.total != null ? money(i.total) : '—'}</td>
+              <tr key={i.id} className={TBODY_ROW}>
+                {showCode && <td className={mono}>{i.product_code ?? '—'}</td>}
+                <td className={`${TD} min-w-32 font-medium text-stone-100`}>{i.description ?? '—'}</td>
+                {showFiscal && (
+                  <td className={mono}>
+                    <span className="block text-stone-300">{i.ncm ?? '—'}</span>
+                    <span className="block">{i.cfop ?? '—'}</span>
+                  </td>
+                )}
+                <td className={TD}>{i.unit ? <span className={UNIT_CHIP}>{i.unit}</span> : <span className="text-stone-600">—</span>}</td>
+                <td className={`${TD} text-right text-stone-300 tabular-nums`}>{qty(i.quantity)}</td>
+                <td className={`${TD} text-right whitespace-nowrap text-stone-300 tabular-nums`}>{i.unit_price != null ? money(i.unit_price) : '—'}</td>
+                <td className={`${TD} text-right font-semibold whitespace-nowrap text-stone-100 tabular-nums`}>{i.total != null ? money(i.total) : '—'}</td>
               </tr>
             ))}
           </tbody>
+          {total != null && items.length > 1 && (
+            <tfoot>
+              <tr className={TFOOT_ROW}>
+                <td colSpan={leadingCols} className={`${TD} text-right text-xs font-medium text-stone-400`}>
+                  {'Total das linhas'}
+                </td>
+                <td className={`${TD} text-right font-semibold whitespace-nowrap text-amber-400 tabular-nums`}>{money(total)}</td>
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
-      {total != null && items.length > 1 && (
-        <p className="mt-1 text-right text-sm text-stone-300">
-          <span className="text-stone-400">{'Total das linhas'}:</span>{' '}
-          <span className="font-semibold text-amber-400">{money(total)}</span>
-        </p>
-      )}
     </div>
   )
 }

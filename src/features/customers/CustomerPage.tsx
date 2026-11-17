@@ -70,6 +70,7 @@ export function CustomerPage() {
       emails: emailEntriesFromRow(c),
       address: [line1, line2, line3].filter(Boolean),
       doc: c.tax_id ? `${docLabel}: ${c.tax_id}` : null,
+      stateRegistration: c.state_registration ? `Inscrição estadual: ${c.state_registration}` : null,
       website: safeWebHref(c.website),
     }
   }, [customer])
@@ -172,12 +173,13 @@ export function CustomerPage() {
           <div className="space-y-1">
             <h2 className="mb-1 font-medium text-stone-200">Documento e endereço</h2>
             {contact.doc && <p className="text-stone-300">{contact.doc}</p>}
+            {contact.stateRegistration && <p className="text-stone-300">{contact.stateRegistration}</p>}
             {contact.address.map((line) => (
               <p key={line} className="break-words text-stone-300">
                 {line}
               </p>
             ))}
-            {!contact.doc && contact.address.length === 0 && <p className="text-stone-500">Nenhum endereço informado.</p>}
+            {!contact.doc && !contact.stateRegistration && contact.address.length === 0 && <p className="text-stone-500">Nenhum endereço informado.</p>}
           </div>
           {customer.notes && (
             <p className="whitespace-pre-line text-stone-400 sm:col-span-2">{customer.notes}</p>

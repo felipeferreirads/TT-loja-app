@@ -619,6 +619,8 @@ export interface StoreSupplier {
   legal_name: string | null
   tax_id: string | null
   tax_id_type: 'cnpj' | 'cpf' | 'foreign' | null
+  /** Inscrição estadual (0205) — texto livre, pode ser "ISENTO". Só faz sentido no Brasil. */
+  state_registration: string | null
   /** E-mail principal; os demais ficam em `extra_emails` (0181 do catálogo). */
   email: string | null
   email_label: string | null

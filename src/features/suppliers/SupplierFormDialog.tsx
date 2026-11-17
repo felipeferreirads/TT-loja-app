@@ -18,7 +18,7 @@ interface Props {
 }
 
 const FIELDS = [
-  'legal_name', 'tax_id', 'website',
+  'legal_name', 'tax_id', 'state_registration', 'website',
   'address_zip', 'address_street', 'address_number', 'address_complement',
   'address_district', 'address_city', 'address_state', 'notes',
 ] as const
@@ -65,6 +65,7 @@ export function SupplierFormDialog({ supplier, onSave, onClose, role = 'supplier
         ...emailEntriesToColumns(emails),
         address_country: country || null,
         address_district: isBR ? clean.address_district : null,
+        state_registration: isBR ? clean.state_registration : null,
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -124,6 +125,12 @@ export function SupplierFormDialog({ supplier, onSave, onClose, role = 'supplier
               }
             />
           </label>
+          {isBR && (
+            <label className="block">
+              <span className="text-sm text-stone-300">Inscrição estadual (se tiver)</span>
+              <input {...field('state_registration')} />
+            </label>
+          )}
           <label className="block">
             <span className="text-sm text-stone-300">Site</span>
             {/* Texto livre (não type="url"): o navegador recusaria "site.com" sem

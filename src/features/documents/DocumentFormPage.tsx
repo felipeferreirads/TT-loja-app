@@ -55,7 +55,7 @@ import {
   type DocumentInput,
 } from './api'
 import { PAYMENT_CURRENCIES, documentAmountsTotal, sumByCurrency } from './totals'
-import { DocumentItemsEditor, itemInputs, itemRowFilled, itemRowFrom, type ItemRow } from './DocumentItemsEditor'
+import { DocumentItemsEditor, digitsOnly, itemInputs, itemRowFilled, itemRowFrom, type ItemRow } from './DocumentItemsEditor'
 import { isNfeXml, nfeAmounts, parseNfeXml, type NfeData } from './nfeXml'
 
 /** Move o item `index` uma posição (antes/depois); devolve a mesma lista se não der. */
@@ -966,8 +966,7 @@ function DocumentForm() {
           <Field label={'Chave de acesso (44 dígitos)'}>
             <input
               value={f.nfe_key}
-              onChange={(e) => set({ nfe_key: e.target.value.replace(/\D/g, '') })}
-              maxLength={44}
+              onChange={(e) => set({ nfe_key: digitsOnly(e.target.value, 44) })}
               className="input font-mono"
             />
           </Field>

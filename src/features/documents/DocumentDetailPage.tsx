@@ -2,7 +2,7 @@
 // — mesma ficha, mesmas seções. Diferenças da loja: produtos no lugar de
 // itens, venda vinculada, sem i18n, sem PIN, sem botão de ocultar valores e
 // sem exportar PDF (o PDF do catálogo depende da ficha do espécime).
-import { type ReactNode, useMemo, useState } from 'react'
+import { Fragment, type ReactNode, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { amountDifference, documentAmountsTotal, sumByCurrency, sumItemPrices } from './totals'
@@ -38,12 +38,13 @@ import {
   linkProductsToDocument,
   unlinkProductFromDocument,
 } from './api'
-import type { DocumentFile, StoreProduct } from '../../types/db'
+import type { DocumentFile, DocumentPayment, StoreProduct } from '../../types/db'
 import { useCoverUrls } from '../products/queries'
 import { fetchSuppliers } from '../suppliers/api'
 import { fetchSales } from '../sales/api'
 import { PickProductsDialog } from './PickProductsDialog'
 import { useDocumentFileUrl } from './useDocumentFileUrl'
+import { TABLE_WRAP, TBODY_ROW, TD, TFOOT_ROW, TH, THEAD_ROW } from './documentTable'
 import { DocumentItemsTable, itemsSum as nfeItemsTotal } from './DocumentItemsEditor'
 
 export function DocumentDetailPage() {
@@ -228,8 +229,8 @@ function DocumentDetail() {
               ['Número', d.nfe_number],
               ['Série', d.nfe_series],
               ['Data de emissão', d.issue_date ? formatDate(d.issue_date) : null],
-              ['Chave de acesso', d.nfe_key],
-              ['Protocolo de autorização', d.nfe_protocol],
+              ['Chave de acesso', d.nfe_key && <span className="font-mono text-xs break-all">{d.nfe_key}</span>, true],
+              ['Protocolo de autorização', d.nfe_protocol && <span className="font-mono">{d.nfe_protocol}</span>],
               ['CNPJ do fornecedor', d.supplier_tax_id],
               ['CPF/CNPJ destinatário', d.recipient_tax_id],
               [
@@ -305,32 +306,8 @@ function DocumentDetail() {
           <h2 className="section-title mb-2 flex items-center gap-1.5">
             <CurrencyCircleIcon className="h-3.5 w-3.5" /> {'Comprovante de pagamento'}
           </h2>
-          <div className="space-y-3">
-            {(payments ?? []).map((p, i) => (
-              <div key={p.id}>
-                {(payments?.length ?? 0) > 1 && (
-                  <p className="mb-1 text-xs font-medium text-stone-400">{`Comprovante ${i + 1}`}</p>
-                )}
-                <InfoGrid
-                  items={[
-                    ['Data do pagamento', p.payment_date ? formatDate(p.payment_date) : null],
-                    ['Valor pago', p.amount != null ? money(p.amount, p.currency) : null],
-                    ['Método', p.method],
-                  ]}
-                />
-                <DocumentFileGrid files={filesOfPayment(files ?? [], p.id, i === 0)} />
-              </div>
-            ))}
-            {(payments ?? []).length === 0 && <DocumentFileGrid files={(files ?? []).filter((f) => f.section === 'payment')} />}
-          </div>
-          {paymentTotals.length > 0 && (
-            <p className="mt-3 text-sm text-stone-300">
-              <span className="text-stone-400">{'Total dos comprovantes'}:</span>{' '}
-              <span className="font-semibold text-amber-400">
-                {paymentTotals.map((x) => money(x.total, x.currency)).join(' + ')}
-              </span>
-            </p>
-          )}
+          <DocumentPaymentsTable payments={payments ?? []} files={files ?? []} money={money} totals={paymentTotals} />
+          {(payments ?? []).length === 0 && <DocumentFileGrid files={(files ?? []).filter((f) => f.section === 'payment')} />}
         </section>
       )}
 
@@ -488,10 +465,76 @@ function ProductThumb({ url }: { url?: string }) {
 }
 
 /** Grade de arquivos de uma seção — vazia (`null`) quando não há nenhum, pra quem chama nem precisar checar antes. */
-function DocumentFileGrid({ files }: { files: DocumentFile[] }) {
+/** Comprovantes de pagamento em tabela; os arquivos de cada comprovante ficam numa linha logo abaixo dele. */
+export function DocumentPaymentsTable({
+  payments,
+  files,
+  money,
+  totals,
+}: {
+  payments: DocumentPayment[]
+  files: DocumentFile[]
+  money: (value: number, currency: string) => string
+  totals: { currency: string; total: number }[]
+}) {
+  if (payments.length === 0) return null
+  return (
+    <div className={TABLE_WRAP}>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className={THEAD_ROW}>
+            <th className={`${TH} w-10`}>#</th>
+            <th className={TH}>Data do pagamento</th>
+            <th className={TH}>Método</th>
+            <th className={`${TH} text-right`}>Valor pago</th>
+          </tr>
+        </thead>
+        <tbody>
+          {payments.map((p, i) => {
+            const pf = filesOfPayment(files, p.id, i === 0)
+            return (
+              <Fragment key={p.id}>
+                <tr className={TBODY_ROW}>
+                  <td className={`${TD} text-xs text-stone-500 tabular-nums`}>{i + 1}</td>
+                  <td className={`${TD} whitespace-nowrap text-stone-200`}>{p.payment_date ? formatDate(p.payment_date) : '—'}</td>
+                  <td className={`${TD} text-stone-300`}>{p.method || <span className="text-stone-600">—</span>}</td>
+                  <td className={`${TD} text-right font-semibold whitespace-nowrap text-stone-100 tabular-nums`}>
+                    {p.amount != null ? money(p.amount, p.currency) : '—'}
+                  </td>
+                </tr>
+                {pf.length > 0 && (
+                  <tr>
+                    <td />
+                    <td colSpan={3} className="pr-3 pb-3">
+                      <DocumentFileGrid files={pf} compact />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            )
+          })}
+        </tbody>
+        {totals.length > 0 && payments.length > 1 && (
+          <tfoot>
+            <tr className={TFOOT_ROW}>
+              <td colSpan={3} className={`${TD} text-right text-xs font-medium text-stone-400`}>
+                Total dos comprovantes
+              </td>
+              <td className={`${TD} text-right font-semibold whitespace-nowrap text-amber-400 tabular-nums`}>
+                {totals.map((x) => money(x.total, x.currency)).join(' + ')}
+              </td>
+            </tr>
+          </tfoot>
+        )}
+      </table>
+    </div>
+  )
+}
+
+function DocumentFileGrid({ files, compact = false }: { files: DocumentFile[]; compact?: boolean }) {
   if (files.length === 0) return null
   return (
-    <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div className={compact ? 'grid grid-cols-4 gap-2 sm:grid-cols-6' : 'mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4'}>
       {files.map((file) => (
         <DocumentFileTile key={file.id} file={file} />
       ))}
@@ -537,15 +580,20 @@ function DocumentFileTile({ file }: { file: DocumentFile }) {
   )
 }
 
-function InfoGrid({ items }: { items: [string, ReactNode][] }) {
+/**
+ * Pares rótulo/valor no mesmo formato da ficha do espécime: rótulo em cima, valor
+ * embaixo, em largura total da coluna (valores longos quebram em vez de vazar).
+ * O 3º item `true` ocupa a linha inteira.
+ */
+function InfoGrid({ items }: { items: [string, ReactNode, boolean?][] }) {
   const visible = items.filter(([, v]) => v != null && v !== '')
   if (visible.length === 0) return <p className="text-sm text-stone-500">—</p>
   return (
-    <dl className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
-      {visible.map(([label, value]) => (
-        <div key={label} className="flex justify-between gap-4 border-b border-stone-800 py-1">
-          <dt className="text-sm text-stone-500">{label}</dt>
-          <dd className="text-right text-sm text-stone-200">{value}</dd>
+    <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+      {visible.map(([label, value, wide]) => (
+        <div key={label} className={`min-w-0 ${wide ? 'sm:col-span-2' : ''}`}>
+          <dt className="text-xs text-stone-500">{label}</dt>
+          <dd className="mt-0.5 text-sm break-words text-stone-200">{value}</dd>
         </div>
       ))}
     </dl>

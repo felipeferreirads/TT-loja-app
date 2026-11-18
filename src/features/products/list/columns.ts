@@ -8,7 +8,7 @@
 
 import { ITEM_KIND_LABELS, type StoreItemKind, type StoreProduct } from '../../../types/db'
 import { countryName, countryOptions, formatDate, formatMoney } from '../../../lib/format'
-import { SIZE_CLASS_LABELS, SIZE_CLASS_VALUES, effectiveSizeClass } from '../sizeClass'
+import { SIZE_CLASS_LABELS, SIZE_CLASS_VALUES, effectiveSizeClass, maxDimensionMm, sizeClassRank } from '../sizeClass'
 import { COLOR_OPTIONS } from '../colorOptions'
 import { CUT_TYPE_OPTIONS, GEM_SHAPE_OPTIONS } from '../form/gemFields'
 import { MET_CATEGORIES, MET_SHOCK, MET_WEATHERING } from '../form/meteoriteFields'
@@ -250,7 +250,8 @@ export const LIST_COLUMNS: ColumnDef[] = [
     sort: (p) => p.weight_ct ?? -Infinity,
     edit: { type: 'number', field: 'weight_ct' },
   },
-  textCol('dimensoes', 'Dimensões', 'caracteristicas', 'dimensions', 130),
+  // Ordena pela maior medida em mm, não pelo texto ("100 mm" depois de "20 mm").
+  textCol('dimensoes', 'Dimensões', 'caracteristicas', 'dimensions', 130, { sort: (p) => maxDimensionMm(p.dimensions) ?? -Infinity }),
   {
     key: 'tamanho',
     label: 'Classe de tamanho',
@@ -259,6 +260,14 @@ export const LIST_COLUMNS: ColumnDef[] = [
     text: (p) => {
       const c = effectiveSizeClass(p)
       return c ? SIZE_CLASS_LABELS[c] : ''
+    },
+    // Classe primeiro (é o que a coluna mostra); dentro dela, desempata pela
+    // maior medida em mm. Sem classe fica no início.
+    sort: (p) => {
+      const c = effectiveSizeClass(p)
+      if (!c) return -Infinity
+      const mm = maxDimensionMm(p.dimensions)
+      return sizeClassRank(c) * 1e7 + (mm == null ? 0 : Math.min(mm, 9_999_999))
     },
     edit: { type: 'select', field: 'size_class', options: () => SIZE_CLASS_VALUES.map((c) => ({ value: c, label: SIZE_CLASS_LABELS[c] })) },
   },

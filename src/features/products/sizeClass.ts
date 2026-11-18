@@ -46,6 +46,11 @@ export function isSizeClass(v: unknown): v is SizeClass {
   return typeof v === 'string' && (SIZE_CLASS_VALUES as string[]).includes(v)
 }
 
+/** Posição da classe na escala (0 = micromount … 6 = grande porte), para ordenar. */
+export function sizeClassRank(c: SizeClass): number {
+  return SIZE_CLASS_VALUES.indexOf(c)
+}
+
 /** Classe correspondente a uma dimensão em milímetros. */
 export function sizeClassFromMm(mm: number): SizeClass {
   return SCALE.find((c) => mm <= c.maxMm)!.value

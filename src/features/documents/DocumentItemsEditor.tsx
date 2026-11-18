@@ -6,6 +6,7 @@ import { formatMoney } from '../../lib/format'
 import type { DocumentItem } from '../../types/db'
 import type { DocumentItemInput } from './api'
 import type { NfeItem } from './nfeXml'
+import { TableMoreRow, useRowLimit } from './TableMoreRow'
 import { TABLE_WRAP, TBODY_ROW, TD, TFOOT_ROW, TH, THEAD_ROW, UNIT_CHIP } from './documentTable'
 
 /** Linha da nota como o formulário a edita (texto nos campos numéricos). */
@@ -203,6 +204,7 @@ function ItemField({ label, children }: { label: string; children: ReactNode }) 
 
 /** Tabela das linhas na página do documento (somente leitura). Colunas sem nenhum dado são omitidas. */
 export function DocumentItemsTable({ items, money }: { items: DocumentItem[]; money: (value: number) => string }) {
+  const { visible, hasMore, expanded, toggle } = useRowLimit(items)
   if (items.length === 0) return null
   const total = itemsSum(items)
   const qty = (n: number | null) => (n == null ? '—' : n.toLocaleString('pt-BR', { maximumFractionDigits: 4 }))
@@ -229,7 +231,7 @@ export function DocumentItemsTable({ items, money }: { items: DocumentItem[]; mo
             </tr>
           </thead>
           <tbody>
-            {items.map((i) => (
+            {visible.map((i) => (
               <tr key={i.id} className={TBODY_ROW}>
                 {showCode && <td className={mono}>{i.product_code ?? '—'}</td>}
                 <td className={`${TD} min-w-32 font-medium text-stone-100`}>{i.description ?? '—'}</td>
@@ -245,6 +247,7 @@ export function DocumentItemsTable({ items, money }: { items: DocumentItem[]; mo
                 <td className={`${TD} text-right font-semibold whitespace-nowrap text-stone-100 tabular-nums`}>{i.total != null ? money(i.total) : '—'}</td>
               </tr>
             ))}
+            {hasMore && <TableMoreRow colSpan={leadingCols + 1} total={items.length} expanded={expanded} onToggle={toggle} />}
           </tbody>
           {total != null && items.length > 1 && (
             <tfoot>

@@ -5,7 +5,11 @@ import { queryClient } from '../../../lib/queryClient'
 import { PRODUCTS_KEY } from '../productsCache'
 import { updateProduct } from '../api'
 import { useToast } from '../../../components/ToastProvider'
-import { CheckIcon, PhotoIcon, WarningIcon } from '../../../components/icons'
+import { CheckIcon, CopyIcon, PhotoIcon, RedoIcon, SearchIcon, UndoIcon, WarningIcon } from '../../../components/icons'
+import { isTouchDevice } from '../../../lib/device'
+import { filterSuggestions } from '../../../lib/suggest'
+import { useProducts } from '../queries'
+import { suggestionsFor } from './suggestions'
 import {
   COLUMN_BY_KEY,
   COL_MAX_WIDTH,
@@ -56,6 +60,8 @@ interface CellChange {
   after: unknown
 }
 
+const formatStat = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
+
 const ROW_CHECKBOX_WIDTH = 36
 const UNDO_LIMIT = 50
 
@@ -101,6 +107,15 @@ export function ProductSheet({
   const [editing, setEditing] = useState<{ r: number; c: number; initial?: string } | null>(null)
   const [fillTo, setFillTo] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
+  // Tablet/toque: sem teclado nem arrasto de mouse, a planilha ganha uma barra
+  // de ações (copiar, colar, preencher, desfazer) e o modo "Estender seleção",
+  // em que cada toque estende o último intervalo como o Shift+clique. O toque
+  // numa célula JÁ selecionada abre a edição (padrão das planilhas em tablet).
+  const touch = useMemo(() => isTouchDevice(), [])
+  const [touchExtend, setTouchExtend] = useState(false)
+  // Lido no pointerdown, ANTES do mousedown sintetizado pelo toque mudar a seleção.
+  const touchTapRef = useRef<{ r: number; c: number; wasActive: boolean } | null>(null)
+  const allProducts = useProducts().data
   const dragRef = useRef<'select' | 'fill' | null>(null)
   const anchorRef = useRef<{ r: number; c: number } | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -206,7 +221,7 @@ export function ProductSheet({
     e.preventDefault()
     setEditing(null)
     containerRef.current?.focus()
-    selectCell(r, c, e.shiftKey, e.ctrlKey || e.metaKey)
+    selectCell(r, c, e.shiftKey || (touch && touchExtend), e.ctrlKey || e.metaKey)
     dragRef.current = 'select'
   }
   const onCellMouseEnter = (r: number, c: number) => {
@@ -335,6 +350,66 @@ export function ProductSheet({
     }
     void writeChanges(buildChanges(cells))
   }
+
+  // Barra de toque: colar lê a área de transferência (sem Ctrl+V no tablet).
+  const pasteFromClipboard = async () => {
+    try {
+      pasteText(await navigator.clipboard.readText())
+    } catch {
+      toast.error('Não foi possível ler a área de transferência.')
+    }
+  }
+  /** Há o que repetir? (precisa de 2+ linhas / 2+ colunas em algum intervalo.) */
+  const canFill = (dir: 'down' | 'right') =>
+    !!ranges?.some((g) => {
+      const n = norm(g)
+      return dir === 'down' ? n.r1 > n.r0 : n.c1 > n.c0
+    })
+
+  // Resumo da seleção (rodapé da planilha, estilo Google Planilhas): contagem
+  // de células, valores distintos e, havendo números, soma/média/mín/máx.
+  const selectionStats = useMemo(() => {
+    if (!gridMode || !ranges || ranges.length === 0) return null
+    const seen = new Set<string>()
+    const distinct = new Set<string>()
+    const nums: number[] = []
+    let cells = 0
+    let filled = 0
+    for (const g of ranges) {
+      const n = norm(g)
+      for (let r = n.r0; r <= n.r1; r++) {
+        for (let c = n.c0; c <= n.c1; c++) {
+          const k = `${r}:${c}`
+          if (seen.has(k)) continue
+          seen.add(k)
+          const p = rows[r]
+          const col = cols[c]
+          if (!p || !col) continue
+          cells++
+          const raw = appliesTo(col, p) ? rawValue(col, p, ctx).trim() : ''
+          if (raw === '') continue
+          filled++
+          distinct.add(raw.toLocaleLowerCase('pt-BR'))
+          // Aceita o formato pt-BR ("1.234,56"), o cru do banco ("1234.56") e "R$"/"%".
+          const cleaned = raw.replace(/[R$\s%]/g, '')
+          const num = Number(cleaned.includes(',') ? cleaned.replace(/\./g, '').replace(',', '.') : cleaned)
+          if (cleaned !== '' && Number.isFinite(num)) nums.push(num)
+        }
+      }
+    }
+    if (cells === 0) return null
+    const sum = nums.reduce((acc, v) => acc + v, 0)
+    return {
+      cells,
+      filled,
+      distinct: distinct.size,
+      count: nums.length,
+      sum,
+      avg: nums.length > 0 ? sum / nums.length : 0,
+      min: nums.length > 0 ? Math.min(...nums) : 0,
+      max: nums.length > 0 ? Math.max(...nums) : 0,
+    }
+  }, [gridMode, ranges, rows, cols, ctx])
 
   const clearSelection = () => {
     const changes: CellChange[] = []
@@ -517,7 +592,42 @@ export function ProductSheet({
 
   return (
     <div className="space-y-2">
-      {gridMode && (
+      {gridMode && touch && (
+        <div className="flex flex-wrap items-center gap-1.5 text-xs" role="toolbar" aria-label="Ações da planilha">
+          <span className="text-stone-500">Toque em uma célula para selecioná-la. Toque novamente para editar.</span>
+          <button
+            type="button"
+            onClick={() => setTouchExtend((v) => !v)}
+            aria-pressed={touchExtend}
+            className={`h-9 rounded-full px-3 ${touchExtend ? 'bg-amber-600 text-stone-950' : 'bg-stone-800 text-stone-200'}`}
+          >
+            Estender seleção
+          </button>
+          <button type="button" onClick={() => void copySelection()} disabled={!lastRange} className="flex h-9 items-center gap-1.5 rounded-full bg-stone-800 px-3 text-stone-200 disabled:opacity-40">
+            <CopyIcon /> Copiar
+          </button>
+          <button type="button" onClick={() => void pasteFromClipboard()} disabled={!lastRange} className="h-9 rounded-full bg-stone-800 px-3 text-stone-200 disabled:opacity-40">
+            Colar
+          </button>
+          <button type="button" onClick={() => fillDownOrRight('down')} disabled={!canFill('down')} className="h-9 rounded-full bg-stone-800 px-3 text-stone-200 disabled:opacity-40">
+            Repetir para baixo
+          </button>
+          <button type="button" onClick={() => fillDownOrRight('right')} disabled={!canFill('right')} className="h-9 rounded-full bg-stone-800 px-3 text-stone-200 disabled:opacity-40">
+            Repetir para a direita
+          </button>
+          <button type="button" onClick={() => onFindOpenChange(true)} className="flex h-9 items-center gap-1.5 rounded-full bg-stone-800 px-3 text-stone-200">
+            <SearchIcon /> Localizar e substituir
+          </button>
+          <button type="button" onClick={undo} aria-label="Desfazer" title="Desfazer" className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-800 text-stone-200">
+            <UndoIcon />
+          </button>
+          <button type="button" onClick={redo} aria-label="Refazer" title="Refazer" className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-800 text-stone-200">
+            <RedoIcon />
+          </button>
+          {busy && <span className="text-amber-400">Salvando…</span>}
+        </div>
+      )}
+      {gridMode && !touch && (
         <p className="hidden flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-stone-400 sm:flex">
           Arraste para selecionar. <Kbd>Ctrl</Kbd>+clique acrescenta células. <Kbd>Ctrl+C</Kbd> copia, <Kbd>Ctrl+V</Kbd> cola em massa,{' '}
           <Kbd>Ctrl+D</Kbd>/<Kbd>Ctrl+R</Kbd> preenchem para baixo e para a direita, <Kbd>Ctrl+Z</Kbd>/<Kbd>Ctrl+Y</Kbd> desfazem e
@@ -668,6 +778,20 @@ export function ProductSheet({
                       <td
                         key={col.key}
                         data-cell={`${r}-${c}`}
+                        onPointerDown={(e) => {
+                          touchTapRef.current =
+                            gridMode && (e.pointerType === 'touch' || e.pointerType === 'pen')
+                              ? { r, c, wasActive: active?.r === r && active?.c === c }
+                              : null
+                        }}
+                        onClick={() => {
+                          // Toque para editar: só na célula que JÁ estava selecionada
+                          // (o 1º toque seleciona) e fora do modo "Estender seleção".
+                          const tap = touchTapRef.current
+                          touchTapRef.current = null
+                          if (!tap || tap.r !== r || tap.c !== c || !tap.wasActive || touchExtend) return
+                          startEdit(r, c)
+                        }}
                         onMouseDown={(e) => onCellMouseDown(e, r, c)}
                         onMouseEnter={() => onCellMouseEnter(r, c)}
                         onDoubleClick={() => gridMode && startEdit(r, c)}
@@ -683,6 +807,7 @@ export function ProductSheet({
                             col={col}
                             product={p}
                             ctx={ctx}
+                            suggestionList={allProducts ? suggestionsFor(col, allProducts) : []}
                             initial={editing.initial}
                             onCommit={(text, next) => {
                               commitEdit(r, c, text)
@@ -716,6 +841,40 @@ export function ProductSheet({
             })}
           </tbody>
         </table>
+        {/* Resumo da seleção: dentro do scroller, `sticky bottom-0`, para flutuar sobre
+            a última linha em vez de empurrar a página; `left-0` prende na horizontal. */}
+        {selectionStats && (
+          <div className="sticky bottom-0 left-0 z-20 flex flex-wrap items-center justify-end gap-x-4 gap-y-1 border-t border-stone-700 bg-stone-950/95 px-3 py-1.5 text-xs text-stone-400">
+            <span>
+              Células <strong className="text-stone-200">{formatStat(selectionStats.cells)}</strong>
+            </span>
+            <span>
+              Preenchidas <strong className="text-stone-200">{formatStat(selectionStats.filled)}</strong>
+            </span>
+            <span title="Valores diferentes entre as células preenchidas, ignorando maiúsculas">
+              Distintos <strong className="text-stone-200">{formatStat(selectionStats.distinct)}</strong>
+            </span>
+            {selectionStats.count > 0 && (
+              <>
+                <span>
+                  Números <strong className="text-stone-200">{formatStat(selectionStats.count)}</strong>
+                </span>
+                <span>
+                  Soma <strong className="text-amber-500">{formatStat(selectionStats.sum)}</strong>
+                </span>
+                <span>
+                  Média <strong className="text-stone-200">{formatStat(selectionStats.avg)}</strong>
+                </span>
+                <span>
+                  Mínimo <strong className="text-stone-200">{formatStat(selectionStats.min)}</strong>
+                </span>
+                <span>
+                  Máximo <strong className="text-stone-200">{formatStat(selectionStats.max)}</strong>
+                </span>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {findOpen && (
@@ -818,6 +977,7 @@ function CellEditor({
   col,
   product,
   ctx,
+  suggestionList,
   initial,
   onCommit,
   onCancel,
@@ -825,6 +985,8 @@ function CellEditor({
   col: ColumnDef
   product: StoreProduct
   ctx: ColumnContext
+  /** Valores já usados na coluna (só colunas de texto livre elegíveis). */
+  suggestionList: string[]
   initial?: string
   onCommit: (text: string, next?: 'down' | 'right') => void
   onCancel: () => void
@@ -871,16 +1033,114 @@ function CellEditor({
     return <input type="date" {...common} onChange={(e) => setValue(e.target.value)} />
   }
   return (
-    <input
-      type="text"
-      inputMode={meta.type === 'number' ? 'decimal' : undefined}
-      {...common}
-      onChange={(e) => setValue(e.target.value)}
-      onFocus={(e) => {
-        if (initial === undefined) e.currentTarget.select()
-        else e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length)
-      }}
+    <TextCellEditor
+      common={common}
+      value={value}
+      setValue={setValue}
+      numeric={meta.type === 'number'}
+      selectOnFocus={initial === undefined}
+      suggestionList={suggestionList}
+      finish={finish}
     />
+  )
+}
+
+/**
+ * Campo de texto da célula com sugestões abaixo (lista própria em portal, não
+ * `<datalist>`, que quebra no app instalado). Acompanha o que é digitado:
+ * substring sem acento nem caixa, começo do texto primeiro. Seta para
+ * baixo/cima escolhe, Enter confirma a sugestão marcada (sem marcada, grava o
+ * texto digitado). Sugestão não é validação: valor inédito continua aceito.
+ */
+function TextCellEditor({
+  common,
+  value,
+  setValue,
+  numeric,
+  selectOnFocus,
+  suggestionList,
+  finish,
+}: {
+  common: {
+    autoFocus: boolean
+    value: string
+    onBlur: () => void
+    onKeyDown: (e: React.KeyboardEvent) => void
+    onMouseDown: (e: React.MouseEvent) => void
+    className: string
+  }
+  value: string
+  setValue: (v: string) => void
+  numeric: boolean
+  selectOnFocus: boolean
+  suggestionList: string[]
+  finish: (text: string, next?: 'down' | 'right') => void
+}) {
+  const anchorRef = useRef<HTMLInputElement>(null)
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
+  const [hi, setHi] = useState(-1)
+  const visible = useMemo(() => filterSuggestions(suggestionList, value), [suggestionList, value])
+
+  useEffect(() => {
+    const el = anchorRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setPos({ top: rect.bottom + 2, left: rect.left, width: Math.max(rect.width, 200) })
+  }, [])
+
+  return (
+    <>
+      <input
+        ref={anchorRef}
+        type="text"
+        inputMode={numeric ? 'decimal' : undefined}
+        {...common}
+        onChange={(e) => {
+          setValue(e.target.value)
+          setHi(-1)
+        }}
+        onKeyDown={(e) => {
+          if (visible.length > 0) {
+            if (e.key === 'ArrowDown') return void (e.stopPropagation(), e.preventDefault(), setHi((h) => Math.min(visible.length - 1, h + 1)))
+            if (e.key === 'ArrowUp') return void (e.stopPropagation(), e.preventDefault(), setHi((h) => Math.max(-1, h - 1)))
+            if ((e.key === 'Enter' || e.key === 'Tab') && hi >= 0) {
+              e.stopPropagation()
+              e.preventDefault()
+              return finish(visible[hi], e.key === 'Tab' ? 'right' : 'down')
+            }
+          }
+          common.onKeyDown(e)
+        }}
+        onFocus={(e) => {
+          if (selectOnFocus) e.currentTarget.select()
+          else e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length)
+        }}
+      />
+      {pos &&
+        visible.length > 0 &&
+        createPortal(
+          <div role="listbox" style={{ top: pos.top, left: pos.left, width: pos.width }} className="fixed z-[70] max-h-48 overflow-y-auto rounded-lg border border-stone-700 bg-stone-900 p-1 shadow-xl">
+            {visible.map((s, i) => (
+              <button
+                key={s}
+                type="button"
+                role="option"
+                aria-selected={i === hi}
+                // mousedown (não click) e sem foco: o blur do input gravaria o texto antes.
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  finish(s)
+                }}
+                onMouseEnter={() => setHi(i)}
+                className={`block w-full truncate rounded-md px-3 py-1.5 text-left text-sm ${i === hi ? 'bg-stone-800 text-stone-100' : 'text-stone-300'}`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
+    </>
   )
 }
 

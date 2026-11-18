@@ -44,6 +44,7 @@ import { fetchSuppliers } from '../suppliers/api'
 import { fetchSales } from '../sales/api'
 import { PickProductsDialog } from './PickProductsDialog'
 import { useDocumentFileUrl } from './useDocumentFileUrl'
+import { TableMoreRow, useRowLimit } from './TableMoreRow'
 import { TABLE_WRAP, TBODY_ROW, TD, TFOOT_ROW, TH, THEAD_ROW } from './documentTable'
 import { DocumentItemsTable, itemsSum as nfeItemsTotal } from './DocumentItemsEditor'
 
@@ -477,6 +478,7 @@ export function DocumentPaymentsTable({
   money: (value: number, currency: string) => string
   totals: { currency: string; total: number }[]
 }) {
+  const { visible, hasMore, expanded, toggle } = useRowLimit(payments)
   if (payments.length === 0) return null
   return (
     <div className={TABLE_WRAP}>
@@ -490,7 +492,7 @@ export function DocumentPaymentsTable({
           </tr>
         </thead>
         <tbody>
-          {payments.map((p, i) => {
+          {visible.map((p, i) => {
             const pf = filesOfPayment(files, p.id, i === 0)
             return (
               <Fragment key={p.id}>
@@ -513,6 +515,7 @@ export function DocumentPaymentsTable({
               </Fragment>
             )
           })}
+          {hasMore && <TableMoreRow colSpan={4} total={payments.length} expanded={expanded} onToggle={toggle} />}
         </tbody>
         {totals.length > 0 && payments.length > 1 && (
           <tfoot>

@@ -5,6 +5,7 @@ import {
   CalculatorIcon,
   CardIcon,
   CashIcon,
+  CategoryIcon,
   ChartIcon,
   CloseIcon,
   DocumentIcon,
@@ -39,6 +40,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: '/', label: 'Início', Icon: HomeIcon, end: true },
       { to: '/produtos', label: 'Produtos', Icon: SpecimenIcon },
+      { to: '/categorias', label: 'Categorias', Icon: CategoryIcon },
     ],
   },
   {

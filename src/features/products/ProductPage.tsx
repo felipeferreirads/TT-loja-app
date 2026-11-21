@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import type { StoreItemKind, StoreProduct, StoreProductFossilSpecies, StoreProductMineral, StoreProductRock, StoreSkuPrefix } from '../../types/db'
 import {
   fetchProduct,
@@ -20,8 +20,14 @@ import {
   fetchProvenance,
   saveProvenance,
 } from './api'
-import { AcquisitionSection, provenanceToDraft, provenanceToInput, type ProvenanceRowDraft } from './form/AcquisitionSection'
-import type { StoreProductProvenance } from '../../types/db'
+import { AcquisitionSection } from './form/AcquisitionSection'
+import { draftsFromRows, provenanceRows, type ProvenanceDraft } from './provenance'
+import { OtherDetailsSection } from './form/OtherDetailsSection'
+import { ProductCategoriesSection } from '../categories/ProductCategoriesSection'
+import { setProductCategories } from '../categories/api'
+import { mineralsSectionApplies } from './form/mineralRoles'
+import { fetchSuppliersWithStorefronts, SUPPLIERS_WITH_STOREFRONTS_KEY } from '../suppliers/api'
+import { useQuery } from '@tanstack/react-query'
 import { fetchSkuPrefixes, suggestSku } from './skuPrefixes'
 import { LotItemsSection } from './LotItemsSection'
 import { nextLotSuffix } from './lots'
@@ -46,6 +52,7 @@ import { CertificatesSection } from './form/CertificatesSection'
 import { QrLinkSection } from './form/QrLinkSection'
 import { Section } from './form/Field'
 import { toDraft, toInput, type Draft } from './form/draft'
+import { resolveCostFx } from './costFx'
 import { ArrowLeftIcon, CardIcon, CopyIcon, LabelIcon, NotesIcon } from '../../components/icons'
 import { ActionMenu } from '../../components/ActionMenu'
 import { CopyFromProductDialog } from './form/CopyFromProductDialog'
@@ -56,8 +63,30 @@ import { ExportMenu } from './export/ExportMenu'
 import { addYoutubeVideo } from './youtubeVideos'
 import { isUuidLike } from './qr'
 import { useToast } from '../../components/ToastProvider'
+import { queryClient } from '../../lib/queryClient'
+import {
+  getBrowseNeighbors,
+  getBrowseSeqKey,
+  getBrowseSequencesVersion,
+  GRID_SEQ,
+  setBrowseReturnTarget,
+  subscribeBrowseSequences,
+} from '../../lib/browseSequence'
+import { useSwipeNavigation } from '../../lib/useSwipeNavigation'
+import { PRODUCTS_KEY } from './productsCache'
+import { ProductPeek } from './ProductPeek'
 
+/**
+ * Remonta a ficha a cada produto (`key`): ao deslizar para o vizinho, o
+ * formulário inteiro (rascunho, minerais, rochas, fotos...) recomeça limpo, sem
+ * mostrar dados do produto anterior enquanto o novo carrega.
+ */
 export function ProductPage() {
+  const { id } = useParams<{ id: string }>()
+  return <ProductPageContent key={id} />
+}
+
+function ProductPageContent() {
   const { id } = useParams<{ id: string }>()
   const isNew = id === 'novo'
   const navigate = useNavigate()
@@ -71,7 +100,12 @@ export function ProductPage() {
   const reservedIdParam = isNew ? searchParams.get('reservedId') : null
   const reservedId = reservedIdParam && isUuidLike(reservedIdParam) ? reservedIdParam : null
 
-  const [draft, setDraft] = useState<Draft | null>(isNew ? toDraft(null) : null)
+  // Produto já na lista em cache (veio da lista ou do deslizar): o rascunho nasce
+  // pronto, sem "Carregando…"; a leitura completa logo abaixo o substitui.
+  const cachedProduct = !isNew && id ? queryClient.getQueryData<StoreProduct[]>(PRODUCTS_KEY)?.find((x) => x.id === id) : undefined
+  const [draft, setDraft] = useState<Draft | null>(isNew ? toDraft(null) : cachedProduct ? toDraft(cachedProduct) : null)
+  // Rascunho como foi carregado/salvo pela última vez: base para saber se há edição não salva.
+  const baselineRef = useRef<string | null>(cachedProduct ? JSON.stringify(toDraft(cachedProduct)) : null)
   const [pricing, setPricing] = useState<PricingParams | null>(null)
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [pendingYoutube, setPendingYoutube] = useState<string[]>([])
@@ -85,8 +119,11 @@ export function ProductPage() {
   const [labelsOpen, setLabelsOpen] = useState(false)
   const [socialOpen, setSocialOpen] = useState(false)
   const coverUrls = useCoverUrls().data ?? {}
-  const [provenance, setProvenance] = useState<ProvenanceRowDraft[]>([])
-  const [originalProvenance, setOriginalProvenance] = useState<StoreProductProvenance[]>([])
+  const [provenance, setProvenance] = useState<ProvenanceDraft[]>([])
+  // Categorias (0042): lista atual e a gravada (diff no "Salvar").
+  const [categoryIds, setCategoryIds] = useState<string[]>([])
+  const [savedCategoryIds, setSavedCategoryIds] = useState<string[]>([])
+  const { data: suppliersFull = [] } = useQuery({ queryKey: SUPPLIERS_WITH_STOREFRONTS_KEY, queryFn: fetchSuppliersWithStorefronts })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Guardado à parte do draft (que só tem strings) pra alimentar o
@@ -127,7 +164,10 @@ export function ProductPage() {
     fetchProduct(id)
       .then((p) => {
         setDraft(toDraft(p))
+        baselineRef.current = JSON.stringify(toDraft(p))
         setSavedProduct(p)
+        setCategoryIds(p.category_ids ?? [])
+        setSavedCategoryIds(p.category_ids ?? [])
         setOriginalMinerals(p.minerals ?? [])
         setMinerals((p.minerals ?? []).map(mineralRowToDraft))
         setOriginalRocks(p.rocks ?? [])
@@ -147,8 +187,7 @@ export function ProductPage() {
   function loadProvenance(productId: string) {
     fetchProvenance(productId)
       .then((rows) => {
-        setOriginalProvenance(rows)
-        setProvenance(rows.map(provenanceToDraft))
+        setProvenance(draftsFromRows(rows))
       })
       .catch(() => {})
   }
@@ -206,6 +245,30 @@ export function ProductPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isNew, skuAuto, draft?.kind, draft?.is_gem, minerals[0]?.name, fossilSpecies[0]?.name, skuPrefixes, manualSubPrefixId])
 
+  // Anterior/próximo na ordem da lista de onde a ficha foi aberta (deslizar no
+  // toque e setas ← → do teclado) — lib/useSwipeNavigation.ts. Desligado com
+  // alteração não salva, para o gesto não descartar a edição em silêncio.
+  const location = useLocation()
+  const seqKey = getBrowseSeqKey(location.state)
+  useSyncExternalStore(subscribeBrowseSequences, getBrowseSequencesVersion)
+  const neighbors = !isNew && seqKey && id ? getBrowseNeighbors(seqKey, id) : null
+  const swipeRef = useRef<HTMLDivElement>(null)
+  const dirty =
+    busy ||
+    (draft != null && baselineRef.current != null && JSON.stringify(draft) !== baselineRef.current) ||
+    [...categoryIds].sort().join() !== [...savedCategoryIds].sort().join()
+  useSwipeNavigation({
+    id,
+    swipeRef,
+    ready: !!draft,
+    neighbors,
+    disabled: dirty,
+    goTo: (target) => {
+      if (seqKey === GRID_SEQ) setBrowseReturnTarget(target)
+      navigate(`/produtos/${target}`, { replace: true, state: { browseSeq: seqKey } })
+    },
+  })
+
   if (error && !draft) return <p className="text-sm text-red-400">{error}</p>
   if (!draft) return <p className="text-sm text-stone-400">Carregando…</p>
 
@@ -238,7 +301,7 @@ export function ProductPage() {
 
   /** Mesma reconciliação, pros minerais da amostra (0015). */
   const saveMinerals = async (productId: string) => {
-    if (kind !== 'mineral') return
+    if (!mineralsSectionApplies(kind)) return
     const currentIds = new Set(minerals.filter((m) => m.id).map((m) => m.id))
     for (const original of originalMinerals) {
       if (!currentIds.has(original.id)) await removeProductMineral(original.id)
@@ -267,9 +330,8 @@ export function ProductPage() {
 
   /** Ex-donos (0036): linhas sem nome são descartadas; a ordem da lista vira `sort_order`. */
   const saveProvenanceRows = async (productId: string) => {
-    const rows = provenance.map(provenanceToInput).filter((r): r is NonNullable<typeof r> => r !== null)
-    if (rows.length === 0 && originalProvenance.length === 0) return
-    await saveProvenance(productId, rows, originalProvenance)
+    const parties = suppliersFull.map((s) => ({ id: s.id, name: s.name, aliases: s.aliases ?? [] }))
+    await saveProvenance(productId, provenanceRows(provenance, parties), isNew)
   }
 
   const handleSave = async () => {
@@ -278,7 +340,7 @@ export function ProductPage() {
     try {
       const fiscalError = validateFiscalDraft(draft)
       if (fiscalError) throw new Error(fiscalError)
-      const input = toInput(draft)
+      const input = { ...toInput(draft), ...(await resolveCostFx(draft)) }
       if (isNew) {
         // Id gerado no cliente para que fotos/vídeos escolhidos antes de
         // salvar tenham um destino conhecido — o upload acontece logo após o insert.
@@ -293,14 +355,18 @@ export function ProductPage() {
         await saveMinerals(newId)
         await saveRocks(newId)
         await saveProvenanceRows(newId)
+        await setProductCategories(newId, categoryIds, [])
         setSavedProduct(created)
         navigate(`/produtos/${newId}`, { replace: true })
       } else if (id) {
         setSavedProduct(await updateProduct(id, input))
+        baselineRef.current = JSON.stringify(draft)
         await saveFossilSpecies(id)
         await saveMinerals(id)
         await saveRocks(id)
         await saveProvenanceRows(id)
+        await setProductCategories(id, categoryIds, savedCategoryIds)
+        setSavedCategoryIds(categoryIds)
         loadProvenance(id)
         // Recarrega as rochas salvas: linhas novas ganham id e não podem ser reinseridas no próximo salvar.
         fetchProduct(id)
@@ -319,7 +385,13 @@ export function ProductPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl">
+    // `overflow-x-clip`: a ficha sai de lado ao deslizar sem abrir rolagem horizontal;
+    // `-mx px`: o recorte inclui o padding da página. `pan-y`: o navegador cuida da
+    // rolagem vertical e o gesto horizontal fica com useSwipeNavigation.
+    <div className="-mx-3 overflow-x-clip px-3 sm:-mx-4 sm:px-4">
+    <div ref={swipeRef} className="relative mx-auto max-w-6xl" style={neighbors ? { touchAction: 'pan-y pinch-zoom' } : undefined}>
+      {neighbors?.next && <ProductPeek key={neighbors.next} id={neighbors.next} side={1} />}
+      {neighbors?.prev && <ProductPeek key={neighbors.prev} id={neighbors.prev} side={-1} />}
       <header className="mb-4 flex items-start justify-between gap-2">
         <div className="min-w-0">
           <Link to="/produtos" className="inline-flex items-center gap-1 text-sm text-stone-400 hover:text-stone-200">
@@ -395,7 +467,11 @@ export function ProductPage() {
             onManualSubPrefixChange={setManualSubPrefixId}
           />
 
+          <ProductCategoriesSection value={categoryIds} onChange={setCategoryIds} onError={setError} />
+
           {kind === 'jewelry' && <JewelryDataSection draft={draft} set={set} />}
+
+          {kind === 'other' && <OtherDetailsSection draft={draft} set={set} />}
 
           {kind !== 'other' && kind !== 'jewelry' && (
             <SpecimenDataSection draft={draft} set={set} setMany={setMany} kind={kind} />
@@ -413,7 +489,7 @@ export function ProductPage() {
         <div className="space-y-4">
           {!isNew && id && <ProductStockHistorySection productId={id} onStockChanged={refreshStock} />}
 
-          <AcquisitionSection draft={draft} set={set} provenance={provenance} onProvenanceChange={setProvenance} />
+          <AcquisitionSection draft={draft} setMany={setMany} provenance={provenance} onProvenanceChange={setProvenance} />
 
           {!isNew && id && <LinkedDocuments productId={id} />}
 
@@ -430,8 +506,8 @@ export function ProductPage() {
             />
           </Section>
 
-          {kind === 'mineral' && (
-            <MineralsInSampleSection minerals={minerals} onChange={setMinerals} />
+          {mineralsSectionApplies(kind) && (
+            <MineralsInSampleSection minerals={minerals} onChange={setMinerals} kind={kind} />
           )}
 
           {rocksSectionApplies(kind, draft.met_category) && <RocksInSampleSection rocks={rocks} onChange={setRocks} />}
@@ -456,6 +532,7 @@ export function ProductPage() {
       {socialOpen && savedProduct && (
         <SocialCardDialog product={savedProduct} coverUrl={coverUrls[savedProduct.id]} onClose={() => setSocialOpen(false)} />
       )}
+    </div>
     </div>
   )
 }

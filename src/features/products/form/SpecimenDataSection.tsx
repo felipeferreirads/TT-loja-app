@@ -26,6 +26,7 @@ import { InfoTooltip } from '../../../components/InfoTooltip'
 import { IMPACTITE_HIDDEN_DRAFT_FIELDS, META_PARENT_BODY_HINT, MET_PARENT_BODIES, isImpactite } from './rockFields'
 import { Field, Labeled, Section } from './Field'
 import { CrystalFeaturesInput } from './CrystalFeaturesInput'
+import { FossilTimeFields } from './FossilTimeFields'
 import { summarizeLocality } from '../../../lib/format'
 import type { Draft } from './draft'
 
@@ -184,9 +185,12 @@ export function SpecimenDataSection({
       )}
 
       {kind === 'fossil' && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Restauração" value={draft.fossil_restoration} onChange={set('fossil_restoration')} placeholder="Ex.: sem restauração, 10% restaurado" />
-          <Field label="Rocha hospedeira / Matriz" value={draft.fossil_host_rock} onChange={set('fossil_host_rock')} />
+        <div className="space-y-3">
+          <FossilTimeFields draft={draft} setMany={setMany} />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Restauração" value={draft.fossil_restoration} onChange={set('fossil_restoration')} placeholder="Ex.: sem restauração, 10% restaurado" />
+            <Field label="Rocha hospedeira / Matriz" value={draft.fossil_host_rock} onChange={set('fossil_host_rock')} />
+          </div>
         </div>
       )}
 

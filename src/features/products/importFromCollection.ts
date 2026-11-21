@@ -25,7 +25,8 @@ import { fetchSkuPrefixes, suggestSku } from './skuPrefixes'
 // que já existe pra "ex-coleção"), o que já o esconde da listagem padrão.
 // ============================================================
 
-type CatalogSpecimenType = 'mineral' | 'fossil' | 'meteorite'
+/** "other" = tipo "Outro" do catálogo (0182): nome, subtipo e atributos livres direto em `specimens`. */
+type CatalogSpecimenType = 'mineral' | 'fossil' | 'meteorite' | 'other'
 
 interface CatalogMedia {
   id: string
@@ -66,6 +67,9 @@ interface CatalogFossilDetails {
   host_rock?: string | null
   period_era: string | null
   age: string | null
+  /** Tempo geológico (faixa, 0169 do catálogo): início e fim. */
+  geological_time_id?: string | null
+  geological_time_end_id?: string | null
 }
 
 interface CatalogMeteoriteDetails {
@@ -139,6 +143,9 @@ interface CatalogSpecimenMineral {
   refractive_index: string | null
   color_cause: string | null
   chromophore: string | null
+  /** Ocorrência no item e mineral principal (0198/0207 do catálogo). */
+  role?: string | null
+  is_main?: boolean | null
   auto_fields: string[]
   sort_order: number
 }
@@ -164,6 +171,10 @@ interface CatalogSpecimenFull {
   code_global: number | null
   parent_id: string | null
   type: CatalogSpecimenType
+  /** Tipo "Outro" (0182 do catálogo): nome, subtipo e atributos livres. Nulos nos demais tipos. */
+  name?: string | null
+  subtype?: string | null
+  custom_fields?: { label: string; value: string }[] | null
   origin_country: string | null
   origin_state: string | null
   origin: string | null
@@ -175,6 +186,8 @@ interface CatalogSpecimenFull {
   weight_ct: number | null
   dimensions: string | null
   size_class: SizeClass | null
+  /** Micromount (0206 do catálogo): marcação à parte lá; na loja continua sendo a classe 'micromount'. */
+  is_micromount?: boolean
   quantity: number
   notes: string | null
   mineral_details: CatalogMineralDetails | null
@@ -187,10 +200,17 @@ interface CatalogSpecimenFull {
 
 interface CatalogSpecimenPrivate {
   price_brl: number | null
+  price_usd?: number | null
   price_gross_brl: number | null
+  price_gross_usd?: number | null
+  /** R$ por US$ do preço líquido (PTAX da data de aquisição ou manual). */
+  exchange_rate?: number | null
+  exchange_rate_manual?: boolean | null
   previous_owner: string | null
   purchase_notes: string | null
   supplier_id?: string | null
+  supplier_storefront_id?: string | null
+  supplier_text?: string | null
   supplier_code?: string | null
   acquisition_date?: string | null
 }
@@ -206,7 +226,7 @@ export interface ImportableSpecimen {
   collectionName: string | null
 }
 
-const LIST_SELECT = `id, code_global, type, origin, collection_id,
+const LIST_SELECT = `id, code_global, type, name, origin, collection_id,
   mineral_details(species),
   fossil_details(display_name),
   fossil_species(name, popular_name),
@@ -247,6 +267,7 @@ export async function fetchImportableSpecimens(): Promise<ImportableSpecimen[]> 
     id: string
     code_global: number | null
     type: CatalogSpecimenType
+    name: string | null
     origin: string | null
     collection_id: string
     mineral_details: { species: string | null } | null
@@ -312,6 +333,7 @@ export async function resolveScannedSpecimen(
 
 function catalogDisplayName(s: {
   type: CatalogSpecimenType
+  name: string | null
   mineral_details: { species: string | null } | null
   fossil_details: { display_name: string | null } | null
   fossil_species: { name: string | null; popular_name: string | null }[]
@@ -325,11 +347,12 @@ function catalogDisplayName(s: {
     const popular = s.fossil_species.map((f) => f.popular_name).filter((v): v is string => !!v)
     return popular.join(' + ') || '(sem espécie)'
   }
+  if (s.type === 'other') return s.name || '(sem nome)'
   return s.meteorite_details?.name || '(sem nome)'
 }
 
-const FULL_SELECT = `id, code_global, parent_id, type, origin_country, origin_state, origin, origin_short, treatment,
-  formation, weight_g, weight_ct, dimensions, size_class, quantity, notes,
+const FULL_SELECT = `id, code_global, parent_id, type, name, subtype, custom_fields, origin_country, origin_state, origin, origin_short, treatment,
+  formation, weight_g, weight_ct, dimensions, size_class, is_micromount, quantity, notes,
   mineral_details(*),
   fossil_details(*),
   meteorite_details(*),
@@ -346,7 +369,9 @@ async function fetchCatalogSpecimen(id: string): Promise<CatalogSpecimenFull> {
 async function fetchCatalogPrivate(id: string): Promise<CatalogSpecimenPrivate | null> {
   const { data, error } = await supabase
     .from('specimen_private')
-    .select('price_brl, price_gross_brl, previous_owner, purchase_notes, supplier_id, supplier_code, acquisition_date')
+    .select(
+      'price_brl, price_usd, price_gross_brl, price_gross_usd, exchange_rate, exchange_rate_manual, previous_owner, purchase_notes, supplier_id, supplier_storefront_id, supplier_text, supplier_code, acquisition_date',
+    )
     .eq('specimen_id', id)
     .maybeSingle()
   if (error) return null // Dado privado é um extra (custo/procedência) — a importação não pode falhar por causa dele.
@@ -464,15 +489,12 @@ function mapToProductInput(s: CatalogSpecimenFull, priv: CatalogSpecimenPrivate 
     kind = 'fossil'
     name = s.fossil_details?.display_name || s.fossil_species.map((f) => f.name).filter(Boolean).join(' + ') || '(sem espécie)'
     speciesOrType = s.fossil_species[0]?.name ?? null
-    // Integridade/dimensões são por espécie no catálogo pessoal, mas
-    // `store_product_fossil_species` não tem campo próprio pra isso — cada
-    // uma vira uma linha no apêndice do produto em vez de se perder.
-    for (const f of s.fossil_species) {
-      if (!f.integrity && !f.specimen_dimensions) continue
-      const label = f.name || f.popular_name || 'Espécie sem nome'
-      extra.push([`${label} — integridade`, f.integrity])
-      extra.push([`${label} — dimensões do exemplar`, f.specimen_dimensions])
-    }
+    // Integridade/dimensões por espécie: colunas próprias desde a 0041 (ver copyFossilSpecies).
+  } else if (s.type === 'other') {
+    // Tipo "Outro" (0182 do catálogo): nome → nome do produto, subtipo → espécie/tipo, atributos livres iguais.
+    kind = 'other'
+    name = s.name || '(sem nome)'
+    speciesOrType = s.subtype ?? null
   } else {
     kind = 'meteorite'
     const md = s.meteorite_details
@@ -514,7 +536,16 @@ function mapToProductInput(s: CatalogSpecimenFull, priv: CatalogSpecimenPrivate 
   if (s.parent_id) extra.push(['Lote', 'peça filha de um lote no catálogo pessoal'])
   if (priv?.purchase_notes) extra.push(['Notas de compra', priv.purchase_notes])
 
+  // Custo: o preço líquido (price_brl) tem prioridade; sem ele, o bruto. O par em
+  // US$ segue a mesma escolha, para R$ e US$ nunca virem de preços diferentes.
+  // O câmbio (exchange_rate) é do preço LÍQUIDO — o bruto em US$ é sempre manual.
+  const useNet = priv?.price_brl != null
   const costPrice = priv?.price_brl ?? priv?.price_gross_brl ?? null
+  const costUsd = useNet ? (priv?.price_usd ?? null) : (priv?.price_gross_usd ?? null)
+  const costRate = useNet ? (priv?.exchange_rate ?? null) : null
+  const costRateManual = useNet ? Boolean(priv?.exchange_rate_manual) : costUsd != null
+  // O preço bruto também vem como está (0041), mesmo quando virou o custo por falta do líquido.
+  const fd = s.type === 'fossil' ? s.fossil_details : null
 
   return {
     name,
@@ -525,6 +556,15 @@ function mapToProductInput(s: CatalogSpecimenFull, priv: CatalogSpecimenPrivate 
     // `importSpecimenToStore`, com o mesmo autofill do formulário
     // (`suggestSku`, ver skuPrefixes.ts).
     cost_price: costPrice,
+    cost_usd: costUsd,
+    cost_exchange_rate: costRate,
+    cost_exchange_rate_manual: costRateManual,
+    cost_gross_price: priv?.price_gross_brl ?? null,
+    cost_gross_usd: priv?.price_gross_usd ?? null,
+    custom_fields: s.type === 'other' && s.custom_fields?.length ? s.custom_fields : null,
+    geological_time_id: fd?.geological_time_id ?? null,
+    geological_time_end_id: fd?.geological_time_end_id ?? null,
+    fossil_age: fd?.age ?? null,
     sale_price: 0,
     stock_quantity: s.quantity,
     notes: joinNotes(s.notes, buildAppendix(extra)),
@@ -539,7 +579,7 @@ function mapToProductInput(s: CatalogSpecimenFull, priv: CatalogSpecimenPrivate 
     tax_origin: s.origin_country === 'BR' ? 0 : null,
     weight_g: s.weight_g,
     dimensions: s.dimensions,
-    size_class: s.size_class,
+    size_class: s.is_micromount ? 'micromount' : s.size_class,
 
     color,
     color_secondary: colorSecondary,
@@ -560,6 +600,8 @@ function mapToProductInput(s: CatalogSpecimenFull, priv: CatalogSpecimenPrivate 
     fossil_restoration: s.type === 'fossil' ? (s.fossil_details?.restoration ?? null) : null,
     fossil_host_rock: s.type === 'fossil' ? (s.fossil_details?.host_rock ?? null) : null,
     supplier_id: priv?.supplier_id ?? null,
+    supplier_storefront_id: priv?.supplier_id ? (priv?.supplier_storefront_id ?? null) : null,
+    supplier_text: priv?.supplier_id ? null : (priv?.supplier_text ?? null),
     supplier_code: priv?.supplier_code ?? null,
     acquisition_date: priv?.acquisition_date ?? null,
     weight_ct: weightCt,
@@ -619,6 +661,8 @@ async function copyMinerals(productId: string, minerals: CatalogSpecimenMineral[
         refractive_index: m.refractive_index,
         color_cause: m.color_cause,
         chromophore: m.chromophore,
+        role: m.role ?? null,
+        is_main: m.is_main === true,
         auto_fields: m.auto_fields,
       },
       m.sort_order,
@@ -669,6 +713,8 @@ async function copyFossilSpecies(productId: string, s: CatalogSpecimenFull): Pro
         family: f.family,
         clades: f.clades,
         taxon_type: f.taxon_type,
+        integrity: f.integrity,
+        specimen_dimensions: f.specimen_dimensions,
         formation: s.formation,
         period_era: s.fossil_details?.period_era ?? null,
         age: s.fossil_details?.age ?? null,
@@ -781,14 +827,23 @@ export async function importSpecimenToStore(specimenId: string): Promise<void> {
 async function copyProvenance(productId: string, priv: CatalogSpecimenPrivate | null): Promise<void> {
   const { data, error } = await supabase
     .from('specimen_provenance')
-    .select('name, party_id, acquired_on, acquired_precision, notes, sort_order')
+    .select('name, party_id, acquired_on, acquired_precision, acquired_approx, notes, sort_order')
     .eq('specimen_id', productId)
     .eq('direction', 'before')
     .order('sort_order')
   if (error) throw new Error(`Falha ao ler a procedência do espécime: ${error.message}`)
   const rows = (data ?? []).map((r, i) => ({ ...r, product_id: productId, sort_order: i }))
   if (rows.length === 0 && priv?.previous_owner?.trim()) {
-    rows.push({ name: priv.previous_owner.trim(), party_id: null, acquired_on: null, acquired_precision: null, notes: null, sort_order: 0, product_id: productId })
+    rows.push({
+      name: priv.previous_owner.trim(),
+      party_id: null,
+      acquired_on: null,
+      acquired_precision: null,
+      acquired_approx: false,
+      notes: null,
+      sort_order: 0,
+      product_id: productId,
+    })
   }
   if (rows.length === 0) return
   const { error: insertError } = await supabase.from('store_product_provenance').insert(rows)

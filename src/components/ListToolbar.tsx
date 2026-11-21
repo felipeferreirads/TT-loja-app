@@ -111,7 +111,7 @@ export function ListToolbar({ summary, sort, activeFilters, onClearFilters, quic
             type="button"
             onClick={() => setFiltersOpen((v) => !v)}
             aria-expanded={filtersOpen}
-            className={`flex min-h-8 shrink-0 items-center gap-1 rounded-full px-3 py-0.5 text-sm whitespace-nowrap transition sm:min-h-7 ${
+            className={`inline-flex h-8 shrink-0 items-center gap-1 rounded-full px-3 text-sm whitespace-nowrap transition sm:h-7 ${
               filtersOpen || activeFilters > 0 ? 'bg-amber-600 text-white' : 'bg-stone-800 text-stone-300 hover:bg-stone-700'
             }`}
             title="Filtros"

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ITEM_KIND_LABELS, type StoreProduct } from '../../types/db'
 import { formatMoney } from '../../lib/format'
+import { BROWSE_NAV_STATE } from '../../lib/browseSequence'
 import { useLongPress } from '../../lib/useLongPress'
 import { CheckIcon, PhotoIcon, StackIcon, WarningIcon } from '../../components/icons'
 
@@ -26,6 +27,7 @@ export function ProductCard({
   return (
     <Link
       to={`/produtos/${product.id}`}
+      state={BROWSE_NAV_STATE}
       {...longPress.handlers}
       onClick={(e) => {
         if (selection) {

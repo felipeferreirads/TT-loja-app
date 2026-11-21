@@ -13,6 +13,7 @@ const TYPE_LABELS: Record<ImportableSpecimen['type'], string> = {
   mineral: 'Mineral',
   fossil: 'Fóssil',
   meteorite: 'Meteorito',
+  other: 'Outro',
 }
 
 type Mode = 'search' | 'scan'

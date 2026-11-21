@@ -2,8 +2,12 @@ import { useCallback, useState } from 'react'
 import { PlusIcon, TrashIcon, ChevronDownIcon, ChevronRightIcon, SpecimenIcon, SearchIcon, RestoreAutoIcon } from '../../../components/icons'
 import { SuggestInput } from '../../../components/SuggestInput'
 import { lookupMineral, searchMineralNames, type MineralAutoInfo } from '../../../lib/mineralReference'
-import type { StoreProductMineral, StoreProductMineralInput } from '../../../types/db'
-import { Section } from './Field'
+import type { StoreItemKind, StoreProductMineral, StoreProductMineralInput } from '../../../types/db'
+import { HintSelect } from '../../../components/HintSelect'
+import { InfoTooltip } from '../../../components/InfoTooltip'
+import { Labeled, Section } from './Field'
+import { Checkbox } from '../../../components/Checkbox'
+import { MINERAL_MAIN_HINT, MINERAL_ROLE_HINTS, MINERAL_ROLE_LABELS, MINERAL_ROLES, normalizeMineralRole } from './mineralRoles'
 import { MINERAL_PROPS, type MineralPropKey } from './mineralFields'
 
 /**
@@ -41,10 +45,14 @@ export interface MineralRowDraft {
   luster: string
   transparency: string
   refractive_index: string
+  /** Ocorrência no item (0041) — código de `MINERAL_ROLES`, '' = não informado. */
+  role: string
+  /** Mineral principal do item (0041). */
+  is_main: boolean
 }
 
 export function emptyMineralRow(): MineralRowDraft {
-  const row = { key: crypto.randomUUID(), name: '', mineral_reference_id: null, auto_fields: [] } as unknown as MineralRowDraft
+  const row = { key: crypto.randomUUID(), name: '', mineral_reference_id: null, auto_fields: [], role: '', is_main: false } as unknown as MineralRowDraft
   for (const p of MINERAL_PROPS) row[p.key] = ''
   return row
 }
@@ -56,6 +64,8 @@ export function mineralRowToDraft(row: StoreProductMineral): MineralRowDraft {
     name: row.name ?? '',
     mineral_reference_id: row.mineral_reference_id,
     auto_fields: row.auto_fields ?? [],
+    role: row.role ?? '',
+    is_main: row.is_main === true,
   } as unknown as MineralRowDraft
   for (const p of MINERAL_PROPS) draft[p.key] = (row as unknown as Record<string, string | null>)[p.key] ?? ''
   return draft
@@ -66,6 +76,8 @@ export function mineralRowToInput(d: MineralRowDraft): StoreProductMineralInput 
     name: d.name.trim() || null,
     mineral_reference_id: d.mineral_reference_id,
     auto_fields: d.auto_fields,
+    role: d.role || null,
+    is_main: d.is_main,
   }
   for (const p of MINERAL_PROPS) input[p.key] = d[p.key].trim() === '' ? null : d[p.key].trim()
   return input as StoreProductMineralInput
@@ -74,9 +86,12 @@ export function mineralRowToInput(d: MineralRowDraft): StoreProductMineralInput 
 export function MineralsInSampleSection({
   minerals,
   onChange,
+  kind,
 }: {
   minerals: MineralRowDraft[]
   onChange: (minerals: MineralRowDraft[]) => void
+  /** Tipo do item: define as opções de "Papel na amostra" (como no catálogo). */
+  kind: StoreItemKind
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set(minerals.length > 0 ? [minerals[0].key] : []))
   const [lookupMsg, setLookupMsg] = useState<Record<string, string>>({})
@@ -209,6 +224,31 @@ export function MineralsInSampleSection({
                     </button>
                   </div>
                   {lookupMsg[m.key] && <p className="text-xs text-stone-400">{lookupMsg[m.key]}</p>}
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-[auto_1fr] sm:items-end">
+                    <div className="sm:pb-2">
+                      <Checkbox checked={m.is_main} onChange={(v) => updateAt(m.key, { is_main: v })}>
+                        <span className="inline-flex items-center gap-1">
+                          Principal
+                          <InfoTooltip text={MINERAL_MAIN_HINT} iconClassName="h-3.5 w-3.5" />
+                        </span>
+                      </Checkbox>
+                    </div>
+                    <Labeled label="Papel na amostra">
+                      <div className="mt-1">
+                        <HintSelect
+                          ariaLabel="Papel na amostra"
+                          value={normalizeMineralRole(kind, m.role)}
+                          onChange={(v) => updateAt(m.key, { role: v })}
+                          options={(MINERAL_ROLES[kind] ?? []).map((r) => ({
+                            value: r,
+                            label: MINERAL_ROLE_LABELS[r],
+                            hint: MINERAL_ROLE_HINTS[r],
+                          }))}
+                        />
+                      </div>
+                    </Labeled>
+                  </div>
 
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                     {MINERAL_PROPS.map((p) => {

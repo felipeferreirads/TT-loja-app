@@ -1,5 +1,5 @@
 import { supabase } from '../../lib/supabase'
-import type { StoreSupplier } from '../../types/db'
+import type { StoreSupplier, SupplierStorefront } from '../../types/db'
 
 // Cadastro COMPARTILHADO com o catálogo pessoal (`suppliers`). A loja só
 // enxerga/cria fornecedores com `in_store = true`; apagar aqui nunca remove
@@ -48,6 +48,40 @@ export async function createSupplier(input: StoreSupplierInput): Promise<StoreSu
     .single()
   if (error) throw error
   return data
+}
+
+/** Fornecedor com as lojas dele (`supplier_storefronts`, tabela do catálogo) — usado pelo seletor do produto. */
+export type StoreSupplierWithStorefronts = StoreSupplier & { storefronts: SupplierStorefront[] }
+
+export const SUPPLIERS_WITH_STOREFRONTS_KEY = ['suppliers-with-storefronts'] as const
+
+export async function fetchSuppliersWithStorefronts(): Promise<StoreSupplierWithStorefronts[]> {
+  const { data, error } = await supabase
+    .from('suppliers')
+    .select('*, storefronts:supplier_storefronts(*)')
+    .eq('in_store', true)
+    .eq('is_supplier', true)
+    .order('name')
+  if (error) throw error
+  return (data as StoreSupplierWithStorefronts[]).map((s) => ({
+    ...s,
+    storefronts: [...(s.storefronts ?? [])].sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, 'pt-BR')),
+  }))
+}
+
+export async function createStorefront(supplierId: string, input: { name: string; marketplace: string | null }): Promise<SupplierStorefront> {
+  const { data, error } = await supabase
+    .from('supplier_storefronts')
+    .insert({ supplier_id: supplierId, ...input })
+    .select()
+    .single()
+  if (error) throw new Error(`Não foi possível salvar a loja: ${error.message}`)
+  return data as SupplierStorefront
+}
+
+/** "Loja · Marketplace" — rótulo curto de uma loja (mesmo formato do catálogo). */
+export function storefrontLabel(sf: Pick<SupplierStorefront, 'name' | 'marketplace'>): string {
+  return sf.marketplace ? `${sf.name} · ${sf.marketplace}` : sf.name
 }
 
 export async function updateSupplier(id: string, input: Partial<StoreSupplierInput>): Promise<StoreSupplier> {

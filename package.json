@@ -11,19 +11,27 @@
     "postinstall": "node scripts/copy-pdfjs-wasm.mjs"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@supabase/supabase-js": "^2.50.0",
     "@tanstack/react-query": "^5.101.4",
+    "d3-geo": "^3.1.2",
+    "i18n-iso-countries": "^7.14.0",
     "pdfjs-dist": "^6.5.438",
     "qrcode-generator": "^2.0.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "react-router-dom": "^7.6.0"
+    "react-router-dom": "^7.6.0",
+    "topojson-client": "^3.1.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.0",
+    "@types/d3-geo": "^3.1.1",
     "@types/node": "^22.15.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
+    "@types/topojson-client": "^3.1.5",
     "@vitejs/plugin-react": "^4.5.0",
     "tailwindcss": "^4.1.0",
     "typescript": "~5.8.0",

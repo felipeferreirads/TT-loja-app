@@ -31,6 +31,12 @@ export interface StoreProduct {
   species_or_type: string | null
   sku: string | null
   cost_price: number | null
+  /** Custo em US$ (0040) — espelho de `specimen_private.price_usd`. Derivado de `cost_price` ÷ câmbio, salvo no modo manual. */
+  cost_usd: number | null
+  /** R$ por US$ da conversão do custo (0040): PTAX da data de aquisição ou manual. */
+  cost_exchange_rate: number | null
+  /** true = `cost_usd` foi digitado à mão, nunca recalculado ao salvar. */
+  cost_exchange_rate_manual: boolean
   sale_price: number
   stock_quantity: number
   /** Opt-in — sem valor, o produto nunca aparece como "estoque baixo" (a
@@ -145,6 +151,9 @@ export interface StoreProduct {
   /** 'Sim' | 'Não' | '' — mesmo padrão de toggle Sim/vazio dos campos de meteorito. */
   jwl_adjustable: string | null
 
+  /** Categorias (0042) — ids de `store_categories`, embutidos no SELECT da lista (`store_product_categories`). */
+  category_ids?: string[]
+
   /** Taxonomia de fóssil MULTI-ESPÉCIE — ver `store_product_fossil_species`;
    *  o produto pode ser um lote com várias espécies. Não vem no SELECT de
    *  `store_products`, é buscado à parte (fetchFossilSpecies). */
@@ -194,9 +203,77 @@ export interface StoreProduct {
   supplier_code: string | null
   acquisition_date: string | null
 
+  // Paridade com o item da coleção (0041).
+  /** Atributos livres do tipo "Outro" (como `specimens.custom_fields`). O subtipo é `species_or_type`. */
+  custom_fields: CustomField[] | null
+  /** Fornecedor em texto livre, quando não cadastrado (só vale sem `supplier_id`). */
+  supplier_text: string | null
+  /** Loja do fornecedor (`supplier_storefronts`) de onde veio — só com `supplier_id`. */
+  supplier_storefront_id: string | null
+  /** Preço bruto em R$ e US$ (como `price_gross_brl`/`_usd` do catálogo) — sempre manuais. */
+  cost_gross_price: number | null
+  cost_gross_usd: number | null
+  /** Tempo geológico do fóssil (faixa: início e fim, 0169 do catálogo) e idade em texto. */
+  geological_time_id: string | null
+  geological_time_end_id: string | null
+  fossil_age: string | null
+
   created_at: string
   updated_at: string
   /** Lixeira (0027) — soft delete, 15 dias de retenção. Ver `features/trash/`. */
+  deleted_at: string | null
+}
+
+/** Atributo livre do tipo "Outro" — pares rótulo/valor na ordem escolhida (mesmo formato do catálogo). */
+export interface CustomField {
+  label: string
+  value: string
+}
+
+/** Loja de um fornecedor (`supplier_storefronts`, tabela do catálogo pessoal). */
+export interface SupplierStorefront {
+  id: string
+  owner_id: string
+  supplier_id: string
+  name: string
+  marketplace: string | null
+  url: string | null
+  notes: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export type GeologicalTimeRank = 'eon' | 'era' | 'period' | 'epoch' | 'subepoch' | 'age'
+
+/** Nó da escala do Tempo Geológico (`geological_time`, referência compartilhada com o catálogo). */
+export interface GeologicalTime {
+  id: string
+  parent_id: string | null
+  rank: GeologicalTimeRank
+  name_en: string
+  name_pt: string
+  name_es: string | null
+  age_start_ma: number | null
+  age_end_ma: number | null
+  sort_order: number
+}
+
+/** Categoria da loja (0042) — mesmo modelo de `categories` do catálogo pessoal. */
+export interface StoreCategory {
+  id: string
+  owner_id: string
+  name: string
+  parent_id: string | null
+  /** Produto cuja foto ilustra o álbum. */
+  cover_product_id: string | null
+  /** Foto própria da capa — tem prioridade sobre `cover_product_id`. */
+  cover_image_path: string | null
+  /** Slug da paleta (`features/categories/colors.ts`); null = herda da mãe. */
+  color: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
   deleted_at: string | null
 }
 
@@ -214,6 +291,8 @@ export interface StoreProductProvenance {
   /** Data em que este dono adquiriu a peça; com precisão `year`, só o ano vale. */
   acquired_on: string | null
   acquired_precision: 'year' | 'month' | 'day' | null
+  /** Data aproximada (0041, como `specimen_provenance.acquired_approx`): mostrada com "~". */
+  acquired_approx: boolean
   notes: string | null
   sort_order: number
   created_at: string
@@ -221,7 +300,7 @@ export interface StoreProductProvenance {
 }
 
 export type StoreProductProvenanceInput = Pick<StoreProductProvenance, 'name'> &
-  Partial<Pick<StoreProductProvenance, 'party_id' | 'acquired_on' | 'acquired_precision' | 'notes' | 'sort_order'>>
+  Partial<Pick<StoreProductProvenance, 'party_id' | 'acquired_on' | 'acquired_precision' | 'acquired_approx' | 'notes' | 'sort_order'>>
 
 /** Bucket físico do R2 onde o arquivo desta linha vive — ver migration 0017.
  *  'store' = bucket próprio da loja (upload feito aqui). 'media' = bucket do
@@ -283,6 +362,9 @@ export interface StoreProductFossilSpecies {
   period_era: string | null
   age: string | null
   item_count: number | null
+  /** Integridade e dimensões do exemplar desta espécie (0041, como em `fossil_species`). */
+  integrity: string | null
+  specimen_dimensions: string | null
   sort_order: number
   created_at: string
   updated_at: string
@@ -317,6 +399,10 @@ export interface StoreProductMineral {
   luster: string | null
   transparency: string | null
   refractive_index: string | null
+  /** Ocorrência do mineral neste item (0041, como `specimen_minerals.role`): código de `MINERAL_ROLES`. */
+  role: string | null
+  /** Mineral principal do item (0041, como `specimen_minerals.is_main`); pode haver mais de um. */
+  is_main: boolean
   created_at: string
   updated_at: string
 }

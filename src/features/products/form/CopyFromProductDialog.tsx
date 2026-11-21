@@ -25,7 +25,7 @@ interface CopyGroup {
 
 const GROUPS: CopyGroup[] = [
   { key: 'kind', label: 'Tipo de item', fields: ['kind'] },
-  { key: 'prices', label: 'Preços (venda e custo)', fields: ['sale_price', 'cost_price', 'min_stock'] },
+  { key: 'prices', label: 'Preços (venda e custo)', fields: ['sale_price', 'cost_price', 'cost_usd', 'cost_exchange_rate', 'cost_exchange_rate_manual', 'cost_gross_price', 'cost_gross_usd', 'min_stock'] },
   { key: 'origin', label: 'Localidade (país, estado e origem)', fields: ['origin', 'origin_country', 'origin_state', 'origin_short'] },
   { key: 'physical', label: 'Peso, dimensões e tamanho', fields: ['weight_g', 'weight_ct', 'dimensions', 'size_class'] },
   {
@@ -37,6 +37,8 @@ const GROUPS: CopyGroup[] = [
   { key: 'treatment', label: 'Tratamento', fields: ['treatment'] },
   { key: 'gem', label: 'Lapidação (gema)', fields: ['is_gem', 'cut_type', 'gem_shape', 'gem_cut_style', 'cut_name'] },
   { key: 'fossil', label: 'Restauração e matriz do fóssil', fields: ['fossil_restoration', 'fossil_host_rock'] },
+  { key: 'fossilTime', label: 'Tempo geológico e idade do fóssil', fields: ['geological_time_id', 'geological_time_end_id', 'fossil_age'] },
+  { key: 'other', label: 'Subtipo e atributos (tipo Outro)', fields: ['species_or_type', 'custom_fields'] },
   {
     key: 'meteorite',
     label: 'Classificação do meteorito',
@@ -46,7 +48,7 @@ const GROUPS: CopyGroup[] = [
     ],
   },
   { key: 'jewelry', label: 'Dados da joia', fields: ['jwl_material', 'jwl_stone', 'jwl_size', 'jwl_clasp', 'jwl_finish', 'jwl_adjustable'] },
-  { key: 'supplier', label: 'Fornecedor, código e data de aquisição', fields: ['supplier_id', 'supplier_code', 'acquisition_date'] },
+  { key: 'supplier', label: 'Fornecedor, loja, código e data de aquisição', fields: ['supplier_id', 'supplier_storefront_id', 'supplier_text', 'supplier_code', 'acquisition_date'] },
   {
     key: 'ecommerce',
     label: 'Loja online (categoria, tags, frete, embalagem)',

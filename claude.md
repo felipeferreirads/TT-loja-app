@@ -33,6 +33,19 @@ sobre **documentar uma coleção**, a loja é sobre **operar o lado comercial**
   de transferência coleção↔loja, roadmap de funcionalidades):
   `../docs/PROJETO-APP-LOJA.md` no repo do Tesouros da Terra.
 
+## Mapa dos índices detalhados (`docs/`)
+
+O que cada arquivo faz, decisões e trade-offs por arquivo ficam em índices
+por área, para não carregar tudo em toda sessão. Ler só o(s) da área que a
+tarefa toca:
+
+| Índice | Quando ler |
+|---|---|
+| [docs/indice-produtos.md](docs/indice-produtos.md) | Qualquer coisa em `src/features/products/`: lista/planilha, ficha e seções do formulário, importação da coleção, lotes, estoque, etiquetas, cartão, exportação Nuvemshop/Shopify |
+| [docs/indice-src.md](docs/indice-src.md) | `src/` fora de Produtos: casca do app, autenticação e trava por PIN, categorias, vendas, clientes, caixa, fornecedores, documentos, precificação, estatísticas, painel, empresa, lixeira, componentes, `lib/`, raiz do repositório |
+| [docs/indice-supabase.md](docs/indice-supabase.md) | Migrations (com o estado de cada uma), como aplicar, tabelas do catálogo que a loja usa, Storage e Edge Functions |
+| `../docs/indice-compartilhados.md` (repo pai) | Qualquer arquivo idêntico ao do catálogo (lista `SHARED` de `../scripts/shared-ui.mjs`): o que faz e quem usa em cada app |
+
 ## 2. Regra-mestra: o que é copiado do catálogo pessoal, e como
 
 Decisão de arquitetura (17-18/08/2026, ver auto-memory `app-loja-decisao-
@@ -68,7 +81,7 @@ comentário no topo do arquivo diz isso** ("Copiado do catálogo pessoal",
 | `src/components/icons.tsx` | idem | Cópia integral — zero dependências, nada a simplificar |
 | `src/lib/theme.ts` + `src/themes.css` | idem | Sem persistência em `user_settings` (só `localStorage`, chave prefixada `tt_loja_`); sem seletor de idioma nos nomes |
 | `src/components/SearchField.tsx` | `src/features/specimens/SearchField.tsx` | Cópia integral (já era PT-only e sem i18n) |
-| `src/features/products/form/*` | `src/features/specimens/SpecimenFormPage.tsx` + `formFields.ts` | Só as seções geológicas/taxonômicas (Identificação de espécie, Origem, Propriedades minerais, Taxonomia de fóssil, Meteorito). Categorias e código global **não foram portados** — não existem no domínio comercial. Sistema de lotes FOI portado à parte (ver linha abaixo e §9). Certificados de autenticidade FORAM portados (20/08/2026, `CertificatesSection.tsx`) — ver linha abaixo |
+| `src/features/products/form/*` | `src/features/specimens/SpecimenFormPage.tsx` + `formFields.ts` | Só as seções geológicas/taxonômicas (Identificação de espécie, Origem, Propriedades minerais, Taxonomia de fóssil, Meteorito). Código global **não foi portado**. Categorias FORAM portadas em 20/11/2026 (0042, ver "Categorias" abaixo). Sistema de lotes FOI portado à parte (ver linha abaixo e §9). Certificados de autenticidade FORAM portados (20/08/2026, `CertificatesSection.tsx`) — ver linha abaixo |
 | `src/features/products/certificates.ts` + `form/CertificatesSection.tsx` | `src/features/specimens/certificates.ts` + `SpecimenCertificates.tsx` | Copiado 20/08/2026 (movido de dentro de `store_documents` pra dentro da ficha do produto, igual o catálogo pessoal). Simplificado: sem gate de modo de edição (a ficha da loja é sempre editável, não tem "ficha somente-leitura" separada do formulário) e sem miniatura .webp de PDF/self-heal (poucos certificados esperados — decisão do dono, não replicar sem necessidade real). Arquivo fica no bucket "store" (Supabase Storage), pasta `certificates/{productId}/{certificateId}/…`, não R2 — mesma decisão de escopo pequeno |
 | `src/features/products/lots.ts` (+ `.test.ts`) | `src/features/specimens/lots.ts` | Lógica pura portada quase verbatim (20/08/2026) — só troca `is_sold` por `stock_quantity <= 0` (peça de lote na loja é um `store_products` completo com estoque próprio, não um campo `is_sold`). `LotItemsSection.tsx`/`SplitLotDialog.tsx` daqui são versões enxutas dos de lá (sem grid/seleção em massa/fluxo de foto em lote — ver §9) |
 | `src/features/documents/*` | `src/features/documents/*` | **Tabela COMPARTILHADA** desde 17/11/2026 (catálogo `0203` + loja `0038`/`0039`): a loja usa `documents`/`document_files`/`document_payments`/`document_holders`/`carriers` do catálogo, lista só `in_store = true` e cria com `in_store`/`in_collection = false` (mesmo modelo de `suppliers`). Formulário (`DocumentFormPage`), ficha (`DocumentDetailPage`) e lista (`DocumentsListPage`) portados do catálogo, sem i18n/PIN/fila em segundo plano/exportar PDF. Vincula PRODUTOS (`document_store_products`); nota de venda = `documents.store_sale_id`. Excluir: documento também da Coleção só desliga `in_store`; senão exclui de vez com os arquivos (bucket `documents`). Certificado continua fora de Documentos (ficha do produto) |
@@ -81,10 +94,91 @@ comentário no topo do arquivo diz isso** ("Copiado do catálogo pessoal",
 | `src/features/products/form/rockFields.ts` + `RocksInSampleSection.tsx` | `src/features/specimens/rockFields.ts` + `RockListInput.tsx` | Copiado 09/11/2026 (migration `0032_rocks_and_parent_body.sql`: `store_product_rocks` + `store_products.met_parent_body`). Só PT; vocabulário e chaves em inglês IDÊNTICOS ao catálogo (a importação copia sem conversão); cada opção tem ⓘ (`components/HintSelect.tsx`, `InfoTooltip.tsx`, `usePortalDropdown.ts`, copiados). Sem copiar-de-outra-rocha, sem sugestões da coleção (só nomes comuns). Impactito = categoria `'Impactito'` em `met_category` (esconde grupo/tipo/choque/crosta/côndrulos/matriz/olivina/ataque ácido, `IMPACTITE_HIDDEN_DRAFT_FIELDS`, nulos no `toInput`); seção de rochas só aparece em mineral/fóssil/outro e meteorito Impactito. Importar da Coleção traz rochas e corpo de origem |
 | `src/components/ColorSwatchSelect.tsx` + `features/products/colorOptions.ts` | `src/components/ColorSwatchSelect.tsx` + `COLOR_OPTIONS`/`COLOR_SWATCH` (`formFields.ts`) | Sem `COLOR_LABEL_KEYS`/tradução — usa direto o texto em PT como valor e como rótulo |
 | `src/components/ListToolbar.tsx`, `SortPill.tsx`, `FilterChip.tsx`, `ActionMenu.tsx`, `ExpandablePillSelect.tsx`, `ErrorBoundary.tsx` + `lib/useLocalToggle.ts`/`useLocalNumber.ts`/`usePersistedSort.ts` | Homônimos do catálogo | Copiados 13/11/2026 no alinhamento visual com o app principal (barra de lista com painel de Filtros, botões de ação quadrados `h-9 w-9`, sidebar redimensionável). `ListToolbar` ganhou a prop `trailing` (controles extras à direita); textos fixos em PT |
+| `src/components/ColumnsMenu.tsx`, `ViewModeSwitch.tsx`, `TypeFilterPills.tsx` (+ `ExpandablePillSelect.tsx`, `SortPill.tsx`) | `src/components/ColumnsMenu.tsx`, `ViewModeSwitch.tsx`, `ExpandablePillSelect.tsx`, `SortPill.tsx` do catálogo | **Arquivos IDÊNTICOS aos do catálogo** (17/11/2026) — editar no catálogo e copiar para cá, nunca divergir. Recebem rótulos por props (sem i18n), por isso servem aos dois apps. Os dois apps devem parecer abas do mesmo app: alturas `h-8` (celular) / `sm:h-7` (desktop) em todos os controles da barra. Colunas fixas ficam dentro do painel de `ColumnsMenu`. `TypeFilterPills` troca os chips pela pílula quando não cabem (equivale à lógica `typeCompact` do `SpecimenToolbar`) |
 | `src/features/products/crystalFeatures.ts` + `form/CrystalFeaturesInput.tsx` | `src/features/specimens/crystalFeatures.ts` | Copiado 13/11/2026 (0036). Mesmos valores gravados (PT) — a importação da coleção copia sem conversão. Títulos de grupo e dicas viraram `CRYSTAL_GROUP_LABELS`/`CRYSTAL_FEATURE_HINTS` (sem i18n) |
 | `src/features/products/list/*` (modo lista/planilha) | `SpecimenBrowseView.tsx` + `SpecimenRow.tsx` + `gridFill.ts` + `FindReplaceDialog.tsx` | Reescrito para `store_products` (13/11/2026): `columns.ts` = catálogo de colunas (grupo, largura, texto, valor cru, edição); `ProductSheet.tsx` = tabela com colunas reordenáveis/redimensionáveis/congeláveis, ordenação por coluna e modo planilha (seleção, edição na célula, Ctrl+C/V/D/R/Z/Y, alça de preenchimento, Localizar e substituir). `fill.ts` é cópia literal de `gridFill.ts`. Sem virtualização (a loja tem centenas de itens, não milhares) |
 | `src/features/products/social/SocialCardDialog.tsx` | `src/features/specimens/social/*` | Desenhado direto em canvas (sem react-pdf/pdfjs) e com o PREÇO no rodapé. Foto via `fetch` → `createImageBitmap`; sem CORS no armazenamento, sai sem foto (aviso) |
 | `src/lib/qrSvg.ts` + `features/products/labels/LabelsDialog.tsx` | `datasheet/qr.ts` (mesma lib `qrcode-generator`) | Etiquetas de preço com QR (id do produto) em folha A4 impressa pelo navegador (`#labels-print-area` num portal + regra `@media print` em `index.css`). Sem PDF próprio |
+
+**Custo em US$ e câmbio (0040, 20/11/2026)**: `store_products.cost_usd` /
+`cost_exchange_rate` / `cost_exchange_rate_manual` espelham `price_usd` /
+`exchange_rate` / `exchange_rate_manual` de `specimen_private` do catálogo
+(`cost_price` = `price_brl`; a data é `acquisition_date`, já existia). Mesmo
+comportamento do catálogo: modo automático (R$ ÷ câmbio; sem câmbio, busca o
+PTAX da data de aquisição ao salvar) ou manual (US$ digitado). Lógica em
+`features/products/costFx.ts` (`resolveCostFx` no salvar, `correctedCost`,
+`useTodayFxRate`) e `lib/exchangeRate.ts` (cópia do catálogo, sem i18n).
+**Custo corrigido** = `max(cost_price, cost_usd × PTAX de hoje)`: calculado na
+hora (coluna "Custo corrigido" da lista, bloco na seção "Dados da loja"),
+nunca gravado; alimenta só a SUGESTÃO de preço (a chave "usar o custo
+corrigido" é local, `tt_loja_fx_correction`). Estatísticas e margem continuam
+no custo pago. Importar da Coleção traz o par US$ do mesmo preço (líquido, ou
+bruto se não houver líquido). Editar `cost_price` direto na planilha NÃO
+recalcula `cost_usd` (o recálculo roda no "Salvar" da ficha).
+
+**Paridade de campos com o item da coleção (0041, 20/11/2026)**: tipo "Outro"
+com subtipo (`species_or_type`) e atributos livres (`custom_fields`,
+`form/OtherDetailsSection.tsx`); fornecedor com loja (`supplier_storefront_id`)
+ou texto livre (`supplier_text`) pelo `suppliers/SupplierPicker.tsx` (cópia do
+catálogo); preço bruto em R$ e US$ (`cost_gross_price`/`cost_gross_usd`);
+tempo geológico do fóssil com faixa (`geological_time_id`/`_end_id`,
+`fossil_age`, `form/FossilTimeFields.tsx` + `form/GeologicalTimeSelect.tsx`);
+papel e "Principal" dos minerais (`store_product_minerals.role`/`is_main`,
+`form/mineralRoles.ts`; a seção aparece em mineral, fóssil e meteorito);
+integridade e dimensões por espécie de fóssil; data aproximada "~2016" na
+procedência (`acquired_approx`, `features/products/provenance.ts` +
+`form/ProvenanceEditor.tsx`, mesmo editor do catálogo). A importação da
+coleção traz todos esses campos e passou a reconhecer o tipo "Outro" (antes
+virava meteorito "(sem nome)").
+
+**Categorias (0042, 20/11/2026)** — `features/categories/`: álbuns
+hierárquicos (`store_categories` + `store_product_categories`, tabelas próprias
+da loja) com a mesma tela do catálogo (grade/lista, reordenar arrastando, cor,
+capa própria no R2 `store` ou capa por produto, mover, excluir) e as quatro
+categorias automáticas: Distribuição Geográfica (mapa + continentes + países,
+filtro por estado), Escala de Tempo Geológica, Espécie Mineral e Tabela
+Periódica. Rotas em `/categorias/*`. Produto ganhou a seção "Categorias"
+(`ProductCategoriesSection.tsx`) e `category_ids` embutido no SELECT da lista.
+As listas de produtos dentro de uma categoria são a própria `ProductsPage` com
+`scope` (papel do `SpecimenBrowseView` do catálogo). Excluir categoria grava
+`deleted_at` (com as subcategorias), mas a Lixeira da loja ainda não lista
+categorias. Fora desta primeira versão: mapa por estado no país (o catálogo
+usa `CountryStateMap` das Estatísticas), capa personalizada por espécie
+mineral e propriedades do Atlas na página da espécie.
+
+**Componentes compartilhados com o catálogo**: os arquivos listados em
+`SHARED` de `../scripts/shared-ui.mjs` são IDÊNTICOS nos dois apps — editar no
+catálogo e rodar `npm run ui:sync` na raiz (`ui:check` confere). O índice
+arquivo por arquivo, com os chamadores nos dois apps, está em
+`../docs/indice-compartilhados.md`. Inclui toda a
+parte visual das categorias (`components/CategoryChipPicker.tsx`,
+`ContinentMap.tsx`, `ContinentMapMobile.tsx`, `GeoTile.tsx`,
+`GeologicalTimeChart.tsx`, `PeriodicTable.tsx`, `VirtualCategoryTile.tsx`,
+`FullscreenOverlay.tsx`, `PromptDialog.tsx`, `AppSelect.tsx`, `Checkbox.tsx`) e
+as funções puras (`lib/categoryTree.ts`, `geoContinents.ts`,
+`geologicalTimeTree.ts`, `geologicalTimeChart.ts`, `worldGeographies.ts`,
+`chemicalFormula.ts`, `data/chemicalElements.ts`,
+`features/categories/colors.ts`) e a trava de abertura por PIN
+(`components/PinPad.tsx`, `PinLockScreen.tsx`, `PinSetupDialog.tsx`,
+`lib/appLock.ts`, `lib/pinHash.ts`). Eles recebem os textos por props. Alguns
+importam arquivos de mesmo nome e mesma interface que existem nos dois apps
+(`lib/format.ts`, `components/Flag.tsx`, `components/icons.tsx`,
+`lib/worldTopo.ts`); a loja tem a sua `lib/worldTopo.ts` (busca simples, sem
+cache offline).
+
+**Trava de abertura por PIN (20/11/2026)** — opcional e por dispositivo,
+ligada em Configurações (`features/settings/SettingsPage.tsx`, rota
+`/configuracoes`). Com a trava ligada, o app abre na tela de PIN e a pede de
+novo ao voltar do segundo plano depois do tempo escolhido (Sempre / 1 / 5 /
+15 min). Guarda só hash PBKDF2 + salt no `localStorage` (`tt_loja_app_lock`),
+nunca o PIN; independente da trava do catálogo no mesmo navegador. 4 a 8
+dígitos. `AppLockGate` envolve o `<Outlet/>` de `features/auth/RequireAuth.tsx`
+(o login fica fora). "Esqueci o PIN" desliga a trava neste dispositivo e
+encerra a sessão. Os arquivos `lib/pinHash.ts`, `lib/appLock.ts`,
+`components/PinPad.tsx`, `PinLockScreen.tsx` e `PinSetupDialog.tsx` são
+COMPARTILHADOS (lista acima); aqui ficam só a instância e os textos em PT
+(`features/settings/appLock.ts`). Detalhes em `../docs/indice-src.md`, seção
+"Trava de abertura por PIN".
 
 **Dependência nova**: `@tanstack/react-query` foi adicionada (o catálogo
 pessoal já usa) — necessária pros hooks de país/subdivisão com cache. Não
@@ -120,6 +214,9 @@ src/
                          copiados do catálogo (país/estado/localidade/sugestão)
   features/
     auth/                Login (mesma conta Supabase do dono) + guarda de rota
+    settings/            Configurações (`/configuracoes`, botão de engrenagem no
+                          cabeçalho): trava de abertura por PIN deste
+                          dispositivo — ver "Trava de abertura por PIN" na §2
     products/             Produtos: lista (busca+filtro+ordenação+grade/lista),
                           ficha, form/ (seções: mídia/vídeo → comercial →
                           espécime → propriedades → taxonomia de fóssil
@@ -143,6 +240,9 @@ src/
                           (sistema de lotes, ver §9), stockHistory.ts +
                           ProductStockHistorySection.tsx (entradas/saídas de
                           estoque, ver §9)
+    categories/           Categorias (0042): álbuns hierárquicos + categorias
+                          automáticas (localização, tempo geológico, espécie
+                          mineral, tabela periódica) — ver "Categorias" na §2
     customers/            Clientes
     suppliers/             Fornecedores — tabela `suppliers` COMPARTILHADA com o
                           catálogo pessoal (0029 + 0151 do catálogo); a loja
@@ -263,6 +363,22 @@ com a mesma pesquisa em fontes de mineralogia em PT, nunca chute.
 
 ## 5. Regras de sessão (herdadas do catálogo pessoal, aplicáveis aqui)
 
+**Início de sessão**: ler este `claude.md` e, em seguida, só o(s) índice(s) de
+`docs/` da área que a tarefa toca (mapa no topo). Typecheck de referência:
+`npx tsc --noEmit -p tsconfig.json` está limpo; com o hook `rtk`, rodar via
+`rtk proxy` para ver a saída real (o filtro esconde erros, inclusive o de
+arquivo de configuração inexistente).
+
+**Índices acompanham o código** (mesma regra do `claude.md` do catálogo):
+atualizar o índice da área **na mesma edição** que muda o código — arquivo
+novo, removido, renomeado ou com papel novo, decisão não óbvia; a árvore da §3
+quando surgir pasta nova em `features/`; a tabela de migrations de
+`docs/indice-supabase.md` quando houver migration nova e de novo quando ela for
+aplicada (estado + data); linha em `../docs/indice-compartilhados.md` para
+arquivo compartilhado novo ou com props/chamadores diferentes. Índice que
+contradiz o código: corrigir ao encontrar. Ajuste que não muda o papel de
+nenhum arquivo dispensa atualização.
+
 **Idioma**: responder e fazer perguntas ao dono sempre em português.
 
 **Ícones**: SVG inline, nunca emoji — reusar o pool em
@@ -308,12 +424,16 @@ repo pai. Sem deploy, a busca só devolve lista vazia (não quebra a tela).
 | Campo novo de produto (comercial ou de espécime) | `store_products`, migration nova + `types/db.ts` + seção correspondente em `features/products/form/` |
 | Campo novo só de e-commerce (não existe no resto do app) | `store_products` (prefixo `ecommerce_`), migration + `types/db.ts` + `EcommerceSection.tsx` + mapear a coluna certa em `export/nuvemshop.ts`/`export/shopify.ts` |
 | Coluna nova nas planilhas Nuvemshop/Shopify (a plataforma mudou o formato) | `export/nuvemshop.ts` ou `export/shopify.ts` (array `HEADERS` + mapeamento em `buildRow`) |
-| Lógica compartilhada com o catálogo pessoal que mudou nos dois lados | Editar aqui E lá — não há sincronização automática |
+| Lógica copiada do catálogo (cabeçalho "Copiado do catálogo pessoal") que mudou nos dois lados | Editar aqui E lá — sem sincronização automática para esses arquivos |
+| Arquivo da lista `SHARED` de `../scripts/shared-ui.mjs` (idêntico ao do catálogo) | Editar SÓ no catálogo e rodar `npm run ui:sync` na raiz do repo pai; conferir os chamadores em `../docs/indice-compartilhados.md` |
+| Categoria nova automática ou mudança nas categorias | `features/categories/` (ver `docs/indice-src.md`); parte visual compartilhada com o catálogo |
+| O que cada arquivo faz / decisão por arquivo | Índice da área em `docs/` (mapa no topo) |
 | Campo novo de espécie de fóssil (taxonomia, nome popular, contagem) | `store_product_fossil_species`, migration + `StoreProductFossilSpecies`/`StoreProductFossilSpeciesInput` em `types/db.ts` + `FossilSpeciesDraft`/conversores em `form/FossilTaxonomySection.tsx` + CRUD em `products/api.ts` |
 | Ícone novo numa seção do formulário de produto | Prop `icon` do `Section` (`form/Field.tsx`), ícone de `components/icons.tsx` (copiar do catálogo pessoal se faltar) |
 | Decisão de produto ou trade-off não óbvio | Auto-memory do Claude Code (tipo `project`), não este arquivo |
 | Arquitetura ampla / roadmap de funcionalidades | `../docs/PROJETO-APP-LOJA.md` no repo pai |
 | Estrutura de pastas, regras de sessão deste repo | Este `claude.md` |
+| Migration nova ou aplicada | Tabela de `docs/indice-supabase.md` |
 | Campo novo de espécime que a importação da coleção deveria trazer | `features/products/importFromCollection.ts` — ver §7; se não houver coluna equivalente em `store_products`, vira linha no apêndice de notas (`buildAppendix`), nunca se perde em silêncio |
 | Prefixo/regra nova de geração de SKU | `store_sku_prefixes`, migration + `skuPrefixes.ts` (`resolvePrefix`/`suggestSku`) + `SkuPrefixesSection.tsx` (Empresa) — ver §3 |
 | Campo novo do sistema de lotes (sufixo, herança na divisão) | `lots.ts` (+ `.test.ts`, lógica pura) + `LotItemsSection.tsx`/`SplitLotDialog.tsx` — ver §9 |

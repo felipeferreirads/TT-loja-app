@@ -5,7 +5,7 @@ import { AppLogo } from './AppLogo'
 import { AppSidebar } from './AppSidebar'
 import { RouteErrorBoundary } from './ErrorBoundary'
 import { ThemeMenu } from './ThemeMenu'
-import { LogOutIcon, SidebarIcon } from './icons'
+import { GearIcon, LogOutIcon, SidebarIcon } from './icons'
 import { useLocalToggle } from '../lib/useLocalToggle'
 
 /**
@@ -53,6 +53,9 @@ export function Layout() {
           <div className="ml-auto flex shrink-0 flex-nowrap items-center gap-0.5 sm:ml-0 sm:gap-1">
             <span className="mr-1 hidden text-xs text-stone-500 lg:inline">{session?.user.email}</span>
             <ThemeMenu />
+            <Link to="/configuracoes" title="Configurações" aria-label="Configurações" className="tap-icon">
+              <GearIcon className="h-5 w-5" />
+            </Link>
             <button type="button" onClick={() => void signOut()} title="Sair" aria-label="Sair" className="tap-icon">
               <LogOutIcon className="h-5 w-5" />
             </button>

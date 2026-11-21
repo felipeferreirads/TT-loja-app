@@ -1,4 +1,4 @@
-import type { StoreProduct, StoreProductInput } from '../../../types/db'
+import type { CustomField, StoreProduct, StoreProductInput } from '../../../types/db'
 import { IMPACTITE_HIDDEN_DRAFT_FIELDS, isImpactite } from './rockFields'
 import { onlyDigits } from '../fiscal'
 
@@ -25,16 +25,43 @@ const TEXT_FIELDS = [
   // 0036 — paridade com o item da coleção.
   'origin_short', 'crystal_features', 'treatment', 'phosphorescence_color',
   'fossil_restoration', 'fossil_host_rock', 'supplier_id', 'supplier_code', 'acquisition_date',
+  // 0041 — paridade com o item da coleção.
+  'supplier_text', 'supplier_storefront_id', 'geological_time_id', 'geological_time_end_id', 'fossil_age',
 ] as const
 
+/** Atributos livres do tipo "Outro" (0041): viajam no draft como JSON (lista de {label, value}). */
+export const CUSTOM_FIELDS_KEY = 'custom_fields'
+
+export function parseDraftCustomFields(raw: string | undefined): CustomField[] {
+  if (!raw) return []
+  try {
+    const list = JSON.parse(raw) as unknown
+    return Array.isArray(list)
+      ? list.map((r) => ({ label: String((r as CustomField).label ?? ''), value: String((r as CustomField).value ?? '') }))
+      : []
+  } catch {
+    return []
+  }
+}
+
+/** Linhas sem rótulo nem valor são descartadas; lista vazia vira null (mesma regra do catálogo). */
+export function cleanCustomFields(rows: CustomField[]): CustomField[] | null {
+  const out = rows
+    .map((r) => ({ label: r.label.trim(), value: r.value.trim() }))
+    .filter((r) => r.label !== '' || r.value !== '')
+  return out.length > 0 ? out : null
+}
+
 export const NUMERIC_FIELDS = new Set([
-  'cost_price', 'sale_price', 'stock_quantity', 'min_stock', 'weight_g', 'weight_ct',
+  'cost_price', 'cost_usd', 'cost_exchange_rate', 'cost_gross_price', 'cost_gross_usd', 'sale_price', 'stock_quantity', 'min_stock', 'weight_g', 'weight_ct',
   'ecommerce_package_height_cm', 'ecommerce_package_width_cm', 'ecommerce_package_length_cm',
   'tax_origin',
 ])
 
 /** Campos booleanos do draft: viajam como string 'true'/'false' até `toInput`. */
-export const BOOLEAN_FIELDS = new Set(['ecommerce_free_shipping', 'ecommerce_published', 'is_gem', 'is_lot', 'is_lot_summary'])
+export const BOOLEAN_FIELDS = new Set([
+  'ecommerce_free_shipping', 'ecommerce_published', 'is_gem', 'is_lot', 'is_lot_summary', 'cost_exchange_rate_manual',
+])
 
 export function toDraft(p: StoreProduct | null): Draft {
   const d: Draft = {}
@@ -43,6 +70,7 @@ export function toDraft(p: StoreProduct | null): Draft {
     d[f] = value == null ? '' : String(value)
   }
   d.kind = p?.kind ?? 'mineral'
+  d[CUSTOM_FIELDS_KEY] = JSON.stringify(p?.custom_fields ?? [])
   if (!p) {
     d.stock_quantity = '0'
     d.ecommerce_published = 'true'
@@ -55,6 +83,7 @@ export function toInput(d: Draft): StoreProductInput {
   const out: Record<string, unknown> = {}
   for (const [key, raw] of Object.entries(d)) {
     const value = raw.trim()
+    if (key === CUSTOM_FIELDS_KEY) continue
     if (NUMERIC_FIELDS.has(key)) out[key] = value === '' ? null : Number(value)
     else if (BOOLEAN_FIELDS.has(key)) out[key] = value === 'true'
     else out[key] = value === '' ? null : value
@@ -64,6 +93,19 @@ export function toInput(d: Draft): StoreProductInput {
   // NCM e CEST: gravados só com dígitos (a máscara é só de exibição). Tamanho validado antes, em `validateFiscalDraft`.
   out.ncm = onlyDigits(d.ncm ?? '') || null
   out.cest = onlyDigits(d.cest ?? '') || null
+  // Atributos livres só existem no tipo "Outro" (como no catálogo).
+  out.custom_fields = d.kind === 'other' ? cleanCustomFields(parseDraftCustomFields(d[CUSTOM_FIELDS_KEY])) : null
+  // Fornecedor: texto livre só sem cadastro; loja do fornecedor só com cadastro.
+  if (d.supplier_id?.trim()) out.supplier_text = null
+  else out.supplier_storefront_id = null
+  // Tempo geológico só no fóssil; o fim da faixa exige o início.
+  if (d.kind !== 'fossil') {
+    out.geological_time_id = null
+    out.geological_time_end_id = null
+    out.fossil_age = null
+  } else if (!d.geological_time_id?.trim()) {
+    out.geological_time_end_id = null
+  }
   out.name = d.name.trim()
   out.sale_price = Number(d.sale_price) || 0
   out.stock_quantity = Number(d.stock_quantity) || 0

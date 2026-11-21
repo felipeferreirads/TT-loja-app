@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ITEM_KIND_LABELS, type SizeClass, type StoreItemKind, type StoreProduct } from '../../types/db'
 import { deleteProducts, restoreProducts, updateProducts } from './api'
 import { useCoverUrls, useProducts } from './queries'
 import { ProductCard } from './ProductCard'
+import { BROWSE_NAV_STATE, GRID_SEQ, publishBrowseSequence } from '../../lib/browseSequence'
 import { countryName, formatMoney } from '../../lib/format'
 import { useConfirm } from '../../components/DialogProvider'
 import { useToast } from '../../components/ToastProvider'
@@ -13,7 +14,7 @@ import { EmptyState } from '../../components/EmptyState'
 import {
   CardIcon,
   CopyIcon,
-  FreezeColumnsIcon,
+  GridTinyIcon,
   GlobeIcon,
   GridDenseIcon,
   GridLargeIcon,
@@ -41,10 +42,12 @@ import { BulkSelectionBar, type BulkAction } from '../../components/BulkSelectio
 import { useRowSelection } from '../../lib/useRowSelection'
 import { useIsMobile } from '../../lib/useIsMobile'
 import { ActionMenu } from '../../components/ActionMenu'
-import { ExpandablePillSelect } from '../../components/ExpandablePillSelect'
+import { TypeFilterPills } from '../../components/TypeFilterPills'
 import { FilterChip } from '../../components/FilterChip'
 import { FilterPill, FilterSection, ListToolbar, useFilterSections } from '../../components/ListToolbar'
 import { fetchSuppliers } from '../suppliers/api'
+import { useTodayFxRate } from './costFx'
+import { fetchGeologicalTime, GEO_TIME_STALE_TIME, geoTimeRangeLabel } from '../../lib/geologicalTime'
 import { SIZE_CLASS_LABELS, SIZE_CLASS_VALUES, effectiveSizeClass } from './sizeClass'
 import {
   COLUMN_BY_KEY,
@@ -61,6 +64,7 @@ import {
   type ColumnContext,
 } from './list/columns'
 import { ColumnPicker } from './list/ColumnPicker'
+import { ViewModeSwitch } from '../../components/ViewModeSwitch'
 import { ProductSheet, type SortRule } from './list/ProductSheet'
 import {
   FILTER_PARAM_KEYS,
@@ -82,26 +86,29 @@ import { SocialCardDialog } from './social/SocialCardDialog'
 
 // 3 densidades de grade + lista — mesmo padrão do catálogo pessoal
 // (SpecimenToolbar.tsx: `MOBILE_VIEW_MODES`).
-type ViewMode = 'list' | 'grid-sm' | 'grid-md' | 'grid-lg'
+type ViewMode = 'list' | 'grid-xs' | 'grid-sm' | 'grid-md' | 'grid-lg'
 const VIEW_STORAGE_KEY = 'tt_loja_products_view'
 const GRID_MODE_KEY = 'tt_loja_products_grid_mode'
 const VIEW_MODES: { value: ViewMode; icon: typeof ListViewIcon; label: string }[] = [
   { value: 'list', icon: ListViewIcon, label: 'Lista' },
+  { value: 'grid-xs', icon: GridTinyIcon, label: 'Grade extra densa' },
   { value: 'grid-sm', icon: GridDenseIcon, label: 'Grade densa' },
   { value: 'grid-md', icon: GridViewIcon, label: 'Grade média' },
   { value: 'grid-lg', icon: GridLargeIcon, label: 'Grade grande' },
 ]
-// `repeat(auto-fill, minmax(...))` — mesmos valores do catálogo pessoal (`GRID_CLASSES`).
+// Mesmas classes do catálogo pessoal (`GRID_CLASSES`): no celular o nº de
+// colunas é fixo por densidade; de `sm` para cima, `auto-fill` por largura-alvo.
 const GRID_CLASSES: Record<Exclude<ViewMode, 'list'>, string> = {
-  'grid-sm': 'grid grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-2',
-  'grid-md': 'grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-3',
-  'grid-lg': 'grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4',
+  'grid-xs': 'grid max-sm:grid-cols-4 gap-1.5 sm:grid-cols-[repeat(auto-fill,minmax(80px,1fr))]',
+  'grid-sm': 'grid max-sm:grid-cols-3 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(110px,1fr))]',
+  'grid-md': 'grid max-sm:grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(170px,1fr))]',
+  'grid-lg': 'grid max-sm:grid-cols-1 gap-4 sm:grid-cols-[repeat(auto-fill,minmax(260px,1fr))]',
 }
 function loadView(): ViewMode {
   try {
     const saved = localStorage.getItem(VIEW_STORAGE_KEY)
     if (saved === 'grid') return 'grid-md'
-    return (['list', 'grid-sm', 'grid-md', 'grid-lg'] as ViewMode[]).includes(saved as ViewMode) ? (saved as ViewMode) : 'grid-md'
+    return (['list', 'grid-xs', 'grid-sm', 'grid-md', 'grid-lg'] as ViewMode[]).includes(saved as ViewMode) ? (saved as ViewMode) : 'grid-md'
   } catch {
     return 'grid-md'
   }
@@ -116,9 +123,30 @@ type SectionKey = 'stock' | 'published' | 'lot' | 'species' | 'country' | 'size'
 const EMPTY_PRODUCTS: StoreProduct[] = []
 const EMPTY_COVERS: Record<string, string> = {}
 
-export function ProductsPage() {
+/**
+ * Lista de produtos com busca, filtros, ordenação, grade/lista/planilha e
+ * seleção em massa. Sem props é a tela "Produtos"; com `scope` vira a lista de
+ * um recorte (uma categoria, um nó da escala de tempo, um país...), no mesmo
+ * papel do `SpecimenBrowseView` do catálogo pessoal.
+ */
+export interface ProductBrowseProps {
+  /** Recorte de produtos a listar; ausente = todos. */
+  scope?: StoreProduct[]
+  /** Título no lugar de "Produtos". */
+  title?: ReactNode
+  /** Conteúdo acima do título (trilha de navegação). */
+  above?: ReactNode
+  /** Mensagem quando o recorte está vazio. */
+  emptyMessage?: string
+  /** Ações extras na barra de seleção em massa (ex.: remover da categoria). */
+  extraBulkActions?: (selected: StoreProduct[], clear: () => void) => BulkAction[]
+  /** Botões extras no cabeçalho, antes de "Criar". */
+  headerActions?: ReactNode
+}
+
+export function ProductsPage({ scope, title, above, emptyMessage, extraBulkActions, headerActions }: ProductBrowseProps = {}) {
   const productsQuery = useProducts()
-  const products = productsQuery.data ?? EMPTY_PRODUCTS
+  const products = scope ?? productsQuery.data ?? EMPTY_PRODUCTS
   const coverUrls = useCoverUrls().data ?? EMPTY_COVERS
   const { data: suppliers } = useQuery({ queryKey: ['store-suppliers'], queryFn: fetchSuppliers })
   const loading = productsQuery.isPending
@@ -154,7 +182,16 @@ export function ProductsPage() {
   const navigate = useNavigate()
 
   const supplierNames = useMemo(() => new Map((suppliers ?? []).map((s) => [s.id, s.name])), [suppliers])
-  const ctx: ColumnContext = useMemo(() => ({ supplierNames }), [supplierNames])
+  const fxRate = useTodayFxRate()
+  const { data: geoAll } = useQuery({ queryKey: ['geological-time'], queryFn: fetchGeologicalTime, staleTime: GEO_TIME_STALE_TIME })
+  const ctx: ColumnContext = useMemo(
+    () => ({
+      supplierNames,
+      fxRate,
+      geoTimeLabel: geoAll ? (start: string | null, end: string | null) => geoTimeRangeLabel(geoAll, start, end) : undefined,
+    }),
+    [supplierNames, fxRate, geoAll],
+  )
 
   const chooseView = (next: ViewMode) => {
     setView(next)
@@ -196,6 +233,12 @@ export function ProductsPage() {
       return sort.dir === 'asc' ? diff : -diff
     })
   }, [products, filters, supplierNames, view, columnSort, sort.field, sort.dir, ctx])
+
+  // Anterior/próximo na ficha do produto (lib/browseSequence.ts): publica a ordem
+  // EXATA que está na tela, com filtros e ordenação já aplicados.
+  useEffect(() => {
+    publishBrowseSequence(GRID_SEQ, visible.map((p) => p.id))
+  }, [visible])
 
   // Item filtrado/apagado sai da seleção (contagem honesta).
   const { prune } = sel
@@ -282,6 +325,7 @@ export function ProductsPage() {
       disabled: selectedProducts.length !== 1,
     },
     { key: 'publish', label: allPublished ? 'Remover da loja online' : 'Publicar na loja online', icon: <GlobeIcon />, onClick: () => void bulkPublish() },
+    ...(extraBulkActions ? extraBulkActions(selectedProducts, sel.cancel) : []),
     { key: 'delete', label: 'Excluir', icon: <TrashIcon />, onClick: () => void bulkDelete(), danger: true },
   ]
 
@@ -300,14 +344,16 @@ export function ProductsPage() {
     <div className="space-y-4">
       {/* Título e busca/filtros alinhados à largura do cabeçalho, como na Coleção. */}
       <div className="mx-auto w-full max-w-7xl space-y-4">
+        {above}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-xl font-bold text-stone-100">
-            Produtos{' '}
+            {title ?? 'Produtos'}{' '}
             {products.length > 0 && (
               <span className="text-sm font-normal text-stone-500">({narrowed ? `${visible.length} de ${products.length}` : products.length})</span>
             )}
           </h1>
           <div className="flex gap-2">
+            {headerActions}
             {showSheet && (
               <button
                 type="button"
@@ -361,28 +407,7 @@ export function ProductsPage() {
 
         <ListToolbar
           summary={
-            <div className="flex items-center gap-2">
-              <ExpandablePillSelect
-                className="shrink-0 sm:hidden"
-                value={filters.kind ?? ''}
-                options={TYPE_OPTIONS}
-                onChange={(v) => setParam('tipo', v || null)}
-              />
-              <div className="no-scrollbar hidden gap-2 overflow-x-auto pb-1 sm:flex">
-                {TYPE_OPTIONS.map((o) => (
-                  <button
-                    key={o.value || 'all'}
-                    type="button"
-                    onClick={() => setParam('tipo', o.value || null)}
-                    className={`inline-flex items-center rounded-full px-3 py-1 text-sm whitespace-nowrap transition ${
-                      (filters.kind ?? '') === o.value ? 'bg-amber-600 text-white' : 'bg-stone-800 text-stone-300 hover:bg-stone-700'
-                    }`}
-                  >
-                    {o.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <TypeFilterPills value={filters.kind ?? ''} options={TYPE_OPTIONS} onChange={(v) => setParam('tipo', v || null)} />
           }
           sort={{
             options: PRODUCT_SORT_OPTIONS,
@@ -401,27 +426,6 @@ export function ProductsPage() {
           onClearFilters={clearFilters}
           trailing={
             <>
-              {showSheet && columns.length > 1 && (
-                <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-stone-700 bg-stone-800 p-0.5" title="Colunas fixas à esquerda">
-                  <FreezeColumnsIcon className="mx-1.5 shrink-0 text-sm text-stone-400" />
-                  {Array.from({ length: MAX_FROZEN_COLS + 1 }, (_, n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => {
-                        setFrozen(n)
-                        saveFrozen(n)
-                      }}
-                      aria-pressed={frozen === n}
-                      className={`min-h-6 rounded-full px-2 text-xs font-medium whitespace-nowrap transition ${
-                        frozen === n ? 'bg-amber-600 text-white' : 'text-stone-300 hover:bg-stone-700'
-                      }`}
-                    >
-                      {n === 0 ? 'Nenhuma' : n}
-                    </button>
-                  ))}
-                </div>
-              )}
               {showSheet && (
                 <ColumnPicker
                   columns={columns}
@@ -437,25 +441,21 @@ export function ProductsPage() {
                         }
                       : undefined
                   }
+                  frozen={
+                    columns.length > 1
+                      ? {
+                          value: frozen,
+                          max: MAX_FROZEN_COLS,
+                          onChange: (n) => {
+                            setFrozen(n)
+                            saveFrozen(n)
+                          },
+                        }
+                      : undefined
+                  }
                 />
               )}
-              <div className="flex shrink-0 overflow-hidden rounded-full bg-stone-800">
-                {VIEW_MODES.map((v) => (
-                  <button
-                    key={v.value}
-                    type="button"
-                    onClick={() => chooseView(v.value)}
-                    aria-label={v.label}
-                    title={v.label}
-                    aria-pressed={view === v.value}
-                    className={`inline-flex h-8 items-center px-2.5 text-sm transition sm:h-7 ${
-                      view === v.value ? 'bg-amber-600 text-white' : 'text-stone-400 hover:bg-stone-700'
-                    }`}
-                  >
-                    <v.icon className="h-4 w-4" />
-                  </button>
-                ))}
-              </div>
+              <ViewModeSwitch modes={VIEW_MODES} value={view} onChange={chooseView} label="Visualização" />
             </>
           }
           quickFilters={null}
@@ -573,8 +573,14 @@ export function ProductsPage() {
       {!loading && !error && visible.length === 0 && (
         <EmptyState
           icon={SpecimenIcon}
-          title={products.length === 0 ? 'Nenhum produto cadastrado' : 'Nenhum produto encontrado'}
-          description={products.length === 0 ? 'Cadastre o primeiro produto ou importe itens da coleção pessoal.' : 'Ajuste a busca ou os filtros.'}
+          title={products.length === 0 ? (scope ? (emptyMessage ?? 'Nenhum produto aqui') : 'Nenhum produto cadastrado') : 'Nenhum produto encontrado'}
+          description={
+            products.length === 0
+              ? scope
+                ? ''
+                : 'Cadastre o primeiro produto ou importe itens da coleção pessoal.'
+              : 'Ajuste a busca ou os filtros.'
+          }
         />
       )}
 
@@ -616,7 +622,7 @@ export function ProductsPage() {
               ? { active: true, selected: sel.selected, toggle: sel.toggle, setAll: (ids) => (ids.length ? sel.selectAll(ids) : sel.clear()) }
               : null
           }
-          onOpen={(id) => navigate(`/produtos/${id}`)}
+          onOpen={(id) => navigate(`/produtos/${id}`, { state: BROWSE_NAV_STATE })}
           findOpen={findOpen}
           onFindOpenChange={setFindOpen}
         />
@@ -630,7 +636,7 @@ export function ProductsPage() {
               product={p}
               coverUrl={coverUrls[p.id]}
               selected={sel.selecting ? sel.selected.has(p.id) : undefined}
-              onClick={() => (sel.selecting ? sel.toggle(p.id) : navigate(`/produtos/${p.id}`))}
+              onClick={() => (sel.selecting ? sel.toggle(p.id) : navigate(`/produtos/${p.id}`, { state: BROWSE_NAV_STATE }))}
             />
           ))}
         </ul>

@@ -10,6 +10,7 @@ import { ITEM_KIND_LABELS, type StoreItemKind, type StoreProduct } from '../../.
 import { countryName, countryOptions, formatDate, formatMoney } from '../../../lib/format'
 import { SIZE_CLASS_LABELS, SIZE_CLASS_VALUES, effectiveSizeClass, maxDimensionMm, sizeClassRank } from '../sizeClass'
 import { COLOR_OPTIONS } from '../colorOptions'
+import { correctedCost } from '../costFx'
 import { CUT_TYPE_OPTIONS, GEM_SHAPE_OPTIONS } from '../form/gemFields'
 import { MET_CATEGORIES, MET_SHOCK, MET_WEATHERING } from '../form/meteoriteFields'
 import { visibleCrystalFeatures } from '../crystalFeatures'
@@ -59,6 +60,10 @@ export type EditMeta =
 /** Dados de fora do produto que algumas colunas precisam (nome do fornecedor). */
 export interface ColumnContext {
   supplierNames: Map<string, string>
+  /** Câmbio de hoje (R$/US$) para a coluna "Custo corrigido"; ausente = sem correção. */
+  fxRate?: number | null
+  /** Rótulo do tempo geológico (faixa início–fim) para a coluna do fóssil; ausente = vazio. */
+  geoTimeLabel?: (startId: string | null, endId: string | null) => string
 }
 
 export interface ColumnDef {
@@ -174,6 +179,58 @@ export const LIST_COLUMNS: ColumnDef[] = [
     text: (p) => (p.cost_price == null ? '' : formatMoney(p.cost_price)),
     sort: (p) => p.cost_price ?? -Infinity,
     edit: { type: 'number', field: 'cost_price' },
+  },
+  {
+    key: 'custo_usd',
+    label: 'Preço de custo (US$)',
+    group: 'comercial',
+    width: 130,
+    numeric: true,
+    text: (p) => (p.cost_usd == null ? '' : `US$ ${p.cost_usd.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`),
+    sort: (p) => p.cost_usd ?? -Infinity,
+    edit: { type: 'number', field: 'cost_usd' },
+  },
+  {
+    key: 'cambio_custo',
+    label: 'Câmbio do custo',
+    group: 'comercial',
+    width: 110,
+    numeric: true,
+    text: (p) => num(p.cost_exchange_rate, 4),
+    sort: (p) => p.cost_exchange_rate ?? -Infinity,
+    edit: { type: 'number', field: 'cost_exchange_rate' },
+  },
+  {
+    key: 'custo_bruto',
+    label: 'Preço bruto (R$)',
+    group: 'comercial',
+    width: 120,
+    numeric: true,
+    text: (p) => (p.cost_gross_price == null ? '' : formatMoney(p.cost_gross_price)),
+    sort: (p) => p.cost_gross_price ?? -Infinity,
+    edit: { type: 'number', field: 'cost_gross_price' },
+  },
+  {
+    key: 'custo_bruto_usd',
+    label: 'Preço bruto (US$)',
+    group: 'comercial',
+    width: 130,
+    numeric: true,
+    text: (p) => (p.cost_gross_usd == null ? '' : `US$ ${p.cost_gross_usd.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`),
+    sort: (p) => p.cost_gross_usd ?? -Infinity,
+    edit: { type: 'number', field: 'cost_gross_usd' },
+  },
+  {
+    key: 'custo_corrigido',
+    label: 'Custo corrigido',
+    group: 'comercial',
+    width: 120,
+    numeric: true,
+    text: (p, ctx) => {
+      const c = correctedCost(p, ctx.fxRate ?? null)
+      return c == null ? '' : formatMoney(c)
+    },
+    sort: (p, ctx) => correctedCost(p, ctx.fxRate ?? null) ?? -Infinity,
   },
   {
     key: 'margem',
@@ -311,6 +368,31 @@ export const LIST_COLUMNS: ColumnDef[] = [
   selectCol('met_intemperismo', 'Intemperismo', 'meteorito', 'met_weathering', MET_WEATHERING, 110, { kinds: ['meteorite'] }),
   textCol('met_massa_total', 'Massa total', 'meteorito', 'met_total_mass', 110, { kinds: ['meteorite'] }),
 
+  // Fóssil — tempo geológico e idade do item como um todo (0041)
+  {
+    key: 'tempo_geologico',
+    label: 'Tempo geológico',
+    group: 'fossil',
+    width: 200,
+    kinds: ['fossil'],
+    text: (p, ctx) => (p.geological_time_id && ctx.geoTimeLabel ? ctx.geoTimeLabel(p.geological_time_id, p.geological_time_end_id) : ''),
+  },
+  textCol('idade_fossil', 'Idade', 'fossil', 'fossil_age', 130, { kinds: ['fossil'] }),
+
+  // Outro — atributos livres (0041)
+  {
+    key: 'atributos',
+    label: 'Atributos',
+    group: 'identificacao',
+    width: 220,
+    kinds: ['other'],
+    text: (p) =>
+      (p.custom_fields ?? [])
+        .filter((f) => f.label.trim() || f.value.trim())
+        .map((f) => (f.label.trim() ? `${f.label.trim()}: ${f.value.trim()}` : f.value.trim()))
+        .join(' | '),
+  },
+
   // Joia
   textCol('joia_material', 'Material', 'joia', 'jwl_material', 130, { kinds: ['jewelry'] }),
   textCol('joia_pedra', 'Pedra', 'joia', 'jwl_stone', 130, { kinds: ['jewelry'] }),
@@ -322,7 +404,7 @@ export const LIST_COLUMNS: ColumnDef[] = [
     label: 'Fornecedor',
     group: 'aquisicao',
     width: 160,
-    text: (p, ctx) => (p.supplier_id ? (ctx.supplierNames.get(p.supplier_id) ?? '') : ''),
+    text: (p, ctx) => (p.supplier_id ? (ctx.supplierNames.get(p.supplier_id) ?? '') : (p.supplier_text ?? '')),
     edit: {
       type: 'select',
       field: 'supplier_id',

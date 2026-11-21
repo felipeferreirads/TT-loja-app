@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
+import { SuggestInput } from '../../../components/SuggestInput'
 import { useQuery } from '@tanstack/react-query'
 import { PlusIcon, TrashIcon, ChevronDownIcon, ChevronRightIcon, StackIcon } from '../../../components/icons'
 import type { StoreProductFossilSpecies, StoreProductFossilSpeciesInput } from '../../../types/db'
@@ -46,6 +47,9 @@ export interface FossilSpeciesDraft {
   formation: string
   period_era: string
   age: string
+  /** Integridade e dimensões do exemplar desta espécie (0041, como no catálogo). */
+  integrity: string
+  specimen_dimensions: string
 }
 
 const KINGDOM_OPTIONS = ['Animalia', 'Plantae', 'Fungi', 'Chromista', 'Protozoa', 'Bacteria', 'Archaea']
@@ -79,6 +83,8 @@ export function emptyFossilSpecies(): FossilSpeciesDraft {
     formation: '',
     period_era: '',
     age: '',
+    integrity: '',
+    specimen_dimensions: '',
   }
 }
 
@@ -99,6 +105,8 @@ export function fossilSpeciesToDraft(row: StoreProductFossilSpecies): FossilSpec
     formation: row.formation ?? '',
     period_era: row.period_era ?? '',
     age: row.age ?? '',
+    integrity: row.integrity ?? '',
+    specimen_dimensions: row.specimen_dimensions ?? '',
   }
 }
 
@@ -117,6 +125,8 @@ export function fossilSpeciesToInput(d: FossilSpeciesDraft): StoreProductFossilS
     formation: d.formation.trim() || null,
     period_era: d.period_era.trim() || null,
     age: d.age.trim() || null,
+    integrity: d.integrity.trim() || null,
+    specimen_dimensions: d.specimen_dimensions.trim() || null,
   }
 }
 
@@ -153,6 +163,20 @@ export function FossilTaxonomySection({
     }
     return seen
   }, [catalogRows])
+
+  // Integridade: valores já usados em outros produtos, para manter a grafia estável.
+  const integrityValues = useMemo(() => {
+    const seen = new Set<string>()
+    for (const row of catalogRows ?? []) if (row.integrity?.trim()) seen.add(row.integrity.trim())
+    return [...seen].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+  }, [catalogRows])
+  const suggestIntegrity = useCallback(
+    async (q: string) => {
+      const needle = q.trim().toLocaleLowerCase('pt-BR')
+      return integrityValues.filter((v) => !needle || v.toLocaleLowerCase('pt-BR').includes(needle)).slice(0, 20)
+    },
+    [integrityValues],
+  )
 
   const updateAt = (key: string, patch: Partial<FossilSpeciesDraft>) =>
     onChange(species.map((s) => (s.key === key ? { ...s, ...patch } : s)))
@@ -305,6 +329,27 @@ export function FossilTaxonomySection({
                       {msg[s.key] && <p className="text-xs text-stone-400">{msg[s.key]}</p>}
 
                       <Field label="Nome popular" value={s.popular_name} onChange={(v) => updateAt(s.key, { popular_name: v })} />
+
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <Labeled label="Integridade">
+                          <div className="mt-1">
+                            <SuggestInput
+                              value={s.integrity}
+                              onChange={(v) => updateAt(s.key, { integrity: v })}
+                              fetchSuggestions={suggestIntegrity}
+                              minChars={0}
+                            />
+                          </div>
+                        </Labeled>
+                        <Labeled label="Dimensões do espécime (mm)">
+                          <input
+                            value={s.specimen_dimensions}
+                            placeholder="Ex.: 45 x 30 x 12"
+                            onChange={(e) => updateAt(s.key, { specimen_dimensions: e.target.value })}
+                            className="input mt-1"
+                          />
+                        </Labeled>
+                      </div>
 
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <Labeled label="Reino">

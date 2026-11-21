@@ -36,7 +36,7 @@ export function ExpandablePillSelect({ value, options, onChange, className = '',
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         className={`inline-flex items-center gap-1.5 rounded-full bg-amber-600 px-3 whitespace-nowrap text-white transition hover:bg-amber-500 ${
-          compact ? 'py-1 text-xs' : 'min-h-7 text-sm'
+          compact ? 'py-1 text-xs' : 'h-8 text-sm sm:h-7'
         }`}
       >
         {current?.label}

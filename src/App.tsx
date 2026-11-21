@@ -21,6 +21,13 @@ import { SuppliersPage } from './features/suppliers/SuppliersPage'
 import { CashPage } from './features/cash/CashPage'
 import { StatsPage } from './features/stats/StatsPage'
 import { TrashPage } from './features/trash/TrashPage'
+import { CategoriesPage } from './features/categories/CategoriesPage'
+import { CategoryDetailPage } from './features/categories/CategoryDetailPage'
+import { GeoCategoryPage } from './features/categories/GeoCategoryPage'
+import { GeologicalTimeCategoryPage } from './features/categories/GeologicalTimeCategoryPage'
+import { MineralSpeciesCategoryPage } from './features/categories/MineralSpeciesCategoryPage'
+import { ChemistryCategoryPage } from './features/categories/ChemistryCategoryPage'
+import { SettingsPage } from './features/settings/SettingsPage'
 
 export function App() {
   return (
@@ -36,6 +43,17 @@ export function App() {
                   <Route path="/produtos" element={<ProductsPage />} />
                   <Route path="/produtos/:id" element={<ProductPage />} />
                   <Route path="/escanear" element={<ScanPage />} />
+                  <Route path="/categorias" element={<CategoriesPage />} />
+                  <Route path="/categorias/localizacao" element={<GeoCategoryPage />} />
+                  <Route path="/categorias/localizacao/:continent" element={<GeoCategoryPage />} />
+                  <Route path="/categorias/localizacao/:continent/:country" element={<GeoCategoryPage />} />
+                  <Route path="/categorias/tempo-geologico" element={<GeologicalTimeCategoryPage />} />
+                  <Route path="/categorias/tempo-geologico/:nodeId" element={<GeologicalTimeCategoryPage />} />
+                  <Route path="/categorias/especie-mineral" element={<MineralSpeciesCategoryPage />} />
+                  <Route path="/categorias/especie-mineral/:key" element={<MineralSpeciesCategoryPage />} />
+                  <Route path="/categorias/quimica" element={<ChemistryCategoryPage />} />
+                  <Route path="/categorias/quimica/:symbol" element={<ChemistryCategoryPage />} />
+                  <Route path="/categorias/:id" element={<CategoryDetailPage />} />
                   <Route path="/clientes" element={<CustomersPage />} />
                   <Route path="/clientes/:id" element={<CustomerPage />} />
                   <Route path="/vendas" element={<SalesPage />} />
@@ -49,6 +67,7 @@ export function App() {
                   <Route path="/precificacao" element={<PricingPage />} />
                   <Route path="/empresa" element={<CompanyPage />} />
                   <Route path="/lixeira" element={<TrashPage />} />
+                  <Route path="/configuracoes" element={<SettingsPage />} />
                 </Route>
               </Route>
             </Routes>

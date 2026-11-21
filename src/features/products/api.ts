@@ -24,7 +24,19 @@ import type {
 // sem ida extra ao servidor. Diferente de fossil_species (buscado à parte),
 // minerals é pequeno o bastante (poucas linhas por produto) pra ir junto.
 const PRODUCT_SELECT =
-  '*, qr_aliases:store_product_qr_aliases(id, product_id, created_at), minerals:store_product_minerals(*), rocks:store_product_rocks(*)'
+  '*, qr_aliases:store_product_qr_aliases(id, product_id, created_at), minerals:store_product_minerals(*), rocks:store_product_rocks(*), product_categories:store_product_categories(category_id)'
+
+/** Normaliza as listas embutidas do SELECT (inclui as categorias, 0042, como `category_ids`). */
+function normalizeProduct(p: Record<string, unknown>): StoreProduct {
+  const { product_categories, ...rest } = p as { product_categories?: { category_id: string }[] } & Record<string, unknown>
+  return {
+    ...rest,
+    qr_aliases: (rest.qr_aliases as unknown[]) ?? [],
+    minerals: (rest.minerals as unknown[]) ?? [],
+    rocks: (rest.rocks as unknown[]) ?? [],
+    category_ids: (product_categories ?? []).map((c) => c.category_id),
+  } as unknown as StoreProduct
+}
 
 export async function fetchProducts(): Promise<StoreProduct[]> {
   const { data, error } = await supabase
@@ -35,7 +47,7 @@ export async function fetchProducts(): Promise<StoreProduct[]> {
     .order('sort_order', { foreignTable: 'store_product_minerals' })
     .order('sort_order', { foreignTable: 'store_product_rocks' })
   if (error) throw error
-  return (data ?? []).map((p) => ({ ...p, qr_aliases: p.qr_aliases ?? [], minerals: p.minerals ?? [], rocks: p.rocks ?? [] })) as StoreProduct[]
+  return (data ?? []).map((p) => normalizeProduct(p as Record<string, unknown>))
 }
 
 export async function fetchProduct(id: string): Promise<StoreProduct> {
@@ -47,7 +59,7 @@ export async function fetchProduct(id: string): Promise<StoreProduct> {
     .order('sort_order', { foreignTable: 'store_product_rocks' })
     .single()
   if (error) throw error
-  return { ...data, qr_aliases: data.qr_aliases ?? [], minerals: data.minerals ?? [], rocks: data.rocks ?? [] } as StoreProduct
+  return normalizeProduct(data as Record<string, unknown>)
 }
 
 /** Peças de um lote (0022) — produtos com `parent_id` apontando pro lote. */
@@ -60,7 +72,7 @@ export async function fetchProductChildren(parentId: string): Promise<StoreProdu
     .order('sort_order', { foreignTable: 'store_product_minerals' })
     .order('sort_order', { foreignTable: 'store_product_rocks' })
   if (error) throw error
-  return (data ?? []).map((p) => ({ ...p, qr_aliases: p.qr_aliases ?? [], minerals: p.minerals ?? [], rocks: p.rocks ?? [] })) as StoreProduct[]
+  return (data ?? []).map((p) => normalizeProduct(p as Record<string, unknown>))
 }
 
 /** `id` opcional: o formulário gera um no cliente quando há fotos/vídeos
@@ -135,7 +147,7 @@ export async function fetchDeletedProducts(): Promise<StoreProduct[]> {
     .not('deleted_at', 'is', null)
     .order('deleted_at', { ascending: false })
   if (error) throw error
-  return (data ?? []).map((p) => ({ ...p, qr_aliases: p.qr_aliases ?? [], minerals: p.minerals ?? [], rocks: p.rocks ?? [] })) as StoreProduct[]
+  return (data ?? []).map((p) => normalizeProduct(p as Record<string, unknown>))
 }
 
 // ─── Mídia ───────────────────────────────────────────────────
@@ -422,23 +434,18 @@ export async function fetchProvenance(productId: string): Promise<StoreProductPr
   return data
 }
 
-/** Regrava a lista inteira de ex-donos na ordem recebida (diff por id: remove, atualiza e cria). */
-export async function saveProvenance(
-  productId: string,
-  rows: (StoreProductProvenanceInput & { id?: string })[],
-  original: StoreProductProvenance[],
-): Promise<void> {
-  const keep = new Set(rows.filter((r) => r.id).map((r) => r.id))
-  const removed = original.filter((o) => !keep.has(o.id)).map((o) => o.id)
-  if (removed.length > 0) {
-    const { error } = await supabase.from('store_product_provenance').delete().in('id', removed)
-    if (error) throw new Error(`Falha ao remover ex-dono: ${error.message}`)
+/**
+ * Regrava a lista inteira de ex-donos na ordem recebida (apaga e insere — lista
+ * pequena, mesmo padrão do catálogo pessoal). `isNew` pula o DELETE.
+ */
+export async function saveProvenance(productId: string, rows: StoreProductProvenanceInput[], isNew = false): Promise<void> {
+  if (!isNew) {
+    const { error } = await supabase.from('store_product_provenance').delete().eq('product_id', productId)
+    if (error) throw new Error(`Não foi possível salvar a procedência: ${error.message}`)
   }
-  for (const [i, { id, ...input }] of rows.entries()) {
-    const payload = { ...input, sort_order: i }
-    const { error } = id
-      ? await supabase.from('store_product_provenance').update(payload).eq('id', id)
-      : await supabase.from('store_product_provenance').insert({ ...payload, product_id: productId })
-    if (error) throw new Error(`Falha ao salvar ex-dono: ${error.message}`)
-  }
+  if (rows.length === 0) return
+  const { error } = await supabase
+    .from('store_product_provenance')
+    .insert(rows.map((r, i) => ({ ...r, product_id: productId, sort_order: i })))
+  if (error) throw new Error(`Não foi possível salvar a procedência: ${error.message}`)
 }

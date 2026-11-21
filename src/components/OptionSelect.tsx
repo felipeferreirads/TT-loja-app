@@ -3,6 +3,11 @@ import { createPortal } from 'react-dom'
 import { CheckIcon, ChevronDownIcon } from './icons'
 import { usePortalDropdown } from './usePortalDropdown'
 
+/** Seta padrão dos gatilhos de seleção (gira quando a lista está aberta). */
+export function SelectChevron({ open }: { open: boolean }) {
+  return <ChevronDownIcon className={`shrink-0 text-xs text-stone-500 transition-transform ${open ? 'rotate-180' : ''}`} />
+}
+
 export interface SelectOption {
   value: string
   label: string
@@ -92,21 +97,24 @@ export function OptionSelect({
           aria-label={ariaLabel}
           aria-haspopup="listbox"
           aria-expanded={open}
-          className={`flex w-full items-center gap-2 border bg-stone-900/70 text-left transition hover:border-stone-600 disabled:cursor-not-allowed disabled:opacity-50 ${
-            compact ? 'min-h-7 rounded-lg px-2 text-xs' : 'min-h-10 rounded-xl px-3 text-sm'
-          } ${
-            open
-              ? 'border-amber-600/70 ring-1 ring-amber-600/40'
-              : invalid
-                ? 'border-red-600'
-                : active
-                  ? 'border-amber-700/70'
-                  : 'border-stone-700'
-          } ${active ? 'text-amber-300' : 'text-stone-200'}`}
+          className={
+            compact
+              ? `flex min-h-7 w-full items-center gap-2 rounded-lg border bg-stone-900/70 px-2 text-left text-xs transition hover:border-stone-600 disabled:cursor-not-allowed disabled:opacity-50 ${
+                  open
+                    ? 'border-amber-600/70 ring-1 ring-amber-600/40'
+                    : invalid
+                      ? 'border-red-600'
+                      : active
+                        ? 'border-amber-700/70'
+                        : 'border-stone-700'
+                } ${active ? 'text-amber-300' : 'text-stone-200'}`
+              : // Campo de formulário: mesmo visual dos campos de texto (.select-trigger divide a regra de .input).
+                `select-trigger ${open ? '' : invalid ? 'border-red-600' : active ? 'border-amber-700/70' : ''} ${active ? 'text-amber-300' : ''}`
+          }
         >
           {icon ?? current?.leading}
           <span className="flex-1 truncate">{current?.label ?? ''}</span>
-          <ChevronDownIcon className={`shrink-0 text-xs text-stone-500 transition-transform ${open ? 'rotate-180' : ''}`} />
+          <SelectChevron open={open} />
         </button>
 
         {open &&
@@ -117,7 +125,7 @@ export function OptionSelect({
               role="listbox"
               aria-label={ariaLabel}
               style={{ top: menuRect.top, left: menuRect.left, minWidth: menuRect.width }}
-              className="fixed z-[70] max-h-64 w-max max-w-[min(90vw,24rem)] overflow-y-auto rounded-xl border border-stone-700 bg-stone-900 p-1 shadow-xl shadow-black/40"
+              className="fixed z-[70] max-h-64 w-max max-w-[min(90vw,24rem)] overflow-y-auto rounded-lg border border-stone-700 bg-stone-900 p-1 shadow-xl shadow-black/40"
             >
               {options.map((o, idx) => {
                 if (o.heading) {

@@ -24,7 +24,7 @@ export function FilterChip({
       type="button"
       onClick={onClick}
       aria-expanded={open}
-      className={`inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-sm whitespace-nowrap transition ${
+      className={`inline-flex h-8 items-center gap-1 rounded-full px-3 text-sm whitespace-nowrap sm:h-7 transition ${
         open
           ? 'border border-amber-600/70 bg-stone-800 text-amber-400'
           : active

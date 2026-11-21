@@ -13,6 +13,10 @@ export interface ActionMenuItem {
   /** Ação destrutiva (apagar/remover) — pintada de vermelho e separada do resto. */
   danger?: boolean
   disabled?: boolean
+  /** Título de seção (não clicável): separa grupos de itens dentro do mesmo menu. */
+  heading?: boolean
+  /** Linha divisória acima do item (separa um grupo do anterior sem usar o tom de ação destrutiva). */
+  separated?: boolean
 }
 
 /**
@@ -131,8 +135,19 @@ export function ActionMenu({
             className={`fixed z-[60] max-h-[70vh] overflow-y-auto p-1 ${POPUP_PANEL_CLASS}`}
           >
             {items.map((item, i) => {
+              if (item.heading) {
+                return (
+                  <div
+                    key={`heading-${item.label}`}
+                    role="presentation"
+                    className={`px-3 pb-1 pt-2 text-xs font-medium text-stone-500 ${i > 0 ? 'mt-1 border-t border-stone-800' : ''}`}
+                  >
+                    {item.label}
+                  </div>
+                )
+              }
               const cls = `${ITEM_BASE} ${item.danger ? ITEM_DANGER : ITEM_NORMAL} ${
-                item.danger && i > 0 ? 'mt-1 border-t border-stone-800 pt-2' : ''
+                (item.danger || item.separated) && i > 0 ? 'mt-1 border-t border-stone-800 pt-2' : ''
               }`
               const content = (
                 <>
